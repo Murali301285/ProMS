@@ -1,0 +1,202 @@
+.sidebar {
+    width: var(--sidebar-width);
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    transition: width 0.3s ease, background-color 0.3s ease;
+    background-color: var(--sidebar-bg);
+    /* Use inverted theme bg */
+    color: var(--sidebar-fg);
+    /* Use inverted theme fg */
+    overflow: hidden;
+    /* Hide overflow when collapsed */
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.mini {
+    width: var(--sidebar-collapsed-width);
+}
+
+/* Hover to expand when mini - Desktop only */
+@media (min-width: 768px) {
+    .mini:hover {
+        width: var(--sidebar-width);
+    }
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-left: 0.5rem;
+    height: 40px;
+    /* Fixed height for consistency */
+    white-space: nowrap;
+    position: relative;
+    flex-direction: column;
+    align-items: flex-start;
+    height: auto;
+}
+
+.headerDivider {
+    width: 100%;
+    margin: 0.5rem 0;
+    border: 0;
+    border-top: 1px solid var(--sidebar-fg);
+    opacity: 0.2;
+    /* Reduced opacity for subtle look since fg is high contrast */
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--primary);
+    opacity: 1;
+    transition: opacity 0.2s;
+}
+
+/* Hide logo text in mini mode unless hovered */
+.mini:not(:hover) .logo {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.toggleBtn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--sidebar-fg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    /* Push bottom content down */
+}
+
+.bottomNav {
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+    padding-top: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.navGroup {
+    display: flex;
+    flex-direction: column;
+}
+
+.navItem {
+    border-radius: var(--radius);
+    transition: all 0.2s;
+    cursor: pointer;
+    white-space: nowrap;
+    /* Prevent text wrap in animation */
+}
+
+.navItem:hover {
+    background-color: var(--sidebar-hover);
+}
+
+.navItem.active {
+    background-color: var(--sidebar-active);
+    color: var(--sidebar-active-fg);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+    width: 100%;
+}
+
+.label {
+    font-weight: 500;
+    flex: 1;
+    opacity: 1;
+    transition: opacity 0.2s;
+}
+
+/* Hide label in mini mode unless hovered */
+.mini:not(:hover) .label {
+    opacity: 0;
+    display: none;
+    /* Remove from flow to keep icon centered if width constraints apply */
+}
+
+.chevron {
+    opacity: 0.7;
+    transition: transform 0.2s;
+}
+
+/* Hide chevron in mini mode unless hovered */
+.mini:not(:hover) .chevron {
+    display: none;
+}
+
+.subMenu {
+    display: flex;
+    flex-direction: column;
+    /* padding-left: 2.75rem; REMOVED: Managed by recursive level padding in JS */
+    gap: 0.25rem;
+    margin-top: 0.25rem;
+}
+
+/* Hide subMenu in mini mode unless hovered */
+.mini:not(:hover) .subMenu {
+    display: none;
+}
+
+.subItem {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--sidebar-fg);
+    /* Inherit from sidebar fg, maybe slightly dimmer */
+    text-decoration: none;
+    border-radius: var(--radius);
+    transition: all 0.2s;
+    opacity: 0.8;
+}
+
+.subItem:hover {
+    color: var(--sidebar-fg);
+    background-color: var(--sidebar-hover);
+    opacity: 1;
+}
+
+.subActive {
+    color: var(--sidebar-active-fg);
+    background-color: var(--sidebar-active);
+    /* Optional: highlight sub-item too */
+    font-weight: 600;
+    opacity: 1;
+}
+
+.logoutItem {
+    color: #ef4444 !important;
+    /* Destructive red */
+}
+
+.logoutItem:hover {
+    background-color: rgba(239, 68, 68, 0.1) !important;
+    /* Subtle red bg on hover */
+}

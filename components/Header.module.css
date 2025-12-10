@@ -1,0 +1,270 @@
+.header {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    /* transition: padding-left 0.3s ease; */
+}
+
+.left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.menuBtn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--foreground);
+    padding: 0.5rem;
+    border-radius: var(--radius);
+}
+
+.menuBtn:hover {
+    background-color: var(--secondary);
+}
+
+.locationBadge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--secondary);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.appName {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-left: 0.5rem;
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .appName {
+        display: block;
+    }
+}
+
+.searchBar {
+    position: relative;
+    width: 300px;
+    display: none;
+}
+
+@media (min-width: 1024px) {
+    .searchBar {
+        display: block;
+    }
+}
+
+.searchIcon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--secondary-foreground);
+    opacity: 0.5;
+}
+
+.searchBar input {
+    width: 100%;
+    padding: 0.5rem 1rem 0.5rem 2.25rem;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--input);
+    color: var(--foreground);
+    outline: none;
+}
+
+.searchBar input:focus {
+    border-color: var(--primary);
+    background: var(--card);
+}
+
+.right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.iconBtn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    padding: 0.5rem;
+    color: var(--foreground);
+}
+
+.badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: var(--destructive);
+    color: white;
+    font-size: 0.7rem;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    position: relative;
+    padding: 0.5rem;
+    border-radius: var(--radius);
+}
+
+.profile:hover {
+    background-color: var(--secondary);
+}
+
+.avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.username {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 150px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    margin-top: 0.5rem;
+}
+
+.dropdownItem {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border-radius: var(--radius);
+}
+
+.dropdownItem:hover {
+    background: var(--secondary);
+}
+
+/* Environment Badge Styles */
+.envBadge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 99px;
+    /* Pill shape */
+    font-size: 0.85rem;
+    font-weight: 500;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    animation: zoomInOut 2s infinite ease-in-out;
+    margin-left: 1rem;
+    border: 1px solid transparent;
+}
+
+.envLabel {
+    opacity: 0.8;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.envName {
+    font-weight: 700;
+}
+
+.envTag {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    text-transform: uppercase;
+}
+
+/* Environment Specific Colors */
+.envBadge.live {
+    background: #dcfce7;
+    /* Green-100 */
+    color: #15803d;
+    /* Green-700 */
+    border-color: #86efac;
+}
+
+.envBadge.test {
+    background: #fef9c3;
+    /* Yellow-100 */
+    color: #b45309;
+    /* Yellow-700 */
+    border-color: #fde047;
+}
+
+.envBadge.old {
+    background: #f1f5f9;
+    /* Slate-100 */
+    color: #475569;
+    /* Slate-600 */
+    border-color: #cbd5e1;
+}
+
+/* Dark Mode Adjustments can be added if needed, or stick to high contrast styles */
+[data-theme='dark'] .envBadge.live {
+    background: #14532d;
+    color: #dcfce7;
+    border-color: #166534;
+}
+
+[data-theme='dark'] .envBadge.test {
+    background: #713f12;
+    color: #fef9c3;
+    border-color: #854d0e;
+}
+
+[data-theme='dark'] .envBadge.old {
+    background: #1e293b;
+    color: #f1f5f9;
+    border-color: #334155;
+}
+
+
+@keyframes zoomInOut {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}

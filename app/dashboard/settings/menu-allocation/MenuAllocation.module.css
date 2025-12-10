@@ -1,0 +1,265 @@
+.container {
+    padding: 1rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--foreground);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 1.5rem;
+    flex: 1;
+    min-height: 0;
+}
+
+.card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.cardTitle {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--foreground);
+}
+
+.subtitle {
+    font-size: 0.85rem;
+    color: var(--secondary-foreground);
+    margin-bottom: 1rem;
+}
+
+.list,
+.tree {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.draggableItem {
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.miniSelect {
+    font-size: 0.8rem;
+    padding: 0.25rem;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--input);
+    color: var(--foreground);
+    max-width: 120px;
+}
+
+.tinySelect {
+    font-size: 0.75rem;
+    padding: 0.1rem;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--secondary-foreground);
+    border: none;
+    cursor: pointer;
+}
+
+.tinySelect:hover {
+    color: var(--primary);
+}
+
+.headerRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.inlineForm {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.select,
+.input {
+    padding: 0.4rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--input);
+    color: var(--foreground);
+    font-size: 0.9rem;
+}
+
+.iconBtn {
+    padding: 0.4rem;
+    border-radius: var(--radius);
+    background: var(--primary);
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.moduleBlock {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.01);
+}
+
+.moduleHeader {
+    font-weight: 700;
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.5rem;
+    background: var(--secondary);
+    border-radius: var(--radius);
+}
+
+.subGroupBlock {
+    margin-left: 1rem;
+    margin-bottom: 0.5rem;
+    border-left: 2px solid var(--border);
+    padding-left: 0.5rem;
+}
+
+.subGroupHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.25rem 0;
+    color: var(--foreground);
+}
+
+.pageList,
+.directPages {
+    margin-left: 1rem;
+    margin-top: 0.25rem;
+}
+
+.pageItem {
+    font-size: 0.85rem;
+    padding: 0.25rem 0;
+    color: var(--secondary-foreground);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.removeBtn {
+    background: none;
+    border: none;
+    color: var(--destructive);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.pageItem:hover .removeBtn {
+    opacity: 1;
+}
+
+.addDirectPage {
+    margin-top: 0.5rem;
+    margin-left: 1rem;
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+.empty {
+    font-size: 0.9rem;
+    color: var(--secondary-foreground);
+    text-align: center;
+    margin-top: 2rem;
+    font-style: italic;
+}
+
+/* SubGroup Management Styles */
+/* SubGroup Management Styles */
+.actionContainer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.iconAction {
+    background: var(--card);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    color: var(--secondary-foreground);
+}
+
+.iconAction:hover {
+    background: var(--secondary);
+    color: var(--foreground);
+    border-color: var(--secondary-foreground);
+}
+
+.tinySelect {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+    height: 28px;
+    border-radius: 4px;
+    border: 1px dashed var(--primary);
+    background: rgba(var(--primary-rgb), 0.05);
+    color: var(--primary);
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.tinySelect:hover {
+    background: var(--primary);
+    color: white;
+    border-style: solid;
+}
+
+.tinyInput {
+    padding: 0.25rem 0.5rem;
+    background: var(--input);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--foreground);
+    outline: none;
+    height: 28px;
+}
+
+.tinyInput:focus {
+    border-color: var(--primary);
+}
