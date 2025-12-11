@@ -35,7 +35,10 @@ BEGIN
         ('Source', '/dashboard/master/source'),
         ('Stoppage Reason', '/dashboard/master/stoppage-reason'),
         ('Strata', '/dashboard/master/strata'),
-        ('Unit', '/dashboard/master/unit')
+        ('Unit', '/dashboard/master/unit'),
+        ('SME Category', '/dashboard/master/sme-category'),
+        ('Drilling Remarks', '/dashboard/master/drilling-remarks'),
+        ('Equipment Owner Type', '/dashboard/master/equipment-owner-type')
     ) AS NewPages(PageName, PagePath)
     WHERE NOT EXISTS (SELECT 1 FROM [Master].[TblPage] p WHERE p.PagePath = NewPages.PagePath);
     

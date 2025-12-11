@@ -1,0 +1,6 @@
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'Master' AND TABLE_NAME = 'TblEquipmentGroup' AND COLUMN_NAME = 'UploadRemark')
+BEGIN
+    ALTER TABLE [Master].[TblEquipmentGroup]
+    ADD [UploadRemark] NVARCHAR(255) NULL;
+END
+GO

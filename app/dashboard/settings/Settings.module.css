@@ -14,6 +14,12 @@
     margin-bottom: 1rem;
 }
 
+.headerActions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
 .title {
     font-size: 1.5rem;
     font-weight: 700;
@@ -40,7 +46,7 @@
 
 .formGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: 1fr 1fr;
     gap: 1rem;
     margin-bottom: 1rem;
 }
@@ -182,7 +188,7 @@
 }
 
 .tdActions {
-    padding: 1rem;
+    padding: 0.15rem;
     display: flex;
     justify-content: center;
     gap: 0.5rem;

@@ -4,9 +4,15 @@ import { use } from 'react';
 import { notFound } from 'next/navigation';
 import { MASTER_CONFIG } from '@/lib/masterConfig';
 import MasterTable from '@/components/MasterTable';
+import DestinationMaterialMappingPage from '@/app/dashboard/settings/destination-material-mapping/page';
 
 export default function MasterPage({ params }) {
     const { type } = use(params);
+
+    // Custom Override for Destination Material Mapping
+    if (type === 'destination-material-mapping') {
+        return <DestinationMaterialMappingPage />;
+    }
 
     const config = MASTER_CONFIG[type];
 

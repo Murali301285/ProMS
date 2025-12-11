@@ -72,6 +72,21 @@ export default function SettingsPage() {
                 </Link>
 
 
+                {/* Equipment Owner Type */}
+                <Link href="/dashboard/master/equipment-owner-type" className="block group">
+                    <div className="bg-card p-6 rounded-lg border border-border hover:border-primary transition-all shadow-sm hover:shadow-md glass">
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="p-3 bg-primary/10 rounded-full text-primary group-hover:scale-110 transition-transform">
+                                <Settings size={24} />
+                            </div>
+                            <h2 className="text-lg font-semibold">Equipment Owner Type</h2>
+                        </div>
+                        <p className="text-sm opacity-70">
+                            Manage equipment owner types.
+                        </p>
+                    </div>
+                </Link>
+
                 {/* Audit Logs */}
                 <Link href="/dashboard/settings/audit-logs" className="block group">
                     <div className="bg-card p-6 rounded-lg border border-border hover:border-primary transition-all shadow-sm hover:shadow-md glass">

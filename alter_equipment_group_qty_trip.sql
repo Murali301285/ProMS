@@ -1,0 +1,6 @@
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'Master' AND TABLE_NAME = 'TblEquipmentGroup' AND COLUMN_NAME = 'IsQtyTripMapping')
+BEGIN
+    ALTER TABLE [Master].[TblEquipmentGroup]
+    ADD [IsQtyTripMapping] BIT NOT NULL CONSTRAINT DF_TblEquipmentGroup_IsQtyTripMapping DEFAULT 0;
+END
+GO

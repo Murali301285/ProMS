@@ -23,6 +23,13 @@ const bottomItems = [
     { name: 'Logout', icon: Icons.LogOut, path: '#' },
 ];
 
+// Helper for strict path matching
+const checkIsActive = (currentPath, menuPath) => {
+    if (menuPath === '#' || !menuPath) return false;
+    if (menuPath === '/dashboard') return currentPath === '/dashboard';
+    return currentPath === menuPath || currentPath.startsWith(menuPath + '/');
+};
+
 function NavItem({ item, pathname, expandedMenus, toggleSubMenu, isCollapsed, level = 0 }) {
     // Determine Icon
     const IconComponent = item.icon && Icons[item.icon] ? Icons[item.icon] : (level === 0 ? Icons.Circle : null);
@@ -30,8 +37,7 @@ function NavItem({ item, pathname, expandedMenus, toggleSubMenu, isCollapsed, le
     // Highlight Logic
     let isActive = false;
     if (item.path !== '#') {
-        if (item.path === '/dashboard' && pathname === '/dashboard') isActive = true;
-        else if (item.path !== '/dashboard' && pathname.startsWith(item.path)) isActive = true;
+        isActive = checkIsActive(pathname, item.path);
     }
 
     const isExpanded = expandedMenus[item.name];
@@ -108,6 +114,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         fetchMenu();
     }, []);
 
+
+
     useEffect(() => {
         if (loading) return;
 
@@ -118,18 +126,12 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 if (item.subItems) {
                     // Check if any child matches
                     const childMatch = item.subItems.some(sub =>
-                        sub.path !== '#' && pathname.startsWith(sub.path)
-                    ) || (item.path !== '#' && pathname.startsWith(item.path));
-
-                    // Or recursive check
-                    const deepMatch = item.subItems.some(sub => sub.subItems && checkExpand([sub])); // naive
+                        checkIsActive(pathname, sub.path)
+                    ) || checkIsActive(pathname, item.path);
 
                     // Helper: Just expand if current path contains this item's children?
-                    // Simplest: If pathname starts with item path (if item has path)
-                    // OR check children paths
-
                     const hasActiveChild = (node) => {
-                        if (node.path !== '#' && pathname.startsWith(node.path)) return true;
+                        if (checkIsActive(pathname, node.path)) return true;
                         if (node.subItems) return node.subItems.some(hasActiveChild);
                         return false;
                     };
