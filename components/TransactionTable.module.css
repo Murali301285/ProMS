@@ -1,10 +1,8 @@
-/* Reusing TransactionTable styles for consistency */
 .wrapper {
     display: flex;
     flex-direction: column;
     gap: 8px;
     height: 100%;
-    width: 100%;
 }
 
 .toolbar {
@@ -12,11 +10,10 @@
     justify-content: space-between;
     align-items: center;
     background: transparent;
+    /* Changed from white for Dark Mode */
     padding: 8px 12px;
     border-radius: 6px;
     border: 1px solid #e2e8f0;
-    flex-wrap: wrap;
-    gap: 8px;
 }
 
 .leftTools {
@@ -90,12 +87,19 @@
 
 .tableContainer {
     flex: 1;
-    /* Fixed height logic identical to TransactionTable */
+    /* Take remaining space */
+    /* Limit height to show approx 10 rows (header 40px + 10 * 36px ~= 400px), but flexible */
+    /* User said "Max 10 rows and enable scroll". So we can set a max-height or fixed height. 
+       If we use fixed height, it enables scroll.
+    */
+    /* Fixed height strictly to show approx 10 rows */
+    /* Height auto to avoid white block if few rows, but max-height for scroll */
     height: 380px;
     overflow-y: auto;
     overflow-x: auto;
     border: 1px solid #e2e8f0;
     background-color: transparent;
+    /* Explicitly transparent */
     border-radius: 6px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
@@ -106,6 +110,7 @@
     border-spacing: 0;
     min-width: 100%;
     font-size: 12px;
+    /* Smaller font to fit more */
 }
 
 .th {
@@ -135,7 +140,6 @@
     max-width: 300px;
 }
 
-/* Zebra Striping */
 .tr:nth-child(even) .td {
     background-color: #f8fafc;
 }
@@ -159,15 +163,12 @@
     align-items: center;
     justify-content: center;
     transition: opacity 0.2s;
-    cursor: pointer;
 }
 
 .actionBtn:disabled {
     opacity: 0.5;
-    cursor: not-allowed;
 }
 
-/* Filter Dropdown Styles */
 .filterDropdown {
     position: absolute;
     top: 100%;
@@ -243,9 +244,4 @@
     opacity: 0.4;
     cursor: not-allowed;
     background: #f1f5f9;
-}
-
-.cellContent {
-    display: block;
-    width: 100%;
 }

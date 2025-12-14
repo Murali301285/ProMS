@@ -4,7 +4,7 @@ import { MASTER_CONFIG } from '@/lib/masterConfig';
 
 export async function POST(req) {
     try {
-        const { table, nameField, valueField, filter, includeDeleted } = await req.json();
+        const { table, nameField, valueField, filter, includeDeleted, additionalColumns } = await req.json();
         console.log(`📋 DDL API Request: table=${table}, nameField=${nameField}, valueField=${valueField}, filter=`, filter);
 
         if (!table || !nameField || !valueField) {
@@ -16,8 +16,13 @@ export async function POST(req) {
         console.log(`📋 DDL API Full Table Name: ${fullTableName}`);
 
         // Base query with column existence checks
+        let cols = [`${valueField} as id`, `${nameField} as name`];
+        if (additionalColumns && Array.isArray(additionalColumns)) {
+            additionalColumns.forEach(col => cols.push(col));
+        }
+
         let query = `
-            SELECT ${valueField} as id, ${nameField} as name
+            SELECT ${cols.join(', ')}
             FROM ${fullTableName}
             WHERE 1=1
         `;
@@ -35,6 +40,15 @@ export async function POST(req) {
                     query += ` AND ${key} = ${value}`;
                 } else if (typeof value === 'string') {
                     query += ` AND ${key} = '${value.replace(/'/g, "''")}'`;
+                } else if (Array.isArray(value) && value.length > 0) {
+                    // Check if array elements are numbers or strings
+                    const isNumberArray = value.every(v => typeof v === 'number');
+                    if (isNumberArray) {
+                        query += ` AND ${key} IN (${value.join(',')})`;
+                    } else {
+                        const quotedValues = value.map(v => `'${String(v).replace(/'/g, "''")}'`).join(',');
+                        query += ` AND ${key} IN (${quotedValues})`;
+                    }
                 }
             });
         }

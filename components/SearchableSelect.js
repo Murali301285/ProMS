@@ -11,7 +11,9 @@ export default function SearchableSelect({
     placeholder = 'Select...',
     name,
     error,
-    autoFocus
+    autoFocus,
+    className,
+    multiple = false
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
@@ -21,12 +23,20 @@ export default function SearchableSelect({
     const listRef = useRef(null);
 
     // Filter options based on search
-    const filteredOptions = options.filter(opt =>
-        opt.name.toLowerCase().includes(search.toLowerCase())
+    const safeOptions = Array.isArray(options) ? options : [];
+    const filteredOptions = safeOptions.filter(opt =>
+        opt.name && opt.name.toLowerCase().includes(search.toLowerCase())
     );
 
-    // Get display label for current value
-    const selectedLabel = options.find(opt => opt.id === value)?.name || '';
+    // Get display label
+    let selectedLabel = '';
+    if (multiple) {
+        if (Array.isArray(value) && value.length > 0) {
+            selectedLabel = value.map(id => options.find(o => o.id == id)?.name).filter(Boolean).join(', ');
+        }
+    } else {
+        selectedLabel = options.find(opt => opt.id == value)?.name || '';
+    }
 
     useEffect(() => {
         if (isOpen && inputRef.current) {
@@ -39,14 +49,14 @@ export default function SearchableSelect({
         function handleClickOutside(event) {
             if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
                 setIsOpen(false);
-                setSearch(''); // Reset search on close
+                setSearch('');
             }
         }
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Scroll highlighted item into view
+    // Scroll highlighted
     useEffect(() => {
         if (isOpen && listRef.current && filteredOptions.length > 0) {
             const item = listRef.current.children[highlightindex];
@@ -58,13 +68,21 @@ export default function SearchableSelect({
 
 
     const handleSelect = (option) => {
-        onChange({ target: { name, value: option.id } });
-        setIsOpen(false);
-        setSearch('');
-        // Focus next element logic handled by parent form or native tab behavior?
-        // User requested: "highlighted details ... selected and control focus should be moved to next control"
-        // We will focus the wrapper div to ensure tab flow, but the parent form's 'Enter' logic might handle the jump.
-        // Actually, let's try to programmatically find the next input if required, but standard behavior is usually best left to browser unless 'Enter' is pressed.
+        if (multiple) {
+            let newValue = Array.isArray(value) ? [...value] : [];
+            if (newValue.includes(option.id)) {
+                newValue = newValue.filter(id => id !== option.id);
+            } else {
+                newValue.push(option.id);
+            }
+            onChange({ target: { name, value: newValue } });
+            // Keep open for multiple choice
+            inputRef.current?.focus();
+        } else {
+            onChange({ target: { name, value: option.id } });
+            setIsOpen(false);
+            setSearch('');
+        }
     };
 
     const handleKeyDown = (e) => {
@@ -86,31 +104,49 @@ export default function SearchableSelect({
                 setHighlightIndex(prev => (prev - 1 + filteredOptions.length) % filteredOptions.length);
                 break;
             case 'Enter':
+            // Check if highlighting "Select All" / "Clear All" buttons? No, simple list focus for now.
             case 'Tab':
                 if (filteredOptions.length > 0) {
-                    if (e.key === 'Enter') e.preventDefault(); // Prevent form submit
+                    if (e.key === 'Enter') e.preventDefault();
                     handleSelect(filteredOptions[highlightindex]);
 
-                    // Specific requirement: "control focus should be moved to next control"
-                    // We can attempt to simulate a Tab press or find the next focusable element.
-                    if (e.key === 'Enter') {
+                    if (!multiple && e.key === 'Enter') {
+                        // Focus next logic
                         setTimeout(() => {
-                            const form = wrapperRef.current.closest('form');
-                            if (form) {
-                                const focusable = Array.from(form.querySelectorAll('input, button, textarea, [tabindex]:not([tabindex="-1"])'));
-                                // The wrapper itself might be focusable or the hidden input?
-                                // Best is to find the container div index
-                                const currentIndex = focusable.indexOf(wrapperRef.current.querySelector('button')); // The toggle button
-                                if (currentIndex > -1 && currentIndex < focusable.length - 1) {
-                                    focusable[currentIndex + 1].focus();
+                            // Find the current wrapper's container form
+                            const form = wrapperRef.current ? wrapperRef.current.closest('form') : null;
+                            const container = form || document.body;
+
+                            // Get all focusable elements
+                            const focusable = Array.from(container.querySelectorAll('input:not([type="hidden"]), select, textarea, button:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+
+                            // Find the button (trigger) of THIS component
+                            const triggerBtn = wrapperRef.current.querySelector('button');
+                            const currentIndex = focusable.indexOf(triggerBtn);
+
+                            if (currentIndex > -1) {
+                                let nextIndex = currentIndex + 1;
+                                while (nextIndex < focusable.length) {
+                                    const el = focusable[nextIndex];
+                                    // Skip self (if multiple inputs inside), disabled, readonly, hidden
+                                    // Also check if it is visible
+                                    if (
+                                        el.offsetParent !== null &&
+                                        !el.disabled &&
+                                        !el.readOnly &&
+                                        el !== triggerBtn &&
+                                        !wrapperRef.current.contains(el) // Don't focus internal search input if closed
+                                    ) {
+                                        el.focus();
+                                        break;
+                                    }
+                                    nextIndex++;
                                 }
                             }
                         }, 0);
                     }
                 } else {
-                    if (e.key === 'Tab') {
-                        setIsOpen(false);
-                    }
+                    if (e.key === 'Tab') setIsOpen(false);
                 }
                 break;
             case 'Escape':
@@ -119,57 +155,104 @@ export default function SearchableSelect({
         }
     };
 
+    const isSelected = (id) => {
+        if (multiple) return Array.isArray(value) && value.some(v => v == id);
+        return value == id;
+    };
+
     return (
         <div className={styles.selectWrapper} ref={wrapperRef} style={{ position: 'relative' }}>
-            {/* Main Display Button */}
             <button
                 type="button"
-                className={`${styles.input} ${error ? styles.errorBorder : ''}`}
+                className={`${styles.input} ${error ? styles.errorBorder : ''} ${className || ''}`}
                 onClick={() => setIsOpen(!isOpen)}
                 onKeyDown={handleKeyDown}
-                style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: 'var(--input)' }}
+                data-searchable="true"
+                style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: 'var(--input)', minHeight: '38px' }}
                 autoFocus={autoFocus}
             >
-                <span style={{ opacity: value ? 1 : 0.5 }}>
+                <span style={{ opacity: (multiple ? value?.length : value) ? 1 : 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '8px' }}>
                     {selectedLabel || placeholder}
                 </span>
-                <ChevronDown size={16} opacity={0.5} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {/* Clear 'X' for single select if value exists */}
+                    {!multiple && value && (
+                        <div
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange({ target: { name, value: '' } });
+                            }}
+                            className={styles.clearBtn} // Verify style or use inline
+                            style={{ padding: '2px', cursor: 'pointer', opacity: 0.6 }}
+                            title="Clear"
+                        >
+                            <X size={14} />
+                        </div>
+                    )}
+                    {/* Clear 'X' for multi select if value exists */}
+                    {multiple && Array.isArray(value) && value.length > 0 && (
+                        <div
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange({ target: { name, value: [] } });
+                            }}
+                            style={{ padding: '2px', cursor: 'pointer', opacity: 0.6 }}
+                            title="Clear All"
+                        >
+                            <X size={14} />
+                        </div>
+                    )}
+                    <ChevronDown size={16} opacity={0.5} style={{ flexShrink: 0 }} />
+                </div>
             </button>
 
-            {/* Dropdown Menu */}
             {isOpen && (
                 <div className={styles.dropdownMenu} style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    width: '100%',
-                    maxHeight: '200px',
-                    overflowY: 'auto',
-                    background: 'var(--card)', // or input background
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius)',
-                    zIndex: 100,
-                    marginTop: '4px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    position: 'absolute', top: '100%', left: 0, width: '100%', maxHeight: '250px', overflowY: 'auto',
+                    background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                    zIndex: 100, marginTop: '4px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                 }}>
-                    {/* Search Input */}
-                    <div style={{ padding: '8px', position: 'sticky', top: 0, background: 'inherit', borderBottom: '1px solid var(--border)' }}>
+                    {/* Multi-Select Actions Header */}
+                    {multiple && (
+                        <div style={{ display: 'flex', gap: '8px', padding: '8px', borderBottom: '1px solid var(--border)', background: '#f8fafc' }}>
+                            <button
+                                type="button"
+                                style={{ flex: 1, fontSize: '0.75rem', padding: '4px', background: '#e2e8f0', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    const allIds = filteredOptions.map(o => o.id);
+                                    onChange({ target: { name, value: allIds } });
+                                    inputRef.current?.focus();
+                                }}
+                            >
+                                Select All
+                            </button>
+                            <button
+                                type="button"
+                                style={{ flex: 1, fontSize: '0.75rem', padding: '4px', background: '#e2e8f0', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    onChange({ target: { name, value: [] } });
+                                    inputRef.current?.focus();
+                                }}
+                            >
+                                Clear All
+                            </button>
+                        </div>
+                    )}
+
+                    <div style={{ padding: '8px', position: 'sticky', top: multiple ? '37px' : 0, background: 'inherit', borderBottom: '1px solid var(--border)' }}>
                         <input
                             ref={inputRef}
                             type="text"
                             value={search}
-                            onChange={(e) => {
-                                setSearch(e.target.value);
-                                setHighlightIndex(0);
-                            }}
+                            onChange={(e) => { setSearch(e.target.value); setHighlightIndex(0); }}
                             onKeyDown={handleKeyDown}
                             placeholder="Search..."
                             className={styles.input}
                             style={{ padding: '6px', fontSize: '0.85rem' }}
                         />
                     </div>
-
-                    {/* Options List */}
                     <div ref={listRef}>
                         {filteredOptions.length > 0 ? (
                             filteredOptions.map((opt, index) => (
@@ -177,26 +260,20 @@ export default function SearchableSelect({
                                     key={opt.id}
                                     className={styles.option}
                                     style={{
-                                        padding: '8px 12px',
-                                        cursor: 'pointer',
+                                        padding: '8px 12px', cursor: 'pointer',
                                         background: index === highlightindex ? 'var(--primary)' : 'transparent',
                                         color: index === highlightindex ? 'var(--primary-foreground)' : 'var(--foreground)',
-                                        fontSize: '0.9rem',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center'
+                                        fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                                     }}
                                     onClick={() => handleSelect(opt)}
                                     onMouseEnter={() => setHighlightIndex(index)}
                                 >
-                                    {opt.name}
-                                    {value === opt.id && <Check size={14} />}
+                                    <span>{opt.name}</span>
+                                    {isSelected(opt.id) && <Check size={14} />}
                                 </div>
                             ))
                         ) : (
-                            <div style={{ padding: '12px', textAlign: 'center', opacity: 0.5, fontSize: '0.85rem' }}>
-                                No results found
-                            </div>
+                            <div style={{ padding: '12px', textAlign: 'center', opacity: 0.5, fontSize: '0.85rem' }}>No results found</div>
                         )}
                     </div>
                 </div>

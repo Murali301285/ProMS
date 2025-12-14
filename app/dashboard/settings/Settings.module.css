@@ -139,8 +139,17 @@
     cursor: pointer;
 }
 
+.label {
+    font-weight: 700;
+    font-size: 12px;
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
 .tableContainer {
-    flex: 1;
+    flex: none;
+    display: block;
+    height: 380px;
     overflow: auto;
     background: var(--card);
     border: 1px solid var(--border);
@@ -283,4 +292,9 @@
 
 .switch input:checked+.slider:before {
     transform: translateX(16px);
+}
+
+.errorBorder {
+    border-color: #ef4444 !important;
+    /* Red-500 */
 }

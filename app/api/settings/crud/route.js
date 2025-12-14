@@ -70,6 +70,20 @@ export async function POST(req) {
                     queryParams.push({ name: 'toDate', type: 'VarChar', value: filters.toDate + ' 23:59:59' });
                 }
                 query += ` ORDER BY ActionDate DESC`;
+            } else if (table === 'TblQtyTripMapping') {
+                // Specific Join for Qty Trip Mapping
+                // Note: TblQtyTripMapping does not have UnitId.
+                query = `
+                    SELECT 
+                        T.*,
+                        EG.Name AS EquipmentGroupName,
+                        M.MaterialName
+                    FROM [Master].[TblQtyTripMapping] T
+                    LEFT JOIN [Master].[TblEquipmentGroup] EG ON T.EquipmentGroupId = EG.SlNo
+                    LEFT JOIN [Master].[TblMaterial] M ON T.MaterialId = M.SlNo
+                    WHERE T.IsDelete = 0 
+                    ORDER BY T.SlNo ASC
+                `;
             } else {
                 query += ` WHERE IsDelete = 0 ORDER BY SlNo ASC`;
             }

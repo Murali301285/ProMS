@@ -24,7 +24,7 @@ export default function DashboardLayout({ children }) {
                 minWidth: 0,
             }}>
                 <Header toggleSidebar={toggleSidebar} isSidebarOpen={!isSidebarCollapsed} />
-                <main style={{ flex: 1, padding: '1.5rem', overflowY: 'auto' }}>
+                <main style={{ flex: 1, padding: '.5rem', overflowY: 'auto' }}>
                     {children}
                 </main>
                 <footer style={{

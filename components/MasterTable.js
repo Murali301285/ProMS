@@ -313,7 +313,10 @@ export default function MasterTable({ config, title }) {
                 // User requirement: "Add Sorting filter to all the columns... (like toggles, Isactive)"
                 sortable: isObj && col.sortable !== undefined ? col.sortable : true,
                 render: (row) => {
-                    const val = row[accessor];
+                    // Support displayField for API-joined columns
+                    const useDisplayField = isObj && col.displayField;
+                    const val = useDisplayField ? row[col.displayField] : row[accessor];
+
                     if (accessor.toLowerCase().includes('date') || accessor.toLowerCase().includes('time')) {
                         try {
                             // If it's a pure time field
@@ -344,7 +347,8 @@ export default function MasterTable({ config, title }) {
                     if (isObj && col.type === 'file' && val) {
                         return <img src={val} alt="Preview" style={{ height: '30px', borderRadius: '4px' }} />;
                     }
-                    if (isObj && col.type === 'select' && lookups[accessor]) {
+                    // Only use client-side lookup if we didn't use a displayField (API-side join)
+                    if (isObj && col.type === 'select' && lookups[accessor] && !useDisplayField) {
                         const found = lookups[accessor].find(item => item.id == val);
                         return found ? found.name : val;
                     }
@@ -416,95 +420,12 @@ export default function MasterTable({ config, title }) {
                 </div>
             </div>
 
-            {/* Filter Section */}
-            {config.columns.some(col => typeof col === 'object' && col.filterable) && (
-                <div className={styles.filterContainer} style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', fontWeight: 600, color: '#64748b' }}>
-                        <span style={{ marginRight: '8px' }}>Filters:</span>
-                    </div>
-                    {config.columns.filter(col => typeof col === 'object' && col.filterable).map(col => {
-                        const lookupData = lookups[col.accessor] || [];
-                        const selected = activeFilters[col.accessor] || [];
-                        const isOpen = isFilterOpen === col.accessor;
-
-                        return (
-                            <div key={col.accessor} style={{ position: 'relative' }}>
-                                <button
-                                    onClick={() => setIsFilterOpen(isOpen ? false : col.accessor)}
-                                    style={{
-                                        border: '1px solid #cbd5e1',
-                                        background: 'white',
-                                        padding: '4px 12px',
-                                        borderRadius: '6px',
-                                        fontSize: '14px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        cursor: 'pointer',
-                                        color: selected.length ? '#2563eb' : '#334155',
-                                        borderColor: selected.length ? '#2563eb' : '#cbd5e1'
-                                    }}
-                                >
-                                    {col.label || col.accessor}
-                                    {selected.length > 0 && <span style={{ background: '#eff6ff', color: '#2563eb', padding: '0 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>{selected.length}</span>}
-                                </button>
-
-                                {isOpen && (
-                                    <>
-                                        <div
-                                            style={{ position: 'fixed', inset: 0, zIndex: 40 }}
-                                            onClick={() => setIsFilterOpen(false)}
-                                        />
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '100%',
-                                            left: 0,
-                                            marginTop: '4px',
-                                            padding: '8px',
-                                            background: 'white',
-                                            borderRadius: '8px',
-                                            border: '1px solid #e2e8f0',
-                                            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                                            width: '240px',
-                                            maxHeight: '300px',
-                                            overflowY: 'auto',
-                                            zIndex: 50
-                                        }}>
-                                            {lookupData.length > 0 ? lookupData.map(opt => (
-                                                <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', fontSize: '13px', cursor: 'pointer', borderRadius: '4px' }} className={styles.filterOption}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selected.includes(opt.id)}
-                                                        onChange={() => handleFilterChange(col.accessor, opt.id)}
-                                                        style={{ borderRadius: '4px', width: '14px', height: '14px' }}
-                                                    />
-                                                    {opt.name}
-                                                </label>
-                                            )) : <div style={{ padding: '8px', color: '#94a3b8', fontSize: '13px' }}>No options available</div>}
-
-                                            {selected.length > 0 && (
-                                                <div style={{ borderTop: '1px solid #f1f5f9', marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'flex-end' }}>
-                                                    <button
-                                                        onClick={() => handleFilterChange(col.accessor, 'CLEAR_ALL')}
-                                                        style={{ fontSize: '11px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
-                                                    >
-                                                        Clear All
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
+            {/* Filter Section Removed - Handled by DataTable */}
 
             <div className={styles.tableContainer}>
                 <DataTable
                     columns={columns}
-                    data={filteredData}
+                    data={data}
                     loading={loading}
                     fileName={title}
                     defaultSort={{ key: config.idField || 'SlNo', direction: 'asc' }}
@@ -564,7 +485,7 @@ export default function MasterTable({ config, title }) {
                 }}
                 config={{ ...config, title }}
             />
-        </div>
+        </div >
     );
 }
 

@@ -1,0 +1,162 @@
+.page {
+    padding: 0 16px 0 16px;
+    /* No bottom padding */
+    /* Removed top padding */
+    height: auto;
+    /* Allow content to define height */
+    min-height: calc(100vh - 100px);
+    /* Optional: Ensure it fills screen if content is small, but doesn't force gap */
+    display: flex;
+    flex-direction: column;
+    background-color: #f8fafc;
+    gap: 8px;
+    /* Reduced gap */
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    /* Add local padding for header */
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.addNew {
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.addNew:hover {
+    transform: scale(1.05);
+    /* Zoom in animation */
+    box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+}
+
+.addNew:active {
+    transform: scale(0.95);
+    /* Zoom out */
+}
+
+/* Filters Section */
+.filters {
+    display: flex;
+    gap: 16px;
+    background-color: white;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.filterGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.filterGroup label {
+    font-size: 12px;
+    font-weight: 800;
+    /* Bold */
+    color: #1e293b;
+}
+
+/* ... */
+
+.refreshBtn {
+    background-color: #3b82f6;
+    /* Blue BG */
+    color: white;
+    border: none;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.refreshBtn:hover {
+    background-color: #2563eb;
+}
+
+.filterGroup input,
+.filterGroup select,
+.multiSelect {
+    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 13px;
+    min-width: 150px;
+    outline: none;
+}
+
+.filterGroup input:focus,
+.filterGroup select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.multiSelect {
+    height: 34px;
+    height: auto;
+    max-height: 80px;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.btnPrimary {
+    background-color: #0f172a;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btnSecondary {
+    background-color: white;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btnSecondary:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+}
