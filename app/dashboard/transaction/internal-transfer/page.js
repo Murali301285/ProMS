@@ -8,11 +8,11 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 import { Plus, RotateCcw } from 'lucide-react';
 import styles from './page.module.css';
 
-export default function LoadingFromMinesPage() {
+export default function InternalTransferPage() {
     const router = useRouter();
-    const config = TRANSACTION_CONFIG['loading-from-mines'];
+    const config = TRANSACTION_CONFIG['internal-transfer'];
 
-    // 1. UI Filter State (Input only - Deferred)
+    // 1. UI Filter State
     const today = new Date().toISOString().split('T')[0];
     const [filters, setFilters] = useState({
         fromDate: today,
@@ -44,8 +44,8 @@ export default function LoadingFromMinesPage() {
                     setUserRole(meData.user.role);
                 }
 
-                // Fetch Last Entry Info (Independent of Filter)
-                const lastRes = await fetch('/api/transaction/helper/last-entry-info');
+                // Fetch Last Entry Info
+                const lastRes = await fetch('/api/transaction/helper/last-internal-entry-info');
                 const lastData = await lastRes.json();
                 if (lastData.success && lastData.data) {
                     setLastEntry(lastData.data);
@@ -53,24 +53,26 @@ export default function LoadingFromMinesPage() {
             } catch (e) { console.error(e); }
         }
         loadInit();
-    }, []); // Only on mount
+    }, []);
 
-    // Data Fetching (Fetches ALL data for Date Range)
+    // Data Fetching
     const fetchData = useCallback(async () => {
         if (loading) return;
         setLoading(true);
 
         try {
-            // Fetch ALL data (Client Side Filtering Strategy)
             const params = new URLSearchParams({
-                offset: '0',
-                limit: '1000000', // Fetch practically infinite
+                limit: '1000000',
                 fromDate: query.fromDate,
                 toDate: query.toDate
             });
 
-            const res = await fetch(`${config.apiEndpoint}?${params}`);
+            console.log("🚀 [CLIENT] Fetching List Data from API...");
+
+            const res = await fetch(`${config.apiEndpoint}?${params}`, { cache: 'no-store' });
             const result = await res.json();
+
+            console.log(`📥 [CLIENT] List Data Received: ${result.data ? result.data.length : 0} rows.`);
 
             if (result.data) {
                 setData(result.data);
@@ -78,8 +80,8 @@ export default function LoadingFromMinesPage() {
                 setData([]);
             }
 
-            // Refresh Last Entry on data refresh too (in case user added something)
-            fetch('/api/transaction/helper/last-entry-info')
+            // Refresh Last Entry
+            fetch('/api/transaction/helper/last-internal-entry-info')
                 .then(r => r.json())
                 .then(res => {
                     if (res.success) setLastEntry(res.data);
@@ -93,29 +95,23 @@ export default function LoadingFromMinesPage() {
         }
     }, [query, config.apiEndpoint]);
 
-    // Trigger Fetch when Active Query changes
     useEffect(() => {
         fetchData();
     }, [query]);
 
-    // Handlers
     const handleShow = () => {
-        setQuery({ ...filters }); // Commit Filters to Query
+        setQuery({ ...filters });
     };
 
     const handleReset = () => {
-        const defaults = {
-            fromDate: today,
-            toDate: today
-        };
+        const defaults = { fromDate: today, toDate: today };
         setFilters(defaults);
         setQuery(defaults);
     };
 
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this record?")) return;
-        // API Call for delete would go here (Not implemented yet as per previous context)
-        alert("Delete functionality pending API implementation.");
+        alert("Delete functionality pending API implementation in Phase 2.");
     };
 
     return (
@@ -125,9 +121,9 @@ export default function LoadingFromMinesPage() {
 
             {/* Header */}
             <div className={styles.header}>
-                <h1 className={styles.title}>Loading From Mines</h1>
+                <h1 className={styles.title}>Internal Transfer</h1>
                 <div className={styles.headerActions}>
-                    {/* Last Data Label (Independent) */}
+                    {/* Last Data Label */}
                     {lastEntry && (
                         <span style={{
                             color: '#2563eb',
@@ -136,11 +132,11 @@ export default function LoadingFromMinesPage() {
                             marginRight: '16px',
                             fontWeight: 500
                         }}>
-                            Last data entered on -&gt; Loading Date: {new Date(lastEntry.LoadingDate).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedByName || 'Unknown'}
+                            Last data entered on -&gt; Date: {new Date(lastEntry.TransferDate).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedByName || 'Unknown'}
                         </span>
                     )}
 
-                    <button className={styles.addNew} onClick={() => router.push('/dashboard/transaction/loading-from-mines/add')}>
+                    <button className={`${styles.addNew} transition-transform active:scale-95 hover:scale-105 duration-200`} onClick={() => router.push('/dashboard/transaction/internal-transfer/add')}>
                         <Plus size={16} /> Add New
                     </button>
                     <button className={styles.refreshBtn} onClick={() => fetchData()} title="Reload">
@@ -149,25 +145,15 @@ export default function LoadingFromMinesPage() {
                 </div>
             </div>
 
-            {/* Filters (Dates Only) */}
+            {/* Filters */}
             <div className={styles.filters}>
                 <div className={styles.filterGroup}>
                     <label>From Date</label>
-                    <input
-                        type="date"
-                        value={filters.fromDate}
-                        max={today}
-                        onChange={e => setFilters({ ...filters, fromDate: e.target.value })}
-                    />
+                    <input type="date" value={filters.fromDate} max={today} onChange={e => setFilters({ ...filters, fromDate: e.target.value })} />
                 </div>
                 <div className={styles.filterGroup}>
                     <label>To Date</label>
-                    <input
-                        type="date"
-                        value={filters.toDate}
-                        max={today}
-                        onChange={e => setFilters({ ...filters, toDate: e.target.value })}
-                    />
+                    <input type="date" value={filters.toDate} max={today} onChange={e => setFilters({ ...filters, toDate: e.target.value })} />
                 </div>
 
                 <div className={styles.actions}>
@@ -179,11 +165,10 @@ export default function LoadingFromMinesPage() {
             {/* Table */}
             <TransactionTable
                 config={config}
-                data={data} // Full Data passed
-                isLoading={false} // Loading handled by overlay
+                data={data}
+                isLoading={false}
                 onDelete={handleDelete}
                 userRole={userRole}
-                onEdit={(row) => router.push(`/dashboard/transaction/loading-from-mines/${row.SlNo}`)}
             />
         </div>
     );

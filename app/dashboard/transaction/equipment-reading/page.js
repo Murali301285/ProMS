@@ -8,9 +8,9 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 import { Plus, RotateCcw } from 'lucide-react';
 import styles from './page.module.css';
 
-export default function LoadingFromMinesPage() {
+export default function EquipmentReadingPage() {
     const router = useRouter();
-    const config = TRANSACTION_CONFIG['loading-from-mines'];
+    const config = TRANSACTION_CONFIG['equipment-reading'];
 
     // 1. UI Filter State (Input only - Deferred)
     const today = new Date().toISOString().split('T')[0];
@@ -41,11 +41,11 @@ export default function LoadingFromMinesPage() {
                 const meRes = await fetch('/api/auth/me');
                 if (meRes.ok) {
                     const meData = await meRes.json();
-                    setUserRole(meData.user.role);
+                    setUserRole(meData.user.role || 'User');
                 }
 
-                // Fetch Last Entry Info (Independent of Filter)
-                const lastRes = await fetch('/api/transaction/helper/last-entry-info');
+                // Fetch Last Entry Info
+                const lastRes = await fetch('/api/transaction/helper/last-equipment-reading-entry-info');
                 const lastData = await lastRes.json();
                 if (lastData.success && lastData.data) {
                     setLastEntry(lastData.data);
@@ -53,7 +53,7 @@ export default function LoadingFromMinesPage() {
             } catch (e) { console.error(e); }
         }
         loadInit();
-    }, []); // Only on mount
+    }, []);
 
     // Data Fetching (Fetches ALL data for Date Range)
     const fetchData = useCallback(async () => {
@@ -77,13 +77,6 @@ export default function LoadingFromMinesPage() {
             } else {
                 setData([]);
             }
-
-            // Refresh Last Entry on data refresh too (in case user added something)
-            fetch('/api/transaction/helper/last-entry-info')
-                .then(r => r.json())
-                .then(res => {
-                    if (res.success) setLastEntry(res.data);
-                });
 
         } catch (err) {
             console.error(err);
@@ -114,7 +107,6 @@ export default function LoadingFromMinesPage() {
 
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this record?")) return;
-        // API Call for delete would go here (Not implemented yet as per previous context)
         alert("Delete functionality pending API implementation.");
     };
 
@@ -125,9 +117,10 @@ export default function LoadingFromMinesPage() {
 
             {/* Header */}
             <div className={styles.header}>
-                <h1 className={styles.title}>Loading From Mines</h1>
+                <h1 className={styles.title}>Equipment Reading</h1>
+
                 <div className={styles.headerActions}>
-                    {/* Last Data Label (Independent) */}
+                    {/* Last Data Label */}
                     {lastEntry && (
                         <span style={{
                             color: '#2563eb',
@@ -136,11 +129,11 @@ export default function LoadingFromMinesPage() {
                             marginRight: '16px',
                             fontWeight: 500
                         }}>
-                            Last data entered on -&gt; Loading Date: {new Date(lastEntry.LoadingDate).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedByName || 'Unknown'}
+                            Last data entered on -&gt; Loading Date: {new Date(lastEntry.CreatedDate).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedByName || 'Unknown'}
                         </span>
                     )}
 
-                    <button className={styles.addNew} onClick={() => router.push('/dashboard/transaction/loading-from-mines/add')}>
+                    <button className={styles.addNew} onClick={() => router.push('/dashboard/transaction/equipment-reading/add')}>
                         <Plus size={16} /> Add New
                     </button>
                     <button className={styles.refreshBtn} onClick={() => fetchData()} title="Reload">
@@ -179,11 +172,11 @@ export default function LoadingFromMinesPage() {
             {/* Table */}
             <TransactionTable
                 config={config}
-                data={data} // Full Data passed
-                isLoading={false} // Loading handled by overlay
+                data={data}
+                isLoading={false}
                 onDelete={handleDelete}
                 userRole={userRole}
-                onEdit={(row) => router.push(`/dashboard/transaction/loading-from-mines/${row.SlNo}`)}
+                onEdit={(row) => router.push(`/dashboard/transaction/equipment-reading/${row.SlNo}`)}
             />
         </div>
     );

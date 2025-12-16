@@ -9,47 +9,13 @@ import TransactionTable from './TransactionTable';
 import SearchableSelect from './SearchableSelect';
 import styles from './TransactionForm.module.css';
 
-export default function TransactionForm({ initialData = null, isEdit = false, moduleType = 'loading-from-mines' }) { // Added moduleType
+export default function InternalTransferForm({ initialData = null, isEdit = false }) {
     const router = useRouter();
-    console.log(`!!! VERSION_CHECK_FINAL: TransactionForm Loaded (${moduleType}) !!!`);
+    console.log("!!! VERSION_CHECK_FINAL: InternalTransferForm Loaded !!!");
     const [isLoading, setIsLoading] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
 
-    // Refs
-    const shiftRef = useRef(null);
-    const inchargeRef = useRef(null);
-    const sourceRef = useRef(null);
-    const destinationRef = useRef(null);
-    const prevDateRef = useRef(new Date().toISOString().split('T')[0]);
-
-    // Initial Form State
-    const today = new Date().toISOString().split('T')[0];
-    const [formData, setFormData] = useState({
-        SlNo: 0,
-        LoadingId: 0,
-        Date: today,
-        ShiftId: '',
-        ShiftInchargeId: [],
-        RelayId: '',
-        SourceId: '',
-        DestinationId: '',
-        MaterialId: '',
-        HaulerId: '',
-        LoadingMachineId: '',
-        NoOfTrips: '',
-        MangQtyTrip: '',
-        NTPCQtyTrip: '',
-        Unit: '',
-        MangTotalQty: '',
-        NTPCTotalQty: '',
-        Remarks: '',
-        ManPower: '',
-        CreatedBy: 0,
-        CreatedDate: ''
-    });
-
-    const [errors, setErrors] = useState({});
-
+    // Dropdown Options State
     const [options, setOptions] = useState({
         shifts: [],
         incharges: [],
@@ -59,31 +25,56 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
         materials: [],
         haulers: [],
         loaders: [],
-        units: []
+        units: [] // Assuming standard units or fetched
     });
 
-    const [mappings, setMappings] = useState([]);
+    // Form State
+    const [formData, setFormData] = useState({
+        Date: new Date().toISOString().split('T')[0],
+        ShiftId: '',
+        ShiftInchargeId: [], // Array for multiple
+        ManPower: '',
+        RelayId: '',
+        SourceId: '',
+        DestinationId: '',
+        MaterialId: '',
+        HaulerId: '',
+        LoadingMachineId: '',
+        NoOfTrips: '',
+        MangQtyTrip: '', // Used as QtyTrip generically
+        NTPCQtyTrip: 0,  // Unused but kept to minimize refactor friction if needed, or remove? I will Remove.
+        // Actually, let's just use consistent names
+        QtyTrip: '', // Was MangQtyTrip
+        Unit: '',
+        TotalQty: '', // Was MangTotalQty
+        Remarks: '' // Added Remarks
+    });
+
+    // State for Auto-Fill & Validation
+    const [errors, setErrors] = useState({});
+
+    // Data Table State (Context-Aware List)
     const [filteredTableData, setFilteredTableData] = useState([]);
     const [tableLoading, setTableLoading] = useState(false);
 
-    // Derived State
-    const filteredMaterials = useMemo(() => {
-        if (!formData.DestinationId) return options.materials;
-        const mappedIds = mappings
-            .filter(m => m.DestinationId == formData.DestinationId)
-            .map(m => m.MaterialId);
+    // Focus Refs
+    const destinationRef = useRef(null);
+    const shiftRef = useRef(null);
+    const sourceRef = useRef(null);
+    const inchargeRef = useRef(null); // Added for Focus
+    const prevDateRef = useRef(formData.Date); // Track Date Changes for Smart Clear logic
 
-        if (mappedIds.length === 0) return options.materials;
-        return options.materials.filter(m => mappedIds.includes(m.SlNo));
-    }, [formData.DestinationId, mappings, options.materials]);
+    const [mappings, setMappings] = useState([]); // Store Destination-Material Mappings
 
     // Initial Data Load (Dropdowns & Edit Data)
     useEffect(() => {
         const loadInit = async () => {
             try {
                 // Fetch Dropdowns
+                // Added Logs for Debugging
                 const fetchDDL = async (table, filter = null, extra = []) => {
                     try {
+                        console.log(`Fetching DDL for ${table}...`);
                         const res = await fetch('/api/settings/ddl', {
                             method: 'POST',
                             body: JSON.stringify({
@@ -94,6 +85,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                                 ...filter
                             })
                         }).then(r => r.json());
+                        // console.log(`DDL ${table} Result:`, res); // Reduced noise
                         return Array.isArray(res) ? res : [];
                     } catch (e) {
                         console.error(`DDL ${table} Failed:`, e);
@@ -101,27 +93,31 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                     }
                 };
 
+                // NOTE: Using individual fetch calls wrapped in helper to debug easier
+                // NOTE: Using individual fetch calls wrapped in helper to debug easier
                 const [shifts, incharges, relays, sources, dests, mats, haulers, loaders, units, mapRes] = await Promise.all([
                     fetchDDL('shift', { nameField: 'ShiftName' }),
-                    fetchDDL('operator', { nameField: 'OperatorName', filter: { SubCategoryId: 1 } }, ['OperatorId']),
-                    fetchDDL('relay'),
-                    fetchDDL('source'),
-                    fetchDDL('destination'),
-                    fetchDDL('material', { nameField: 'MaterialName' }, ['UnitId']),
-                    fetchDDL('equipment', { nameField: 'EquipmentName', filter: { ActivityId: 4 } }),
-                    fetchDDL('equipment', { nameField: 'EquipmentName', filter: { ActivityId: 3 } }),
-                    fetchDDL('unit', { nameField: 'Name' }),
-                    fetch('/api/settings/destination-material').then(r => r.json()).catch(() => ({ mappings: [] }))
+                    fetchDDL('operator', { nameField: 'OperatorName', filter: { SubCategoryId: 1 } }, ['OperatorId']), // Request OperatorId
+                    fetchDDL('relay'),   // User requested [Name]
+                    fetchDDL('source'),  // User requested [Name]
+                    fetchDDL('destination'), // User requested [Name]
+                    fetchDDL('material', { nameField: 'MaterialName' }, ['UnitId']), // Request UnitId with Material
+                    fetchDDL('equipment', { nameField: 'EquipmentName', filter: { ActivityId: 4 } }), // Hauler
+                    fetchDDL('equipment', { nameField: 'EquipmentName', filter: { ActivityId: 3 } }), // Loader
+                    fetchDDL('unit', { nameField: 'Name' }), // Fixed: DB Column is Name, not UnitName
+                    fetch('/api/settings/destination-material').then(r => r.json()).catch(() => ({ mappings: [] })) // Fetch Mappings
                 ]);
 
                 setMappings(mapRes.mappings || []);
-                // ... (setOptions remains same)
+
+
+                console.log("👉 Loaded Data:", { shifts, incharges, haulers });
 
                 setOptions({
                     shifts: shifts || [],
                     incharges: (incharges || []).map(i => ({
                         ...i,
-                        name: `${i.name} (${i.OperatorId})`
+                        name: `${i.name} (${i.OperatorId})` // Format: Name (OperatorId)
                     })),
                     relays: relays || [],
                     sources: sources || [],
@@ -135,15 +131,10 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                 if (isEdit && initialData) {
                     setFormData({
                         ...initialData,
-                        // Dynamic Date Mapping based on Module
-                        Date: initialData.LoadingDate || initialData.RehandlingDate || initialData.TransferDate ?
-                            new Date(initialData.LoadingDate || initialData.RehandlingDate || initialData.TransferDate).toISOString().split('T')[0] : '',
-
-                        MangQtyTrip: initialData.QtyTrip,
-                        NTPCQtyTrip: initialData.NtpcQtyTrip,
-                        MangTotalQty: initialData.TotalQty,
-                        NTPCTotalQty: initialData.TotalNtpcQty,
-                        Unit: initialData.UnitId,
+                        Date: initialData.TransferDate ? new Date(initialData.TransferDate).toISOString().split('T')[0] : '', // TransferDate
+                        QtyTrip: initialData.QtyTrip,
+                        TotalQty: initialData.TotalQty,
+                        Unit: initialData.UnitId, // UnitId
                         Remarks: initialData.Remarks || ''
                     });
                 }
@@ -156,32 +147,73 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
             }
         };
         loadInit();
-    }, [isEdit, initialData, moduleType]); // Added moduleType dependency
+    }, [isEdit, initialData]);
 
-    // ... (Dynamic Filtering, Auto-Populate Unit remain same)
+    // --- Dynamic Filtering Logic ---
+
+    // 1. Filter Materials based on Destination
+    const filteredMaterials = useMemo(() => {
+        if (!formData.DestinationId) return options.materials;
+
+        // Find allowed Material IDs for this Destination
+        const allowedIds = mappings
+            .filter(m => m.DestinationId == formData.DestinationId)
+            .map(m => m.MaterialId);
+
+        // "If Match not found -> load all"
+        if (allowedIds.length === 0) return options.materials;
+
+        return options.materials.filter(m => allowedIds.includes(m.id)); // Fixed: m.value -> m.id
+    }, [formData.DestinationId, options.materials, mappings]);
+
+    // 2. Auto-Populate Unit based on Material
+    useEffect(() => {
+        if (!formData.MaterialId) return;
+
+        // Find selected material to get Default Unit
+        const selectedMat = options.materials.find(m => m.id == formData.MaterialId); // Fixed: m.value -> m.id
+        if (selectedMat) {
+            // "if no mapping found -> load slno 2 as default (MT)"
+            const defaultUnit = selectedMat.UnitId || 2;
+
+            // Only update if current unit is different (prevent loop)
+            if (formData.Unit != defaultUnit) {
+                // Use functional update to avoid dependency loop on formData
+                setFormData(prev => ({ ...prev, Unit: defaultUnit }));
+            }
+        }
+    }, [formData.MaterialId, options.materials]);
 
     // Auto-Fill Last Context
     useEffect(() => {
+        // Detect Trigger Type
         const isDateChange = prevDateRef.current !== formData.Date;
-        if (isDateChange) prevDateRef.current = formData.Date;
+        prevDateRef.current = formData.Date; // Update tracker
+
+        // Log Trigger Factors
+        console.log("🔄 [Effect:SmartContext] Triggered. State:", {
+            isEdit,
+            date: formData.Date,
+            shiftId: formData.ShiftId,
+            isDateChange
+        });
+
+        if (isEdit || !formData.Date) {
+            console.log("⚠️ [SmartContext] Skipped: Edit Mode or Date Missing");
+            return;
+        }
 
         const loadLast = async () => {
             try {
-                console.log("🚀 [SmartContext] calling API", {
-                    moduleType,
+                console.log("🚀 [SmartContext] calling API /api/transaction/helper/last-context with:", {
                     date: formData.Date,
                     ShiftId: formData.ShiftId
                 });
 
-                const res = await fetch('/api/transaction/helper/last-context', {
+                const res = await fetch('/api/transaction/helper/last-internal-context', {
                     method: 'POST',
-                    body: JSON.stringify({
-                        date: formData.Date,
-                        ShiftId: formData.ShiftId,
-                        moduleType // Pass Module Type
-                    })
+                    body: JSON.stringify({ date: formData.Date, ShiftId: formData.ShiftId })
                 }).then(r => r.json());
-
 
                 // If Result Found -> Apply
                 if (res.success && res.data) {
@@ -228,10 +260,8 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                             ManPower: '',
                             Unit: '',
                             NoOfTrips: '',
-                            MangQtyTrip: '',
-                            NTPCQtyTrip: '',
-                            MangTotalQty: '',
-                            NTPCTotalQty: '',
+                            QtyTrip: '',
+                            TotalQty: '',
                             Remarks: ''
                         };
 
@@ -282,7 +312,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
             const updated = { ...prev, [name]: value };
 
             // Auto Calculate Totals
-            if (['NoOfTrips', 'MangQtyTrip', 'NTPCQtyTrip'].includes(name)) {
+            if (['NoOfTrips', 'QtyTrip'].includes(name)) {
                 calculateTotals(updated);
             }
             return updated;
@@ -291,11 +321,9 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
 
     const calculateTotals = (data) => {
         const trips = parseFloat(data.NoOfTrips) || 0;
-        const mQty = parseFloat(data.MangQtyTrip) || 0;
-        const nQty = parseFloat(data.NTPCQtyTrip) || 0;
+        const mQty = parseFloat(data.QtyTrip) || 0;
 
-        data.MangTotalQty = (trips * mQty).toFixed(2);
-        data.NTPCTotalQty = (trips * nQty).toFixed(2);
+        data.TotalQty = (trips * mQty).toFixed(2);
     };
 
     // Auto-Fetch Qty/Trip Map
@@ -310,8 +338,8 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         setFormData(prev => {
                             const upd = {
                                 ...prev,
-                                MangQtyTrip: res.data.ManagementQtyTrip,
-                                NTPCQtyTrip: res.data.NTPCQtyTrip
+                                QtyTrip: res.data.Qty, // Mapped Qty
+                                // NTPC removed
                             };
                             calculateTotals(upd);
                             return upd;
@@ -351,7 +379,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                 limit: 1000000 // Get all rows for client-side filtering
             });
 
-            const res = await fetch(`/api/transaction/loading-from-mines?${query}`).then(r => r.json());
+            const res = await fetch(`/api/transaction/internal-transfer?${query}`).then(r => r.json());
             if (res.data) {
                 // Client-side strict filter to show ONLY matching context
                 // Context: Shift, Relay, Source, Dest, Material, Hauler
@@ -415,7 +443,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
 
     const validateForm = () => {
         const newErrors = {};
-        const required = ['Date', 'ShiftId', 'RelayId', 'ManPower', 'SourceId', 'DestinationId', 'MaterialId', 'HaulerId', 'LoadingMachineId', 'NoOfTrips', 'Unit', 'MangQtyTrip', 'NTPCQtyTrip', 'MangTotalQty', 'NTPCTotalQty'];
+        const required = ['Date', 'ShiftId', 'RelayId', 'ManPower', 'SourceId', 'DestinationId', 'MaterialId', 'HaulerId', 'LoadingMachineId', 'NoOfTrips', 'Unit', 'QtyTrip', 'TotalQty'];
         required.forEach(field => {
             if (!formData[field]) newErrors[field] = 'Required';
         });
@@ -439,7 +467,9 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
         try {
             // Duplicate Check (Add Mode Only)
             if (!isEdit) {
-                const dupRes = await fetch('/api/transaction/helper/check-duplicate', {
+                // Should use Internal Transfer specific duplicate check or generic helper?
+                // Using helper with type='InternalTransfer' if available, or just check-duplicate-internal
+                const dupRes = await fetch('/api/transaction/helper/check-duplicate-internal', {
                     method: 'POST', body: JSON.stringify(formData)
                 }).then(r => r.json());
 
@@ -451,20 +481,31 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
             }
 
             const url = isEdit
-                ? `/api/transaction/loading-from-mines/${initialData.SlNo}`
-                : '/api/transaction/loading-from-mines/add';
+                ? `/api/transaction/internal-transfer/${initialData.SlNo}`
+                : '/api/transaction/internal-transfer/add';
 
             const method = isEdit ? 'PUT' : 'POST';
+
+            // Ensure Date is mapped correctly for API
+            const payload = {
+                ...formData,
+                Date: formData.Date || formData.TransferDate // Ensure Date key exists
+            };
+
+            console.log("🚀 [Client] Payload to Server:", payload);
 
             const res = await fetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(payload)
             }).then(r => r.json());
+
+            console.log("📥 [Client] API Response:", res);
 
             if (res.success) {
                 toast.success(isEdit ? "Record updated successfully!" : "Record saved successfully!");
                 if (isEdit) {
+                    router.refresh();
                     router.back();
                 } else {
                     // Reset Row 3 ONLY (Keep Context)
@@ -478,11 +519,9 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         HaulerId: '',
                         LoadingMachineId: '',
                         NoOfTrips: '',
-                        MangQtyTrip: '',
-                        NTPCQtyTrip: '',
+                        QtyTrip: '',
                         Unit: '',
-                        MangTotalQty: '',
-                        NTPCTotalQty: '',
+                        TotalQty: '',
                         Remarks: ''
                     }));
 
@@ -524,7 +563,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
             {/* Header: Left (Back + Scope), Center (Title), Right (Save) */}
             <div className={styles.header}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                    <button onClick={() => router.push('/dashboard/transaction/loading-from-mines')} className={styles.backBtn}>
+                    <button onClick={() => router.push('/dashboard/transaction/internal-transfer')} className={styles.backBtn}>
                         <ArrowLeft size={18} /> Back
                     </button>
 
@@ -549,10 +588,8 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                                     LoadingMachineId: '',
                                     NoOfTrips: '',
                                     MangQtyTrip: '',
-                                    NTPCQtyTrip: '',
                                     Unit: '',
-                                    MangTotalQty: '',
-                                    NTPCTotalQty: '',
+                                    TotalQty: '',
                                     Remarks: '',
                                     ManPower: '',
                                     CreatedBy: 0,
@@ -565,7 +602,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                                 // Here we force fetch context for TODAY.
                                 try {
                                     setIsLoading(true);
-                                    const res = await fetch('/api/transaction/helper/last-context', {
+                                    const res = await fetch('/api/transaction/helper/last-internal-context', {
                                         method: 'POST',
                                         body: JSON.stringify({ date: today, ShiftId: '' })
                                     }).then(r => r.json());
@@ -611,10 +648,10 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                 </div>
 
                 <h1 className={styles.headerTitle}>
-                    {isEdit ? 'Update' : 'Create'} Loading From Mines
+                    {isEdit ? 'Update' : 'Create'} Internal Transfer
                 </h1>
 
-                <button onClick={handleSubmit} disabled={isLoading} className={styles.saveBtn}>
+                <button onClick={handleSubmit} disabled={isLoading} className={`${styles.saveBtn} transition-transform active:scale-95 hover:scale-105 duration-200 ease-in-out`}>
                     {isLoading ? <Loader2 className="animate-spin" /> : <Save size={18} />}
                     {isEdit ? 'Update (F2)' : 'Save (F2)'}
                 </button>
@@ -775,15 +812,25 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         {errors.NoOfTrips && <div className={styles.errorMsg}>Required</div>}
                     </div>
                     <div className={styles.group}>
-                        <label>Mang Qty/Trip <span style={{ color: 'red' }}>*</span></label>
-                        <input type="number" name="MangQtyTrip" value={formData.MangQtyTrip} readOnly className={`${styles.input} ${styles.readOnly}`} />
-                        {errors.MangQtyTrip && <div className={styles.errorMsg}>Required</div>}
+                        <label>Qty/Trip <span style={{ color: 'red' }}>*</span></label>
+                        <input
+                            type="text" name="QtyTrip" value={formData.QtyTrip}
+                            onChange={handleChange} className={`${styles.input} ${errors.QtyTrip ? styles.errorBorder : ''}`}
+                            onKeyDown={handleEnter} placeholder="0.00"
+                        />
+                        {errors.QtyTrip && <div className={styles.errorMsg}>Required</div>}
                     </div>
+
                     <div className={styles.group}>
-                        <label>NTPC Qty/Trip <span style={{ color: 'red' }}>*</span></label>
-                        <input type="number" name="NTPCQtyTrip" value={formData.NTPCQtyTrip} readOnly className={`${styles.input} ${styles.readOnly}`} />
-                        {errors.NTPCQtyTrip && <div className={styles.errorMsg}>Required</div>}
+                        <label>Total Qty <span style={{ color: 'red' }}>*</span></label>
+                        <input
+                            type="text" name="TotalQty" value={formData.TotalQty}
+                            readOnly tabIndex={-1}
+                            className={`${styles.input} bg-gray-100 cursor-not-allowed`}
+                            placeholder="0.00"
+                        />
                     </div>
+
                     <div className={styles.group}>
                         <label>Unit <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
@@ -797,17 +844,6 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         />
                         {errors.Unit && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
-                        <label>Mang Total Qty <span style={{ color: 'red' }}>*</span></label>
-                        <input type="text" name="MangTotalQty" value={formData.MangTotalQty} readOnly className={`${styles.input} ${styles.readOnly}`} />
-                        {errors.MangTotalQty && <div className={styles.errorMsg}>Required</div>}
-                    </div>
-                    <div className={styles.group}>
-                        <label>NTPC Total Qty <span style={{ color: 'red' }}>*</span></label>
-                        <input type="text" name="NTPCTotalQty" value={formData.NTPCTotalQty} readOnly className={`${styles.input} ${styles.readOnly}`} />
-                        {errors.NTPCTotalQty && <div className={styles.errorMsg}>Required</div>}
-                    </div>
-
                 </div>
 
                 {/* Remarks Row (Moved out of Grid for clean stacking) */}
@@ -838,10 +874,8 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                                 { accessor: 'UnitName', label: 'Unit', width: 60 },
 
                                 { accessor: 'NoofTrip', label: 'Trips', width: 80 },
-                                { accessor: 'QtyTrip', label: 'Mgmt Qty/Trip', width: 110, type: 'number' },
-                                { accessor: 'NtpcQtyTrip', label: 'NTPC Qty/Trip', width: 110, type: 'number' },
-                                { accessor: 'TotalQty', label: 'Mgmt Total', width: 110, type: 'number' },
-                                { accessor: 'TotalNtpcQty', label: 'NTPC Total', width: 110, type: 'number' }, // Added splits
+                                { accessor: 'QtyTrip', label: 'Qty/Trip', width: 110, type: 'number' },
+                                { accessor: 'TotalQty', label: 'Total Qty', width: 110, type: 'number' },
                                 { accessor: 'CreatedDate', label: 'Time', width: 120, type: 'datetime', disableFilter: true }
                             ],
                             idField: 'SlNo',
@@ -852,7 +886,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         userRole="Admin"
                     />
                 </div>
-            </form>
+            </form >
         </div >
     );
 }

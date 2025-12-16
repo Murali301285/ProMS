@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { ChevronDown, Check, X } from 'lucide-react';
 import styles from '@/app/dashboard/settings/Settings.module.css'; // Reusing styles
 
-export default function SearchableSelect({
+const SearchableSelect = forwardRef(({
     options = [],
     value,
     onChange,
@@ -14,13 +14,27 @@ export default function SearchableSelect({
     autoFocus,
     className,
     multiple = false
-}) {
+}, ref) => {
+    // DEBUG: Multi-Select Value Check
+    if (multiple) {
+        console.log(`[SearchableSelect Debug] Name: ${name}, Value:`, value, 'Type:', typeof value, 'IsArray:', Array.isArray(value));
+    }
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [highlightindex, setHighlightIndex] = useState(0);
     const wrapperRef = useRef(null);
     const inputRef = useRef(null);
     const listRef = useRef(null);
+    const buttonRef = useRef(null);
+
+    // Allow parent to focus this component
+    useImperativeHandle(ref, () => ({
+        focus: () => {
+            if (buttonRef.current) {
+                buttonRef.current.focus();
+            }
+        }
+    }));
 
     // Filter options based on search
     const safeOptions = Array.isArray(options) ? options : [];
@@ -30,12 +44,30 @@ export default function SearchableSelect({
 
     // Get display label
     let selectedLabel = '';
+
+    // Helper for robust compare
+    const safeCompare = (a, b) => String(a).trim() === String(b).trim();
+
     if (multiple) {
         if (Array.isArray(value) && value.length > 0) {
-            selectedLabel = value.map(id => options.find(o => o.id == id)?.name).filter(Boolean).join(', ');
+            // V17.3: Robust String Compare for Label
+            const foundNames = value.map(id => options.find(o => safeCompare(o.id, id))?.name).filter(Boolean);
+
+            // DEBUG: Check if we missed any
+            if (foundNames.length < value.length) {
+                const missing = value.filter(id => !options.find(o => safeCompare(o.id, id)));
+                console.warn(`[SearchableSelect Mismatch] ${name}`);
+                console.warn(`Looking for IDs:`, value);
+                console.warn(`Missing IDs:`, missing);
+                console.warn(`Available Options Sample (First 3):`, options.slice(0, 3));
+                console.warn(`Available Options Sample (Last 3):`, options.slice(-3));
+                console.warn(`Type Check - Sought:`, typeof value[0], `Option ID:`, options[0] ? typeof options[0].id : 'N/A');
+            }
+
+            selectedLabel = foundNames.join(', ');
         }
     } else {
-        selectedLabel = options.find(opt => opt.id == value)?.name || '';
+        selectedLabel = options.find(opt => safeCompare(opt.id, value))?.name || '';
     }
 
     useEffect(() => {
@@ -82,6 +114,8 @@ export default function SearchableSelect({
             onChange({ target: { name, value: option.id } });
             setIsOpen(false);
             setSearch('');
+            // Focus back to button after selection?
+            if (buttonRef.current) buttonRef.current.focus();
         }
     };
 
@@ -156,13 +190,22 @@ export default function SearchableSelect({
     };
 
     const isSelected = (id) => {
-        if (multiple) return Array.isArray(value) && value.some(v => v == id);
+        if (multiple) {
+            // V17.2: Robust comparison (treat everything as String)
+            // Also handle CSV string if passed despite Form parsing
+            let currentVal = value;
+            if (typeof currentVal === 'string') {
+                currentVal = currentVal.includes(',') ? currentVal.split(',') : [currentVal];
+            }
+            return Array.isArray(currentVal) && currentVal.some(v => String(v).trim() === String(id));
+        }
         return value == id;
     };
 
     return (
         <div className={styles.selectWrapper} ref={wrapperRef} style={{ position: 'relative' }}>
             <button
+                ref={buttonRef}
                 type="button"
                 className={`${styles.input} ${error ? styles.errorBorder : ''} ${className || ''}`}
                 onClick={() => setIsOpen(!isOpen)}
@@ -280,4 +323,7 @@ export default function SearchableSelect({
             )}
         </div>
     );
-}
+});
+
+SearchableSelect.displayName = 'SearchableSelect';
+export default SearchableSelect;

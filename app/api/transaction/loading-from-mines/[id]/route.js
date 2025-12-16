@@ -1,16 +1,21 @@
+/* 🔒 LOCKED MODULE: DO NOT EDIT WITHOUT CONFIRMATION */
 import { NextResponse } from 'next/server';
 import { executeQuery, sql } from '@/lib/db';
+
+export const dynamic = 'force-dynamic';
 
 export async function PUT(request, { params }) {
     try {
         const body = await request.json();
-        const { id } = params;
+        const { id } = await params; // FIXED: Await Params
         const {
             Date: date, ShiftId, ShiftInchargeId, ManPower, RelayId,
             SourceId, DestinationId, MaterialId, HaulerId, LoadingMachineId,
             NoOfTrips, MangQtyTrip, NTPCQtyTrip, Unit, MangTotalQty, NTPCTotalQty,
             UserId, Remarks
         } = body;
+
+        console.log("📝 [UPDATE-MINES] Payload:", body);
 
         const query = `
             UPDATE [Trans].[TblLoading]
@@ -27,19 +32,19 @@ export async function PUT(request, { params }) {
                 NoofTrip = @NoOfTrips,
                 QtyTrip = @MangQtyTrip,
                 NtpcQtyTrip = @NTPCQtyTrip,
-                UnitId = ISNULL(@Unit, 1),
+                UnitId = @Unit,
                 TotalQty = @MangTotalQty,
                 TotalNtpcQty = @NTPCTotalQty,
                 UpdatedDate = GETDATE(),
                 UpdatedBy = @UserId,
                 Remarks = @Remarks
+            OUTPUT INSERTED.SlNo
             WHERE SlNo = @id;
             
-            -- Delete Existing Incharges
             DELETE FROM [Trans].[TblLoadingShiftIncharge] WHERE LoadingId = @id;
         `;
 
-        await executeQuery(query, [
+        const result = await executeQuery(query, [
             { name: 'id', type: sql.Int, value: id },
             { name: 'date', type: sql.Date, value: date },
             { name: 'ShiftId', type: sql.Int, value: ShiftId },
@@ -53,12 +58,19 @@ export async function PUT(request, { params }) {
             { name: 'NoOfTrips', type: sql.Int, value: NoOfTrips },
             { name: 'MangQtyTrip', type: sql.Decimal(18, 2), value: MangQtyTrip },
             { name: 'NTPCQtyTrip', type: sql.Decimal(18, 2), value: NTPCQtyTrip },
-            { name: 'Unit', type: sql.Int, value: typeof Unit === 'string' ? 1 : Unit },
+            { name: 'Unit', type: sql.Int, value: Unit ? Number(Unit) : 1 }, // FIXED: Casting
             { name: 'MangTotalQty', type: sql.Decimal(18, 2), value: MangTotalQty },
             { name: 'NTPCTotalQty', type: sql.Decimal(18, 2), value: NTPCTotalQty },
-            { name: 'UserId', type: sql.Int, value: UserId || 1 },
+            { name: 'UserId', type: sql.Int, value: UserId || 2 }, // FIXED: Default to 2 (Admin) as 1 doesn't exist
             { name: 'Remarks', type: sql.NVarChar, value: Remarks }
         ]);
+
+        if (!result || result.length === 0) {
+            console.error("❌ [UPDATE-MINES] Failed. ID not found:", id);
+            return NextResponse.json({ success: false, message: 'Record not found' }, { status: 404 });
+        }
+
+        console.log("✅ [UPDATE-MINES] Detailed Update Success for ID:", id);
 
         const incharges = Array.isArray(ShiftInchargeId) ? ShiftInchargeId : (ShiftInchargeId ? [ShiftInchargeId] : []);
         for (const opId of incharges) {

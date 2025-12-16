@@ -4,7 +4,7 @@ import { MASTER_CONFIG } from '@/lib/masterConfig';
 
 export async function POST(req) {
     try {
-        const { table, nameField, valueField, filter, includeDeleted, additionalColumns } = await req.json();
+        const { table, nameField, valueField, filter, includeDeleted, additionalColumns, includeInactive } = await req.json();
         console.log(`📋 DDL API Request: table=${table}, nameField=${nameField}, valueField=${valueField}, filter=`, filter);
 
         if (!table || !nameField || !valueField) {
@@ -31,7 +31,10 @@ export async function POST(req) {
             query += ` AND (CASE WHEN COL_LENGTH('${fullTableName}', 'IsDelete') IS NOT NULL THEN IsDelete ELSE 0 END) = 0`;
         }
 
-        query += ` AND (CASE WHEN COL_LENGTH('${fullTableName}', 'IsActive') IS NOT NULL THEN IsActive ELSE 1 END) = 1`;
+        // V18.1: Support includeInactive for historical data mapping
+        if (!includeInactive) {
+            query += ` AND (CASE WHEN COL_LENGTH('${fullTableName}', 'IsActive') IS NOT NULL THEN IsActive ELSE 1 END) = 1`;
+        }
 
         // Apply additional filters if provided
         if (filter && typeof filter === 'object') {

@@ -1,97 +1,109 @@
-import { getDbConnection } from '@/lib/db';
-
-import { cookies } from 'next/headers';
-import jwt from 'jsonwebtoken';
+/* 🔒 LOCKED MODULE: DO NOT EDIT WITHOUT CONFIRMATION */
+import { NextResponse } from 'next/server';
+import { executeQuery, sql } from '@/lib/db';
 
 export async function POST(req) {
     try {
-        const body = await req.json();
-        const { date, scope } = body; // Scope: ME or ALL
+        const { date, ShiftId, moduleType, UserId } = await req.json();
 
-        if (!date) return Response.json({ success: false, message: 'Date required' });
+        let table = '';
+        if (moduleType === 'loading-from-mines') {
+            table = '[Trans].[TblLoadingFromMines]';
+        } else if (moduleType === 'material-rehandling') {
+            table = '[Trans].[TblMaterialRehandling]';
+        } else {
+            return NextResponse.json({ success: false, message: 'Invalid Module Type' }, { status: 400 });
+        }
 
-        const pool = await getDbConnection();
+        // Logic: 
+        // Priority 1: Check existing data for this Date (and Shift if provided) for Logged In User
+        // Priority 2: Check existing data for this Date (and Shift) for ANY User
+        // Priority 3: Fallback to [Trans].[TblLoading] (Shift, Incharge, ManPower, Relay)
 
-        // Determine User ID for Priority 1 via JWT
-        const token = cookies().get('auth_token')?.value;
-        let userId = 0;
+        let queryParams = [
+            { name: 'date', type: sql.Date, value: date },
+            { name: 'UserId', type: sql.Int, value: UserId || 0 }
+        ];
 
-        if (token) {
-            const SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-prod';
-            try {
-                const decoded = jwt.verify(token, SECRET);
-                userId = decoded.id || 0;
-            } catch (e) {
-                console.warn("Token verification failed in last-context", e.message);
+        let baseWhere = "RehandlingDate = @date AND IsDelete = 0";
+        if (ShiftId) {
+            baseWhere += " AND ShiftId = @ShiftId";
+            queryParams.push({ name: 'ShiftId', type: sql.Int, value: ShiftId });
+        }
+
+        // --- Priority 1 & 2: Rehandling Table ---
+        const checkRehandling = async (specificUser = false) => {
+            let where = baseWhere;
+            if (specificUser) {
+                where += " AND CreatedBy = @UserId";
             }
+
+            const q = `
+                SELECT TOP 1 
+                    SlNo, ShiftId, ManPowerInShift as ManPower, RelayId, 
+                    SourceId, DestinationId, MaterialId, HaulerEquipmentId, LoadingMachineEquipmentId, UnitId as Unit,
+                    CreatedDate
+                FROM ${table}
+                WHERE ${where}
+                ORDER BY CreatedDate DESC
+            `;
+            return await executeQuery(q, queryParams);
+        };
+
+        // P1: User Specific
+        let res = await checkRehandling(true);
+
+        // P2: Any User
+        if (res.length === 0) {
+            res = await checkRehandling(false);
         }
 
-        // Fetch Last Transaction Logic with Priority
-        // Priority 1: Logged in User
-        // Priority 2: Any User (Global Fallback)
+        if (res.length > 0) {
+            const data = res[0];
+            // Fetch Incharges
+            const incQuery = `SELECT OperatorId FROM [Trans].[TblMaterialRehandlingShiftIncharge] WHERE MaterialRehandlingId = @id`;
+            const incRes = await executeQuery(incQuery, [{ name: 'id', type: sql.Int, value: data.SlNo }]);
+            data.ShiftInchargeIds = incRes.map(x => x.OperatorId);
 
-        let shiftFilter = '';
-        if (body.ShiftId) {
-            shiftFilter = `AND ShiftId = @shiftId`;
+            return NextResponse.json({ success: true, data, source: 'Rehandling' });
         }
 
-        console.log("🔍 Last Context Input:", { date, ShiftId: body.ShiftId, userId });
+        // --- Priority 3: Loading Fallback ---
+        // Only if Shift is provided (as per requirements for P3 logic? Or generic?)
+        // Requirement: "Priority 3-> get Shift,Incharge,Man Power, Relay from [Trans].[TblLoading] from that particular date"
 
-        const baseQuery = `
-            SELECT TOP 1 
-                T.ShiftId, 
-                T.RelayId, 
-                T.SourceId, 
-                T.DestinationId, 
-                T.MaterialId, 
-                T.HaulerEquipmentId, 
-                T.LoadingMachineEquipmentId AS LoadingMachineId,
-                T.ManPowerInShift AS ManPower,
-                T.UnitId AS Unit,
-                (
-                    SELECT STUFF((
-                        SELECT ',' + CAST(LSI.OperatorId AS VARCHAR)
-                        FROM [Trans].[TblLoadingShiftIncharge] LSI
-                        WHERE LSI.LoadingId = T.SlNo
-                        FOR XML PATH('')
-                    ), 1, 1, '')
-                ) AS ShiftInchargeIds
-            FROM [Trans].[TblLoading] T
-            WHERE CAST(T.LoadingDate AS DATE) = @date ${shiftFilter}
+        // If ShiftId IS provided: check for that specific shift in Loading
+        // If ShiftId IS NOT provided: maybe get the latest shift? 
+        // The prompt says: "If Only Date Selected... Priority 3 -> get Shift... from TblLoading... load only data to mention controls"
+
+        const loadingQuery = `
+            SELECT TOP 1 ShiftId, ManPowerInShift as ManPower, RelayId, SlNo
+            FROM [Trans].[TblLoading]
+            WHERE LoadingDate = @date ${ShiftId ? "AND ShiftId = @ShiftId" : ""} AND IsDelete = 0
+            ORDER BY CreatedDate DESC
         `;
 
-        console.log("🔍 Last Context Query Params:", { date, ShiftId: body.ShiftId || 0, userId });
+        // We reuse queryParams, but need to ensure ShiftId is there if used
+        const loadingRes = await executeQuery(loadingQuery, queryParams);
 
-        // 1. Try Priority 1: Logged In User
-        const userResult = await pool.request()
-            .input('date', date)
-            .input('shiftId', body.ShiftId || 0) // Safe default
-            .input('userId', userId || 0)
-            .query(`${baseQuery} AND T.CreatedBy = @userId ORDER BY T.CreatedDate DESC`);
+        if (loadingRes.length > 0) {
+            const data = loadingRes[0];
 
-        // Need userId param if using it
-        if (userResult.recordset.length > 0) {
-            console.log("✅ Context Found (Priority 1 - User):", userResult.recordset[0]);
-            return Response.json({ success: true, data: userResult.recordset[0] });
+            // Fetch Incharges from Loading Table
+            const incQuery = `SELECT OperatorId FROM [Trans].[TblLoadingShiftIncharge] WHERE LoadingId = @id`;
+            const incRes = await executeQuery(incQuery, [{ name: 'id', type: sql.Int, value: data.SlNo }]);
+            data.ShiftInchargeIds = incRes.map(x => x.OperatorId);
+
+            // Clean up unrelated fields (SlNo is from Loading, not Rehandling)
+            delete data.SlNo;
+
+            return NextResponse.json({ success: true, data, source: 'LoadingFallback' });
         }
 
-        // 2. Try Priority 2: Global (Any User) - only if not found for user (or scope is ALL explicit?)
-        // User requested: "priority 2-> if not Priority 1 then check... by any user"
-        const globalResult = await pool.request()
-            .input('date', date)
-            .input('shiftId', body.ShiftId || 0)
-            .query(`${baseQuery} ORDER BY T.CreatedDate DESC`);
-
-        if (globalResult.recordset.length > 0) {
-            console.log("✅ Context Found (Priority 2 - Global):", globalResult.recordset[0]);
-            return Response.json({ success: true, data: globalResult.recordset[0] });
-        } else {
-            console.warn("❌ No Context Found");
-            return Response.json({ success: false, message: 'No history found' });
-        }
+        return NextResponse.json({ success: true, data: null });
 
     } catch (error) {
-        console.error('Last Context Error:', error);
-        return Response.json({ success: false, message: 'Server Error' });
+        console.error("Last Context Error:", error);
+        return NextResponse.json({ success: false, message: error.message }, { status: 500 });
     }
 }

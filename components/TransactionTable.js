@@ -11,6 +11,7 @@ export default function TransactionTable({
     data = [], // Contains ALL data now
     isLoading, // Initial loading state
     onDelete,
+    onEdit,
     userRole,
 }) {
     const tableContainerRef = useRef(null);
@@ -147,11 +148,14 @@ export default function TransactionTable({
     };
 
     const canEdit = (createdDate) => {
+        // 1. Admin Override
+        if (['Admin', 'SuperAdmin', 'Administrator'].includes(userRole)) return true;
+
+        // 2. User Time Constraint
         if (!createdDate) return false;
-        if (userRole === 'Admin' || userRole === 'SuperAdmin') return true;
         const d = new Date(createdDate);
         const today = new Date();
-        return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+        return d.toDateString() === today.toDateString();
     };
 
     // Helper to calculate sticky offsets
@@ -369,7 +373,7 @@ export default function TransactionTable({
                                         <div className={styles.actions}>
                                             <button
                                                 disabled={!isEditable}
-                                                onClick={() => isEditable && router.push(`/dashboard/transaction/loading-from-mines/${row.SlNo}`)}
+                                                onClick={() => isEditable && onEdit && onEdit(row)}
                                                 className={styles.actionBtn}
                                                 style={{ cursor: isEditable ? 'pointer' : 'not-allowed' }}
                                                 title={isEditable ? "Edit Record" : "Edit Disabled (Older than 24h)"}

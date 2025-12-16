@@ -1,24 +1,9 @@
 
-const sql = require('mssql');
-
-const config = {
-    user: 'sa',
-    password: 'Chennai@42',
-    server: 'localhost',
-    port: 1433,
-    database: 'ProdMS_live',
-    options: {
-        encrypt: false,
-        trustServerCertificate: true,
-        enableArithAbort: true,
-    },
-};
+const { getDbConnection } = require('./lib/db');
 
 async function checkSchema() {
     try {
-        console.log("Connecting...");
-        const pool = await new sql.ConnectionPool(config).connect();
-        console.log("Connected.");
+        const pool = await getDbConnection();
 
         console.log("--- Checking TblEquipmentReading Columns ---");
         const res1 = await pool.request().query(`
@@ -49,13 +34,6 @@ async function checkSchema() {
             `);
             console.log("Incharge Child Data:", res4.recordset);
         } catch (e) { console.log("Incharge Child Table Error:", e.message); }
-
-        try {
-            const res5 = await pool.request().query(`
-                SELECT TOP 5 * FROM [Trans].[TblEquipmentReadingOperator]
-            `);
-            console.log("Operator Child Data:", res5.recordset);
-        } catch (e) { console.log("Operator Child Table Error:", e.message); }
 
     } catch (err) {
         console.error("Error:", err);

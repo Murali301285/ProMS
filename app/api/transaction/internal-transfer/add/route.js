@@ -1,4 +1,3 @@
-/* 🔒 LOCKED MODULE: DO NOT EDIT WITHOUT CONFIRMATION */
 import { NextResponse } from 'next/server';
 import { executeQuery, sql } from '@/lib/db';
 
@@ -8,20 +7,20 @@ export async function POST(request) {
         const {
             Date: date, ShiftId, ShiftInchargeId, ManPower, RelayId,
             SourceId, DestinationId, MaterialId, HaulerId, LoadingMachineId,
-            NoOfTrips, MangQtyTrip, NTPCQtyTrip, Unit, MangTotalQty, NTPCTotalQty,
-            UserId, Remarks // Assuming we get this from somewhere, or use default
+            NoOfTrips, QtyTrip, Unit, TotalQty,
+            UserId, Remarks
         } = body;
 
-        if (!date || !ShiftId || !HaulerId || !LoadingMachineId) {
+        console.log("📝 [INSERT] Internal Transfer Payload:", body);
+
+        if (!date || !ShiftId || !HaulerId || !LoadingMachineId || !SourceId || !DestinationId) {
             return NextResponse.json({ success: false, message: 'Missing mandatory fields' }, { status: 400 });
         }
 
-        // Correct Table Name: [Trans].[TblLoading]
-
-        // --- Duplicate Check ---
+        // --- Server Side Duplicate Check ---
         const duplicateCheck = await executeQuery(`
-            SELECT TOP 1 SlNo FROM [Trans].[TblLoading]
-            WHERE CAST(LoadingDate AS DATE) = @date
+            SELECT TOP 1 SlNo FROM [Trans].[TblInternalTransfer]
+            WHERE TransferDate = @date
             AND ShiftId = @ShiftId
             AND RelayId = @RelayId
             AND SourceId = @SourceId
@@ -42,21 +41,20 @@ export async function POST(request) {
         ]);
 
         if (duplicateCheck.length > 0) {
-            return NextResponse.json({ success: false, message: 'Entry is already found , pls check.' }, { status: 409 });
+            return NextResponse.json({ success: false, message: 'Duplicate Entry Found' }, { status: 409 });
         }
         // -----------------------
 
-        // Columns adjusted to match GET API: LoadingDate, ShiftId, ManPowerInShift, RelayId...
         const query = `
-            INSERT INTO [Trans].[TblLoading] (
-                LoadingDate, ShiftId, ManPowerInShift, RelayId,
+            INSERT INTO [Trans].[TblInternalTransfer] (
+                TransferDate, ShiftId, ManPowerInShift, RelayId,
                 SourceId, DestinationId, MaterialId, HaulerEquipmentId, LoadingMachineEquipmentId,
-                NoofTrip, QtyTrip, NtpcQtyTrip, UnitId, TotalQty, TotalNtpcQty,
+                NoofTrip, QtyTrip, UnitId, TotalQty,
                 CreatedDate, IsDelete, CreatedBy, Remarks
             ) OUTPUT INSERTED.SlNo VALUES (
                 @date, @ShiftId, @ManPower, @RelayId,
                 @SourceId, @DestinationId, @MaterialId, @HaulerId, @LoadingMachineId,
-                @NoOfTrips, @MangQtyTrip, @NTPCQtyTrip, ISNULL(@Unit, 1), @MangTotalQty, @NTPCTotalQty,
+                @NoOfTrips, @QtyTrip, ISNULL(@Unit, 1), @TotalQty,
                 GETDATE(), 0, @UserId, @Remarks
             );
         `;
@@ -72,43 +70,30 @@ export async function POST(request) {
             { name: 'HaulerId', type: sql.Int, value: HaulerId },
             { name: 'LoadingMachineId', type: sql.Int, value: LoadingMachineId },
             { name: 'NoOfTrips', type: sql.Int, value: NoOfTrips },
-            { name: 'MangQtyTrip', type: sql.Decimal(18, 2), value: MangQtyTrip },
-            { name: 'NTPCQtyTrip', type: sql.Decimal(18, 2), value: NTPCQtyTrip },
-            { name: 'Unit', type: sql.Int, value: typeof Unit === 'string' ? 1 : Unit },
-            { name: 'MangTotalQty', type: sql.Decimal(18, 2), value: MangTotalQty },
-            { name: 'NTPCTotalQty', type: sql.Decimal(18, 2), value: NTPCTotalQty },
-
-            // Default to 2 (Admin) if no user provided, as 1 doesn't exist
-            { name: 'UserId', type: sql.Int, value: UserId || 2 },
+            { name: 'QtyTrip', type: sql.Decimal(18, 2), value: QtyTrip },
+            { name: 'Unit', type: sql.Int, value: Unit ? Number(Unit) : 1 }, // Corrected Logic
+            { name: 'TotalQty', type: sql.Decimal(18, 2), value: TotalQty },
+            { name: 'UserId', type: sql.Int, value: UserId || 2 }, // FIXED: Default 2 (Admin)
             { name: 'Remarks', type: sql.NVarChar, value: Remarks }
         ]);
 
         const newId = result[0]?.SlNo;
 
         if (newId) {
-            // Insert Shift Incharge (Multi-select support)
-            // ShiftInchargeId can be array or single value (if older client?)
+            // Insert Shift Incharges
             const incharges = Array.isArray(ShiftInchargeId) ? ShiftInchargeId : (ShiftInchargeId ? [ShiftInchargeId] : []);
             for (const opId of incharges) {
-                await executeQuery(`INSERT INTO [Trans].[TblLoadingShiftIncharge] (LoadingId, OperatorId) VALUES (@lid, @oid)`, [
+                await executeQuery(`INSERT INTO [Trans].[TblInternalTransferIncharge] (TransferId, OperatorId) VALUES (@lid, @oid)`, [
                     { name: 'lid', type: sql.Int, value: newId },
                     { name: 'oid', type: sql.Int, value: opId }
                 ]);
             }
         }
-        // REDO STRATEGY: 
-        // 1. Modify Main Insert to use OUTPUT INSERTED.SlNo.
-        // 2. Get that ID.
-        // 3. Loop Insert.
 
-        // Actually, let's do it in one big script if possible? 
-        // Or cleaner: Get ID, then loop.
-
-
-        return NextResponse.json({ success: true, message: 'Transaction Created Successfully' });
+        return NextResponse.json({ success: true, message: 'Saved successfully', id: newId });
 
     } catch (error) {
-        console.error('Create Error:', error);
-        return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+        console.error("Internal Transfer Insert Failed:", error);
+        return NextResponse.json({ success: false, message: 'Server Error: ' + error.message }, { status: 500 });
     }
 }
