@@ -1,22 +1,23 @@
 'use client';
 
+import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import styles from '@/app/dashboard/settings/Settings.module.css';
 import SearchableSelect from '@/components/SearchableSelect';
 
 export default function DynamicForm({ columns, formData, setFormData, errors, setErrors }) {
+    const [passwordVisible, setPasswordVisible] = useState({});
+
+    const togglePassword = (field) => {
+        setPasswordVisible(prev => ({ ...prev, [field]: !prev[field] }));
+    };
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-
-        // Strict Validation for Numbers (if typed, double check)
-        // Note: The main strict blocking is done in onKeyDown/onKeyPress
-
         setFormData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
-
-        // Clear error when user types
         if (errors && errors[name] && setErrors) {
             setErrors(prev => {
                 const newErr = { ...prev };
@@ -57,14 +58,12 @@ export default function DynamicForm({ columns, formData, setFormData, errors, se
         }
     };
 
-    // Generic Enter Key Navigation
     const handleEnterNav = (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             const form = e.target.form;
             if (form) {
                 const index = Array.prototype.indexOf.call(form, e.target);
-                // Try to find next interactive element
                 let nextIndex = index + 1;
                 while (form.elements[nextIndex]) {
                     if (!form.elements[nextIndex].disabled && form.elements[nextIndex].type !== 'hidden') {
@@ -77,55 +76,35 @@ export default function DynamicForm({ columns, formData, setFormData, errors, se
         }
     };
 
-    // Strict Input Validation Handler
     const handleStrictInput = (e, type, decimals = 0) => {
         if (e.key === 'Backspace' || e.key === 'Tab' || e.key === 'Delete' || e.key.startsWith('Arrow')) return;
-        if (e.key === 'Enter') return; // Let handleEnterNav handle it
+        if (e.key === 'Enter') return;
 
         const isControl = e.ctrlKey || e.metaKey;
-        if (isControl) return; // Allow copy/paste etc
+        if (isControl) return;
 
         if (type === 'integer') {
             if (!/[0-9]/.test(e.key)) {
                 e.preventDefault();
             }
         } else if (type === 'decimal') {
-            // Allow numbers
             if (/[0-9]/.test(e.key)) {
-                // Check decimal limit if needed (complex to do perfectly on keyDown, usually onChange is safer, but strictly blocking chars here)
                 const val = e.target.value;
                 if (val.includes('.') && val.split('.')[1].length >= decimals && e.target.selectionStart > val.indexOf('.')) {
                     e.preventDefault();
                 }
                 return;
             }
-            // Allow ONE dot
             if (e.key === '.') {
                 if (e.target.value.includes('.')) {
                     e.preventDefault();
                 }
                 return;
             }
-            // Block everything else
             e.preventDefault();
         }
     };
 
-    // Validation Logic for Decimals on Change
-    const handleDecimalInput = (e, accessor, decimals) => {
-        let val = e.target.value;
-        if (val.includes('.')) {
-            const [int, dec] = val.split('.');
-            if (dec.length > decimals) {
-                val = `${int}.${dec.substring(0, decimals)}`;
-                e.target.value = val; // Update the input element's value directly
-            }
-        }
-        // Then call the general handleChange to update formData and clear errors
-        handleChange(e);
-    };
-
-    // Helper to render individual fields
     const renderField = (col, idx, isRowLayout) => {
         const isObj = typeof col === 'object';
         const accessor = isObj ? col.accessor : col;
@@ -134,8 +113,6 @@ export default function DynamicForm({ columns, formData, setFormData, errors, se
         const required = isObj ? col.required : false;
         const autoFocus = isObj ? col.autoFocus : (idx === 0);
         const accept = isObj ? col.accept : null;
-
-        // Validation Props
         const validationType = isObj ? col.validationType : null;
         const decimals = isObj ? col.decimals : 2;
         const isFirstField = idx === 0;
@@ -144,7 +121,7 @@ export default function DynamicForm({ columns, formData, setFormData, errors, se
             <div key={accessor} className={styles.formGroup} style={{
                 position: 'relative',
                 gridColumn: col.fullRow ? '1 / -1' : 'auto',
-                flex: isRowLayout ? (col.colSpan || '1') : undefined // Distribute space based on colSpan or equal
+                flex: isRowLayout ? (col.colSpan || '1') : undefined
             }}>
                 <label className={styles.label}>
                     {label} {required && <span style={{ color: 'red', marginLeft: '4px' }}>*</span>}
@@ -197,6 +174,36 @@ export default function DynamicForm({ columns, formData, setFormData, errors, se
                         />
                         <span className={styles.slider}></span>
                     </label>
+                ) : type === 'password' ? (
+                    <div style={{ position: 'relative' }}>
+                        <input
+                            type={passwordVisible[accessor] ? 'text' : 'password'}
+                            name={accessor}
+                            className={styles.input}
+                            value={formData[accessor] || ''}
+                            onChange={handleChange}
+                            onKeyDown={handleEnterNav}
+                            placeholder={`Enter ${label}`}
+                            autoFocus={col.autoFocus || (!isRowLayout && isFirstField)}
+                            style={errors && errors[accessor] ? { borderColor: 'red', paddingRight: '40px' } : { paddingRight: '40px' }}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => togglePassword(accessor)}
+                            style={{
+                                position: 'absolute',
+                                right: '10px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: '#666'
+                            }}
+                        >
+                            {passwordVisible[accessor] ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                    </div>
                 ) : (
                     <input
                         type={type || 'text'}
@@ -225,7 +232,6 @@ export default function DynamicForm({ columns, formData, setFormData, errors, se
     return (
         <form className={styles.formGrid}>
             {(() => {
-                // Group columns by Row if 'row' property exists
                 const groups = {};
                 let hasRows = false;
 
@@ -236,14 +242,10 @@ export default function DynamicForm({ columns, formData, setFormData, errors, se
                     groups[row].push(col);
                 });
 
-                // If no rows defined, stick to default grid (groups['default'] will have all if mix but checking hasRows)
                 if (!hasRows) {
-                    // Linear Render (Original Logic)
                     return columns.filter(col => !(typeof col === 'object' && col.viewOnly)).map((col, idx) => renderField(col, idx, false));
                 }
 
-                // Row-Based Render
-                // Sort keys: 1, 2, 3 ... 'default'
                 const sortedKeys = Object.keys(groups).sort((a, b) => {
                     if (a === 'default') return 1;
                     if (b === 'default') return -1;
@@ -257,7 +259,6 @@ export default function DynamicForm({ columns, formData, setFormData, errors, se
                 ));
             })()}
 
-            {/* Toggle Switch for IsActive - Only if NOT already in columns (avoid duplicate) */}
             {!columns.some(c => (typeof c === 'object' ? c.accessor : c) === 'IsActive') && (
                 <div className={styles.formGroup} style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <label className={styles.label} style={{ marginBottom: 0 }}>Is Active</label>

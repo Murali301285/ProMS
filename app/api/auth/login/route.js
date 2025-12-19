@@ -21,7 +21,7 @@ export async function POST(request) {
         // Generate JWT Token
         const SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-prod';
         const token = jwt.sign(
-            { id: user.id, username: user.username, role: user.role },
+            { id: user.id, username: user.username, role: user.role, roleId: user.roleId },
             SECRET,
             { expiresIn: '30m' } // 30 Minutes Session
         );
@@ -33,6 +33,22 @@ export async function POST(request) {
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict',
             maxAge: 30 * 60, // 30 minutes in seconds
+            path: '/',
+        });
+
+        cookieStore.set('role_id', user.roleId, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 30 * 60,
+            path: '/',
+        });
+
+        cookieStore.set('current_db', 'ProdMS_live', { // Default to live for now, or dynamic
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 30 * 60,
             path: '/',
         });
 

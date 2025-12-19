@@ -6,7 +6,20 @@ import { TRANSACTION_CONFIG } from '@/lib/transactionConfig';
 import TransactionTable from '@/components/TransactionTable';
 import LoadingOverlay from '@/components/LoadingOverlay';
 import { Plus, RotateCcw } from 'lucide-react';
-import styles from './page.module.css';
+// Basic inline styles to replace missing CSS module for build success
+const styles = {
+    page: { padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px', height: '100%' },
+    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+    title: { fontSize: '24px', fontWeight: 'bold', color: '#1e293b' },
+    headerActions: { display: 'flex', gap: '10px', alignItems: 'center' },
+    addNew: { display: 'flex', alignItems: 'center', gap: '5px', background: '#2563eb', color: 'white', padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer' },
+    refreshBtn: { background: 'white', border: '1px solid #cbd5e1', padding: '8px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' },
+    filters: { display: 'flex', alignItems: 'flex-end', gap: '15px', background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' },
+    filterGroup: { display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '14px', fontWeight: '500', color: '#64748b' },
+    actions: { display: 'flex', gap: '10px' },
+    btnPrimary: { background: '#2563eb', color: 'white', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' },
+    btnSecondary: { background: 'white', border: '1px solid #cbd5e1', padding: '8px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }
+};
 
 export default function InternalTransferPage() {
     const router = useRouter();
@@ -115,14 +128,14 @@ export default function InternalTransferPage() {
     };
 
     return (
-        <div className={styles.page} style={{ position: 'relative' }}>
+        <div style={styles.page}>
             {/* Blocking Overlay */}
             {loading && <LoadingOverlay message="Processing..." />}
 
             {/* Header */}
-            <div className={styles.header}>
-                <h1 className={styles.title}>Internal Transfer</h1>
-                <div className={styles.headerActions}>
+            <div style={styles.header}>
+                <h1 style={styles.title}>Internal Transfer</h1>
+                <div style={styles.headerActions}>
                     {/* Last Data Label */}
                     {lastEntry && (
                         <span style={{
@@ -136,29 +149,29 @@ export default function InternalTransferPage() {
                         </span>
                     )}
 
-                    <button className={`${styles.addNew} transition-transform active:scale-95 hover:scale-105 duration-200`} onClick={() => router.push('/dashboard/transaction/internal-transfer/add')}>
+                    <button style={styles.addNew} onClick={() => router.push('/dashboard/transaction/internal-transfer/add')}>
                         <Plus size={16} /> Add New
                     </button>
-                    <button className={styles.refreshBtn} onClick={() => fetchData()} title="Reload">
+                    <button style={styles.refreshBtn} onClick={() => fetchData()} title="Reload">
                         <RotateCcw size={16} />
                     </button>
                 </div>
             </div>
 
             {/* Filters */}
-            <div className={styles.filters}>
-                <div className={styles.filterGroup}>
+            <div style={styles.filters}>
+                <div style={styles.filterGroup}>
                     <label>From Date</label>
-                    <input type="date" value={filters.fromDate} max={today} onChange={e => setFilters({ ...filters, fromDate: e.target.value })} />
+                    <input type="date" value={filters.fromDate} max={today} onChange={e => setFilters({ ...filters, fromDate: e.target.value })} style={{ border: '1px solid #cbd5e1', padding: '6px', borderRadius: '4px' }} />
                 </div>
-                <div className={styles.filterGroup}>
+                <div style={styles.filterGroup}>
                     <label>To Date</label>
-                    <input type="date" value={filters.toDate} max={today} onChange={e => setFilters({ ...filters, toDate: e.target.value })} />
+                    <input type="date" value={filters.toDate} max={today} onChange={e => setFilters({ ...filters, toDate: e.target.value })} style={{ border: '1px solid #cbd5e1', padding: '6px', borderRadius: '4px' }} />
                 </div>
 
-                <div className={styles.actions}>
-                    <button onClick={handleShow} className={styles.btnPrimary} title="Load Data">Show</button>
-                    <button onClick={handleReset} className={styles.btnSecondary} title="Reset Dates"><RotateCcw size={16} /></button>
+                <div style={styles.actions}>
+                    <button onClick={handleShow} style={styles.btnPrimary} title="Load Data">Show</button>
+                    <button onClick={handleReset} style={styles.btnSecondary} title="Reset Dates"><RotateCcw size={16} /></button>
                 </div>
             </div>
 

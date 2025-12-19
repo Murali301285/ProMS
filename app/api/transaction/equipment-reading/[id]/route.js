@@ -6,14 +6,11 @@ export const dynamic = 'force-dynamic';
 
 // GET Single Record
 export async function GET(request, { params }) {
-    console.log("---------------------------------------------------------");
-    console.log("API: GET /api/transaction/equipment-reading/[id] HIT");
+    // console.log("API: GET /api/transaction/equipment-reading/[id] HIT");
 
     try {
-        console.log("DEBUG: Awaiting Params...");
         const resolvedParams = await params;
         const { id } = resolvedParams;
-        console.log("DEBUG: Resolved ID:", id);
 
         if (!id) {
             console.error("ERROR: ID is undefined or null");
@@ -23,9 +20,7 @@ export async function GET(request, { params }) {
         const query = `
             SELECT * FROM [Trans].[TblEquipmentReading] WHERE SlNo = @id AND IsDelete = 0
         `;
-        console.log("DEBUG: Executing Query:", query);
         const result = await executeQuery(query, [{ name: 'id', type: sql.Int, value: id }]);
-        console.log("DEBUG: Query Result Length:", result ? result.length : 'null');
 
         if (!result || result.length === 0) {
             console.warn("WARN: Record not found for ID:", id);
@@ -33,22 +28,18 @@ export async function GET(request, { params }) {
         }
 
         const record = result[0];
-        console.log("DEBUG: Record Found:", record.SlNo);
 
         // Fetch Child Tables (Incharges & Operators)
-        console.log("DEBUG: Fetching Child Tables...");
 
         const incharges = await executeQuery(
             `SELECT OperatorId FROM [Trans].[TblEquipmentReadingShiftIncharge] WHERE EquipmentReadingId = @id`,
             [{ name: 'id', type: sql.Int, value: id }]
         );
-        console.log("DEBUG: Incharges Count:", incharges.length);
 
         const operators = await executeQuery(
             `SELECT OperatorId FROM [Trans].[TblEquipmentReadingOperator] WHERE EquipmentReadingId = @id`,
             [{ name: 'id', type: sql.Int, value: id }]
         );
-        console.log("DEBUG: Operators Count:", operators.length);
 
         // Format for Frontend
         const data = {
@@ -56,7 +47,6 @@ export async function GET(request, { params }) {
             ShiftInchargeId: incharges.map(i => i.OperatorId),
             OperatorId: operators.map(i => i.OperatorId)
         };
-        console.log("DEBUG: Sending Response Success");
 
         return NextResponse.json({ success: true, data });
 
@@ -167,6 +157,22 @@ export async function PUT(request, { params }) {
 
     } catch (error) {
         console.error("Update Error:", error);
+        return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    }
+}
+
+// DELETE (Soft Delete)
+export async function DELETE(request, { params }) {
+    try {
+        const { id } = await params;
+        if (!id) return NextResponse.json({ success: false, message: 'ID missing' }, { status: 400 });
+
+        const query = `UPDATE [Trans].[TblEquipmentReading] SET IsDelete = 1 WHERE SlNo = @id`;
+        await executeQuery(query, [{ name: 'id', type: sql.Int, value: id }]);
+
+        return NextResponse.json({ success: true, message: 'Deleted Successfully' });
+    } catch (error) {
+        console.error("Delete Error:", error);
         return NextResponse.json({ success: false, message: error.message }, { status: 500 });
     }
 }

@@ -8,18 +8,6 @@ import { useState, useEffect } from 'react';
 import styles from './Sidebar.module.css';
 
 const bottomItems = [
-    {
-        name: 'Settings',
-        icon: Icons.Settings,
-        path: '/dashboard/settings',
-        subItems: [
-            { name: 'Menu Allocation', path: '/dashboard/settings/menu-allocation' },
-            { name: 'Sub Menus', path: '/dashboard/settings/sub-menus' },
-            { name: 'Menus', path: '/dashboard/settings/menus' },
-            { name: 'DB Config', path: '/dashboard/settings/db-config' },
-            { name: 'Audit Logs', path: '/dashboard/settings/audit-logs' }
-        ]
-    },
     { name: 'Logout', icon: Icons.LogOut, path: '#' },
 ];
 
@@ -40,14 +28,14 @@ function NavItem({ item, pathname, expandedMenus, toggleSubMenu, isCollapsed, le
         isActive = checkIsActive(pathname, item.path);
     }
 
-    const isExpanded = expandedMenus[item.name];
+    const isExpanded = expandedMenus[item.id || item.name];
     const hasSubItems = item.subItems && item.subItems.length > 0;
 
     return (
         <div className={styles.navGroup}>
             <div
                 className={`${styles.navItem} ${isActive ? styles.active : ''}`}
-                onClick={() => hasSubItems ? toggleSubMenu(item.name) : null}
+                onClick={() => hasSubItems ? toggleSubMenu(item.id || item.name) : null}
                 title={isCollapsed ? item.name : ''}
                 style={{ paddingLeft: level > 0 ? `${(level * 0.5) + 0.5}rem` : '' }}
             >
@@ -75,7 +63,7 @@ function NavItem({ item, pathname, expandedMenus, toggleSubMenu, isCollapsed, le
                 <div className={styles.subMenu}>
                     {item.subItems.map(sub => (
                         <NavItem
-                            key={sub.name}
+                            key={sub.id || sub.name}
                             item={sub}
                             pathname={pathname}
                             expandedMenus={expandedMenus}
@@ -137,7 +125,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                     };
 
                     if (hasActiveChild(item)) {
-                        newExpanded[item.name] = true;
+                        newExpanded[item.id || item.name] = true;
                     }
                 }
             });
@@ -147,8 +135,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         setExpandedMenus(prev => ({ ...prev, ...newExpanded }));
     }, [pathname, menuItems, loading]);
 
-    const toggleSubMenu = (name) => {
-        setExpandedMenus(prev => ({ ...prev, [name]: !prev[name] }));
+    const toggleSubMenu = (id) => {
+        setExpandedMenus(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
     const handleLogout = async () => {
@@ -171,9 +159,25 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             </div>
 
             <nav className={styles.nav}>
-                {menuItems.map((item) => (
+                {menuItems
+                    .filter(item => item.name !== 'Settings') // Exclude Settings from top
+                    .map((item) => (
+                        <NavItem
+                            key={item.id || item.name}
+                            item={item}
+                            pathname={pathname}
+                            expandedMenus={expandedMenus}
+                            toggleSubMenu={toggleSubMenu}
+                            isCollapsed={isCollapsed}
+                        />
+                    ))}
+            </nav>
+
+            <div className={styles.bottomNav}>
+                {/* Render Settings Here if exists */}
+                {menuItems.filter(m => m.name === 'Settings').map(item => (
                     <NavItem
-                        key={item.name}
+                        key={item.id || item.name}
                         item={item}
                         pathname={pathname}
                         expandedMenus={expandedMenus}
@@ -181,9 +185,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                         isCollapsed={isCollapsed}
                     />
                 ))}
-            </nav>
 
-            <div className={styles.bottomNav}>
                 {bottomItems.map((item) => (
                     item.name === 'Logout' ? (
                         <div key={item.name} className={styles.navGroup}>

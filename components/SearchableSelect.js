@@ -15,10 +15,7 @@ const SearchableSelect = forwardRef(({
     className,
     multiple = false
 }, ref) => {
-    // DEBUG: Multi-Select Value Check
-    if (multiple) {
-        console.log(`[SearchableSelect Debug] Name: ${name}, Value:`, value, 'Type:', typeof value, 'IsArray:', Array.isArray(value));
-    }
+
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [highlightindex, setHighlightIndex] = useState(0);

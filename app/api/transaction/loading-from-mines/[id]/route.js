@@ -1,8 +1,21 @@
 /* 🔒 LOCKED MODULE: DO NOT EDIT WITHOUT CONFIRMATION */
 import { NextResponse } from 'next/server';
-import { executeQuery, sql } from '@/lib/db';
+import { executeQuery, sql, getDbConnection } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
+
+export async function DELETE(request, { params }) {
+    try {
+        const { id } = await params;
+        const pool = await getDbConnection();
+        await pool.request().query(`UPDATE [Trans].[TblLoading] SET IsDelete = 1 WHERE SlNo = ${id}`);
+
+        return NextResponse.json({ success: true, message: 'Record deleted successfully' });
+    } catch (error) {
+        console.error('Delete Error:', error);
+        return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    }
+}
 
 export async function PUT(request, { params }) {
     try {

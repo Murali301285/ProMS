@@ -19,7 +19,8 @@ export async function GET(request) {
                 user: {
                     id: decoded.id,
                     username: decoded.username,
-                    role: decoded.role
+                    role: decoded.role,
+                    roleId: decoded.roleId
                 }
             });
         } catch (e) {

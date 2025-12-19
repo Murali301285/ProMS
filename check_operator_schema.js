@@ -9,36 +9,23 @@ const config = {
     database: 'ProdMS_live',
     options: {
         encrypt: false,
-        trustServerCertificate: true,
-        enableArithAbort: true,
-    },
+        trustServerCertificate: true
+    }
 };
 
 async function checkOperatorSchema() {
     try {
-        const pool = await new sql.ConnectionPool(config).connect();
-
-        console.log("--- Checking TblOperator Columns ---");
-        const res = await pool.request().query(`
+        await sql.connect(config);
+        const result = await sql.query(`
             SELECT COLUMN_NAME, DATA_TYPE 
             FROM INFORMATION_SCHEMA.COLUMNS 
             WHERE TABLE_SCHEMA = 'Master' AND TABLE_NAME = 'TblOperator'
         `);
-        console.table(res.recordset);
-
-        // Also check Child Table column type
-        console.log("\n--- Checking TblEquipmentReadingOperator Columns ---");
-        const res2 = await pool.request().query(`
-            SELECT COLUMN_NAME, DATA_TYPE 
-            FROM INFORMATION_SCHEMA.COLUMNS 
-            WHERE TABLE_SCHEMA = 'Trans' AND TABLE_NAME = 'TblEquipmentReadingOperator'
-        `);
-        console.table(res2.recordset);
-
+        console.log(JSON.stringify(result.recordset, null, 2));
     } catch (err) {
-        console.error("Error:", err);
+        console.error(err);
     } finally {
-        process.exit();
+        await sql.close();
     }
 }
 

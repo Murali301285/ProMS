@@ -1,7 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import sql from 'mssql';
-import { getDbConnection, executeQuery } from '@/lib/db';
+import { getDbConnection, executeQuery, sql } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,11 +50,6 @@ export async function GET(request) {
         query += "T.SlNo, T.[Date], ";
 
         // Shift Logic: Name + (From - To)
-        // Formatting Time is tricky in SQL directly if types are Time. assuming standard output or casting.
-        // Let's format it simply or handle on frontend. 
-        // User request: "[ShiftName] +( [FromTime] to [ToTime])".
-        // SQL Server Time type prints as '09:00:00.0000000'. We might want to substring it or format.
-        // Let's try FORMAT function if 2012+, or string manipulation.
         query += "(S.ShiftName + ' (' + LEFT(CAST(S.FromTime AS VARCHAR), 5) + ' to ' + LEFT(CAST(S.ToTime AS VARCHAR), 5) + ')') as ShiftDisplay, ";
 
         // Complex Multi-Select: Shift Incharge
@@ -191,14 +185,14 @@ export async function POST(request) {
         if (ShiftInchargeId && ShiftInchargeId.length > 0) {
             for (const opId of ShiftInchargeId) {
                 await executeQuery(`INSERT INTO [Trans].[TblEquipmentReadingShiftIncharge] (EquipmentReadingId, OperatorId) VALUES (@lid, @oid)`, [
-                    { name: 'lid', value: newId }, { name: 'oid', value: opId }
+                    { name: 'lid', value: newId, type: sql.Int }, { name: 'oid', value: opId, type: sql.Int }
                 ]);
             }
         }
         if (OperatorId && OperatorId.length > 0) {
             for (const opId of OperatorId) {
                 await executeQuery(`INSERT INTO [Trans].[TblEquipmentReadingOperator] (EquipmentReadingId, OperatorId) VALUES (@lid, @oid)`, [
-                    { name: 'lid', value: newId }, { name: 'oid', value: opId }
+                    { name: 'lid', value: newId, type: sql.Int }, { name: 'oid', value: opId, type: sql.Int }
                 ]);
             }
         }

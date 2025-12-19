@@ -107,7 +107,21 @@ export default function EquipmentReadingPage() {
 
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this record?")) return;
-        alert("Delete functionality pending API implementation.");
+        try {
+            setLoading(true);
+            const res = await fetch(`${config.apiEndpoint}/${id}`, { method: 'DELETE' }).then(r => r.json());
+            if (res.success) {
+                // Remove from local state immediately
+                setData(prev => prev.filter(row => row.SlNo !== id));
+            } else {
+                alert(res.message || "Delete Failed");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Delete Failed");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getDbConnection, sql } from '@/lib/db';
 import { MASTER_CONFIG } from '@/lib/masterConfig';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req, { params }) {
     try {
         const { slug } = await params;

@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect, useMemo, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
-import { Edit, Trash2, Download, Search, ArrowUpDown, Filter, X, Check, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Edit, Trash2, Download, Search, ArrowUpDown, Filter, X, Check, ArrowLeft, ArrowRight, ChevronsLeft, ChevronsRight, ChevronRight, ChevronDown, ChevronLeft } from 'lucide-react';
 import styles from './TransactionTable.module.css';
 import * as XLSX from 'xlsx-js-style';
 
@@ -25,6 +25,7 @@ export default function TransactionTable({
     const [activeFilterSearch, setActiveFilterSearch] = useState('');
     const [pageSize, setPageSize] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
+    const [expandedRows, setExpandedRows] = useState(new Set()); // Set of SlNo
 
     // --- Derived Data (Memoized for Performance) ---
 
@@ -120,6 +121,15 @@ export default function TransactionTable({
             return rest;
         });
         setCurrentPage(1);
+    };
+
+    const toggleRow = (id) => {
+        setExpandedRows(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) newSet.delete(id);
+            else newSet.add(id);
+            return newSet;
+        });
     };
 
     const handleExport = () => {
@@ -344,54 +354,113 @@ export default function TransactionTable({
                             const isEditable = canEdit(row.CreatedDate);
 
                             return (
-                                <tr key={row[config.idField] || rowIndex} className={styles.tr}>
-                                    {config.columns.map((col, cIndex) => {
-                                        const isSticky = cIndex < 4;
-                                        const left = getLeftOffset(cIndex);
-                                        let val = row[col.accessor];
-                                        if (col.accessor === 'SlNo') val = listIndex;
-                                        if (col.type === 'date' && val) val = new Date(val).toLocaleDateString('en-GB');
+                                <Fragment key={row[config.idField] || rowIndex}>
+                                    <tr className={styles.tr}>
+                                        {config.columns.map((col, cIndex) => {
+                                            const isSticky = cIndex < 4;
+                                            const left = getLeftOffset(cIndex);
+                                            let val = row[col.accessor];
+                                            if (col.accessor === 'SlNo') val = listIndex;
+                                            if (col.type === 'date' && val) val = new Date(val).toLocaleDateString('en-GB');
 
-                                        return (
-                                            <td
-                                                key={col.accessor}
-                                                className={styles.td}
-                                                style={{
-                                                    position: isSticky ? 'sticky' : 'relative',
-                                                    left: isSticky ? left : undefined,
-                                                    zIndex: isSticky ? 10 : 1,
-                                                    background: rowIndex % 2 === 0 ? '#f8fafc' : (isSticky ? '#e2e8f0' : 'transparent'), // Sticky Needs Opaque BG
-                                                    // CSS handles stripes better but sticky cells need explicit BG if transparent
-                                                    backgroundColor: isSticky ? (rowIndex % 2 === 0 ? '#f1f5f9' : '#e2e8f0') : (rowIndex % 2 === 0 ? '#f8fafc' : 'transparent') // Explicit logic matches previous
-                                                }}
-                                            >
-                                                <div className={styles.cellContent}>{val}</div>
+                                            return (
+                                                <td
+                                                    key={col.accessor}
+                                                    className={styles.td}
+                                                    style={{
+                                                        position: isSticky ? 'sticky' : 'relative',
+                                                        left: isSticky ? left : undefined,
+                                                        zIndex: isSticky ? 10 : 1,
+                                                        background: rowIndex % 2 === 0 ? '#f8fafc' : (isSticky ? '#e2e8f0' : 'transparent'), // Sticky Needs Opaque BG
+                                                        // CSS handles stripes better but sticky cells need explicit BG if transparent
+                                                        backgroundColor: isSticky ? (rowIndex % 2 === 0 ? '#f1f5f9' : '#e2e8f0') : (rowIndex % 2 === 0 ? '#f8fafc' : 'transparent') // Explicit logic matches previous
+                                                    }}
+                                                >
+                                                    <div className={styles.cellContent}>
+                                                        {/* Expand Toggle in First Column (SlNo) if Expandable */}
+                                                        {cIndex === 0 && config.expandable && (
+                                                            <span
+                                                                onClick={(e) => { e.stopPropagation(); toggleRow(row[config.idField]); }}
+                                                                className="cursor-pointer mr-2 inline-flex align-middle hover:bg-slate-200 rounded p-0.5"
+                                                            >
+                                                                {expandedRows.has(row[config.idField]) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                                            </span>
+                                                        )}
+                                                        {val}
+                                                    </div>
+                                                </td>
+                                            );
+                                        })}
+                                        <td className={styles.td} style={{ position: 'sticky', right: 0, zIndex: 10, backgroundColor: rowIndex % 2 === 0 ? '#f1f5f9' : '#e2e8f0', textAlign: 'center' }}>
+                                            <div className={styles.actions}>
+                                                <button
+                                                    disabled={!isEditable}
+                                                    onClick={() => isEditable && onEdit && onEdit(row)}
+                                                    className={styles.actionBtn}
+                                                    style={{ cursor: isEditable ? 'pointer' : 'not-allowed' }}
+                                                    title={isEditable ? "Edit Record" : "Edit Disabled (Older than 24h)"}
+                                                >
+                                                    <Edit size={14} color={isEditable ? '#2563eb' : '#cbd5e1'} />
+                                                </button>
+                                                <button
+                                                    disabled={!isEditable}
+                                                    className={styles.actionBtn}
+                                                    onClick={() => isEditable && onDelete && onDelete(row[config.idField])}
+                                                    style={{ cursor: isEditable ? 'pointer' : 'not-allowed' }}
+                                                    title={isEditable ? "Delete Record" : "Delete Disabled (Older than 24h)"}
+                                                >
+                                                    <Trash2 size={14} color={isEditable ? '#ef4444' : '#cbd5e1'} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {/* Expanded Row */}
+                                    {config.expandable && expandedRows.has(row[config.idField]) && (
+                                        <tr key={`${row[config.idField]}-ex`} className={styles.tr}>
+                                            <td colSpan="100" style={{ padding: '10px 20px', backgroundColor: '#f0f9ff', borderBottom: '1px solid #e2e8f0' }}>
+                                                {config.subTable && (
+                                                    <>
+                                                        <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px', color: '#0369a1' }}>{config.subTable.title}:</div>
+                                                        {row[config.subTable.accessor] && row[config.subTable.accessor].length > 0 ? (
+                                                            <table style={{ width: '100%', maxWidth: '800px', borderCollapse: 'collapse', fontSize: '11px', backgroundColor: 'white', border: '1px solid #cbd5e1' }}>
+                                                                <thead>
+                                                                    <tr style={{ backgroundColor: '#e0f2fe' }}>
+                                                                        {config.subTable.columns.map((subCol, scIdx) => (
+                                                                            <th key={scIdx} style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{subCol.label}</th>
+                                                                        ))}
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {row[config.subTable.accessor].map((childRow, crIdx) => (
+                                                                        <tr key={crIdx}>
+                                                                            {config.subTable.columns.map((subCol, scIdx) => {
+                                                                                let cellVal = childRow[subCol.accessor];
+                                                                                if (subCol.type === 'time' && cellVal) {
+                                                                                    // Handle potential invalid dates safely
+                                                                                    const timeDate = new Date(cellVal);
+                                                                                    if (!isNaN(timeDate)) {
+                                                                                        cellVal = timeDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                                                                                    }
+                                                                                }
+                                                                                return (
+                                                                                    <td key={scIdx} style={{ border: '1px solid #cbd5e1', padding: '4px', textAlign: subCol.align || 'left' }}>
+                                                                                        {cellVal}
+                                                                                    </td>
+                                                                                );
+                                                                            })}
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        ) : (
+                                                            <div className="text-gray-500 italic">No records found.</div>
+                                                        )}
+                                                    </>
+                                                )}
                                             </td>
-                                        );
-                                    })}
-                                    <td className={styles.td} style={{ position: 'sticky', right: 0, zIndex: 10, backgroundColor: rowIndex % 2 === 0 ? '#f1f5f9' : '#e2e8f0', textAlign: 'center' }}>
-                                        <div className={styles.actions}>
-                                            <button
-                                                disabled={!isEditable}
-                                                onClick={() => isEditable && onEdit && onEdit(row)}
-                                                className={styles.actionBtn}
-                                                style={{ cursor: isEditable ? 'pointer' : 'not-allowed' }}
-                                                title={isEditable ? "Edit Record" : "Edit Disabled (Older than 24h)"}
-                                            >
-                                                <Edit size={14} color={isEditable ? '#2563eb' : '#cbd5e1'} />
-                                            </button>
-                                            <button
-                                                disabled={!isEditable}
-                                                className={styles.actionBtn}
-                                                onClick={() => isEditable && onDelete && onDelete(row[config.idField])}
-                                                style={{ cursor: isEditable ? 'pointer' : 'not-allowed' }}
-                                                title={isEditable ? "Delete Record" : "Delete Disabled (Older than 24h)"}
-                                            >
-                                                <Trash2 size={14} color={isEditable ? '#ef4444' : '#cbd5e1'} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
+                                        </tr>
+                                    )}
+                                </Fragment>
                             );
                         })}
                     </tbody>
@@ -409,5 +478,4 @@ export default function TransactionTable({
     );
 }
 
-function ChevronLeft({ size }) { return <ArrowLeft size={size} />; }
-function ChevronRight({ size }) { return <ArrowRight size={size} />; }
+

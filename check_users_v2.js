@@ -1,12 +1,27 @@
-const { executeQuery } = require('./lib/db');
+const sql = require('mssql');
+
+const config = {
+    user: 'sa',
+    password: 'Chennai@42',
+    server: 'localhost',
+    port: 1433,
+    database: 'ProdMS_live',
+    options: {
+        encrypt: false,
+        trustServerCertificate: true,
+        enableArithAbort: true,
+    }
+};
 
 async function checkUsers() {
     try {
-        console.log("Checking Master.TblUser...");
-        const users = await executeQuery(`SELECT TOP 10 UserId, UserName, SlNo FROM [Master].[TblUser]`);
-        console.table(users);
-    } catch (e) {
-        console.error(e);
+        await sql.connect(config);
+        const result = await sql.query('SELECT TOP 5 SlNo, UserName, IsActive FROM Master.TblUser');
+        console.log('Users:', result.recordset);
+    } catch (err) {
+        console.error('Error:', err);
+    } finally {
+        process.exit();
     }
 }
 

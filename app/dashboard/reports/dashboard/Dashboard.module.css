@@ -1,0 +1,248 @@
+.pageContainer {
+    padding: 2rem;
+    min-height: 100vh;
+    background-color: #f8fafc;
+}
+
+.header {
+    margin-bottom: 2rem;
+}
+
+.title {
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.025em;
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    color: #64748b;
+    font-size: 1.125rem;
+}
+
+.gridStats {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+
+@media (min-width: 768px) {
+    .gridStats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 1024px) {
+    .gridStats {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.statCard {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    border: 1px solid #f1f5f9;
+    transition: all 0.3s ease;
+    cursor: default;
+}
+
+.statCard:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: translateY(-2px);
+}
+
+.statHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.iconBox {
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease;
+}
+
+.statCard:hover .iconBox {
+    transform: scale(1.1);
+}
+
+.trendBox {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.trendUp {
+    color: #10b981;
+}
+
+.trendDown {
+    color: #ef4444;
+}
+
+/* Color variants for Stats */
+.blue .iconBox {
+    background-color: #eff6ff;
+    color: #3b82f6;
+}
+
+.emerald .iconBox {
+    background-color: #ecfdf5;
+    color: #10b981;
+}
+
+.violet .iconBox {
+    background-color: #f5f3ff;
+    color: #8b5cf6;
+}
+
+.orange .iconBox {
+    background-color: #fff7ed;
+    color: #f97316;
+}
+
+.statTitle {
+    color: #64748b;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.statValue {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
+    letter-spacing: -0.025em;
+}
+
+.sectionTitle {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.gridReports {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+    .gridReports {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.reportCard {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid #e2e8f0;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.reportCard:hover {
+    border-color: #60a5fa;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.bgIcon {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 1rem;
+    opacity: 0.05;
+    transition: all 0.5s ease;
+    transform-origin: top right;
+}
+
+.reportCard:hover .bgIcon {
+    opacity: 0.1;
+    transform: scale(1.5);
+}
+
+.reportIconBox {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    transition: transform 0.3s ease;
+}
+
+.reportCard:hover .reportIconBox {
+    transform: scale(1.1);
+}
+
+/* Color variants for Reports */
+.blue .reportIconBox {
+    background-color: #eff6ff;
+    color: #2563eb;
+}
+
+.emerald .reportIconBox {
+    background-color: #ecfdf5;
+    color: #059669;
+}
+
+.violet .reportIconBox {
+    background-color: #f5f3ff;
+    color: #7c3aed;
+}
+
+.reportCardTitle {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.5rem;
+    transition: color 0.3s;
+}
+
+.reportCard:hover .reportCardTitle {
+    color: #2563eb;
+}
+
+.reportDesc {
+    font-size: 0.875rem;
+    color: #64748b;
+    line-height: 1.5;
+    position: relative;
+    z-index: 10;
+}
+
+.viewAction {
+    margin-top: 1rem;
+    display: flex;
+    align-items: center;
+    color: #2563eb;
+    font-size: 0.875rem;
+    font-weight: 600;
+    opacity: 0;
+    transform: translateY(0.5rem);
+    transition: all 0.3s ease;
+}
+
+.reportCard:hover .viewAction {
+    opacity: 1;
+    transform: translateY(0);
+}

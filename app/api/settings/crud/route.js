@@ -25,7 +25,8 @@ export async function POST(req) {
             'TblShiftIncharge', 'TblSMESupplier', 'TblSource',
             'TblStoppageReason', 'TblStrata', 'TblUnit',
             'TblSMECategory', 'TblDrillingRemarks', 'TblEquipmentOwnerType',
-            'TblOperatorCategory', 'TblOperatorSubCategory', 'TblStoppageReason', 'TblStoppageCategory'
+            'TblOperatorCategory', 'TblOperatorSubCategory', 'TblStoppageReason', 'TblStoppageCategory',
+            'tblParty', 'TblBDSEntry', 'TblRole_New', 'TblUser_New'
         ];
         if (!validTables.includes(table)) return NextResponse.json({ message: 'Invalid table' }, { status: 403 });
 
@@ -120,7 +121,7 @@ export async function POST(req) {
                             const record = existing[0];
                             if (!record.IsDelete) {
                                 return NextResponse.json({
-                                    error: `${isObj && col.label ? col.label : colName} already exists`,
+                                    error: `${isObj && col.label ? col.label : colName} is already there`,
                                     existingId: record.SlNo // Return ID for Upsert logic
                                 }, { status: 409 });
                             } else {
@@ -278,7 +279,7 @@ export async function POST(req) {
                         ]);
 
                         if (existing.length > 0) {
-                            return NextResponse.json({ error: `${isObj && col.label ? col.label : colName} already exists` }, { status: 409 });
+                            return NextResponse.json({ error: `${isObj && col.label ? col.label : colName} is already there` }, { status: 409 });
                         }
                     }
                 }

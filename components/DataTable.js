@@ -14,7 +14,10 @@ export default function DataTable({
     data = [],
     loading = false,
     fileName = 'Export',
-    defaultSort = { key: 'SlNo', direction: 'asc' }
+    defaultSort = { key: 'SlNo', direction: 'asc' },
+    showSerialNo = true, // New Prop: Toggle Serial Number
+    reportHeader = null, // New Prop: For Fancy Export Header { title, fromDate, toDate }
+    enableColumnVisibility = false // New Prop: Helper to show/hide column toggle if needed (default visible in my implementation above)
 }) {
     const tableContainerRef = useRef(null);
 
@@ -22,7 +25,9 @@ export default function DataTable({
     const [globalSearch, setGlobalSearch] = useState('');
     const [sortConfig, setSortConfig] = useState(defaultSort);
     const [columnFilters, setColumnFilters] = useState({}); // { key: Set([val1, val2]) }
+    const [columnVisibility, setColumnVisibility] = useState({}); // { key: true/false }
     const [activeFilterCol, setActiveFilterCol] = useState(null); // Which dropdown is open
+
     const [activeFilterSearch, setActiveFilterSearch] = useState(''); // Search text for open filter
     const [pageSize, setPageSize] = useState(10);
     const [currentPage, setCurrentPage] = useState(1);
@@ -127,30 +132,81 @@ export default function DataTable({
         setCurrentPage(1);
     };
 
-    const handleClearFilter = (colKey) => {
-        setColumnFilters(prev => {
-            const { [colKey]: _, ...rest } = prev;
-            return rest;
-        });
-        setCurrentPage(1);
+    const toggleColumnVisibility = (key) => {
+        setColumnVisibility(prev => ({
+            ...prev,
+            [key]: prev[key] === undefined ? false : !prev[key]
+        }));
     };
 
     const handleExport = () => {
         // Export logic (Excel)
-        const headers = columns.filter(c => c.accessor !== 'actions').map(c => c.header || c.accessor);
-        const rows = sortedData.map((row, idx) => columns.filter(c => c.accessor !== 'actions').map(c => {
-            // Use render if available for export? 
-            // Ideally we export raw data or specific export rendered.
-            // For simplicity, stick to raw or simple formatting.
+        const visibleCols = columns.filter(c => c.accessor !== 'actions' && (c.accessor !== 'SlNo' || showSerialNo) && columnVisibility[c.accessor] !== false);
+        const headers = visibleCols.map(c => c.header || c.accessor);
+
+        // Use filteredData (all rows matching filter) instead of sortedData (which is also filtered but sorted)
+        // Actually usually export respect sort too. So sortedData is fine.
+        const rows = sortedData.map((row, idx) => visibleCols.map(c => {
             let val = row[c.accessor];
             if (c.accessor === 'SlNo') val = idx + 1;
             return val || '';
         }));
 
         const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+        // --- Custom Styling if ReportHeader is present ---
+        if (reportHeader) {
+            // Unshift Headers for Report Title
+            XLSX.utils.sheet_add_aoa(ws, [
+                [`${reportHeader.title} - From: ${reportHeader.fromDate} To: ${reportHeader.toDate}`],
+                headers // Re-add headers at row 2
+            ], { origin: "A1" });
+
+            // Re-add data starting at A3
+            XLSX.utils.sheet_add_aoa(ws, rows, { origin: "A3" });
+
+            // Merge First Row
+            if (!ws['!merges']) ws['!merges'] = [];
+            ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } });
+
+            // Style Title (Row 0)
+            const titleCell = ws[XLSX.utils.encode_cell({ c: 0, r: 0 })];
+            if (titleCell) {
+                titleCell.s = {
+                    font: { bold: true, sz: 14, color: { rgb: "000000" } },
+                    alignment: { horizontal: "center", vertical: "center" }
+                };
+            }
+        } else {
+            // Standard Export (Headers at A1)
+            // Already done by aoa_to_sheet
+            // Just Style Headers
+        }
+
+        // Style Column Headers (Row 1 if reportHeader, else Row 0)
+        const headerRowIdx = reportHeader ? 1 : 0;
+        headers.forEach((_, i) => {
+            const cellRef = XLSX.utils.encode_cell({ c: i, r: headerRowIdx });
+            if (!ws[cellRef]) return;
+            ws[cellRef].s = {
+                font: { bold: true, color: { rgb: "FFFFFF" } },
+                fill: { fgColor: { rgb: "4F81BD" } },
+                alignment: { horizontal: "center" }
+            };
+        });
+
+        // Add Footer: Downloaded On
+        const footerRowIdx = (reportHeader ? 2 : 1) + rows.length + 1; // Empty row then footer
+        const downloadedText = `Downloaded on: ${new Date().toLocaleString()}`;
+        XLSX.utils.sheet_add_aoa(ws, [[downloadedText]], { origin: { r: footerRowIdx, c: 0 } });
+
+        // Auto Width
+        const colWidths = headers.map(h => ({ wch: Math.max(h.length + 5, 15) }));
+        ws['!cols'] = colWidths;
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-        XLSX.writeFile(wb, `${fileName}_${new Date().toLocaleDateString('en-GB')}.xlsx`);
+        XLSX.writeFile(wb, `${fileName}_${new Date().toLocaleDateString('en-GB').replace(/\//g, '-')}.xlsx`);
     };
 
     const getLeftOffset = (index) => {
@@ -216,10 +272,48 @@ export default function DataTable({
 
             {/* TableContainer */}
             <div className={styles.tableContainer} ref={tableContainerRef}>
+                {/* Column Visibility Toggle */}
+                <div style={{ padding: '8px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+
+                    {/* Column Visibility Dropdown */}
+                    <div style={{ position: 'relative' }}>
+                        <button
+                            onClick={() => setActiveFilterCol(activeFilterCol === 'COL_VISIBILITY' ? null : 'COL_VISIBILITY')}
+                            className={styles.exportBtn}
+                            style={{ backgroundColor: 'white', border: '1px solid #cbd5e1', color: '#64748b' }}
+                        >
+                            <Filter size={14} /> Columns
+                        </button>
+                        {activeFilterCol === 'COL_VISIBILITY' && (
+                            <div className={styles.filterDropdown} style={{ right: 0, left: 'auto', width: '200px' }}>
+                                <div className={styles.filterHeader}>
+                                    <span className="font-semibold text-xs">Show/Hide Columns</span>
+                                    <X size={12} className="cursor-pointer ml-auto" onClick={() => setActiveFilterCol(null)} />
+                                </div>
+                                <div className={styles.filterList}>
+                                    {columns.map((col, idx) => col.accessor !== 'actions' && col.accessor !== 'SlNo' && (
+                                        <label key={col.accessor} className={styles.filterItem}>
+                                            <input
+                                                type="checkbox"
+                                                checked={columnVisibility[col.accessor] !== false}
+                                                onChange={() => toggleColumnVisibility(col.accessor)}
+                                            />
+                                            <span className="truncate">{col.header || col.accessor}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 <table className={styles.table}>
                     <thead>
                         <tr>
                             {columns.map((col, index) => {
+                                if (col.accessor === 'SlNo' && !showSerialNo) return null;
+                                if (columnVisibility[col.accessor] === false) return null;
+
                                 const isSticky = index < 1;
                                 const isAction = col.accessor === 'actions';
 
@@ -355,22 +449,27 @@ export default function DataTable({
 
                             return (
                                 <tr key={rIdx} className={styles.tr}>
-                                    {columns.map((col, cIdx) => (
-                                        <td
-                                            key={cIdx}
-                                            className={styles.td}
-                                            style={{
-                                                position: col.accessor === 'actions' ? 'sticky' : undefined,
-                                                right: col.accessor === 'actions' ? 0 : undefined,
-                                                backgroundColor: col.accessor === 'actions' ? (rIdx % 2 === 0 ? '#f8fafc' : 'white') : undefined,
-                                                zIndex: col.accessor === 'actions' ? 10 : 1
-                                            }}
-                                        >
-                                            <div className={styles.cellContent}>
-                                                {col.accessor === 'SlNo' ? listIndex : (col.render ? col.render(row, listIndex) : row[col.accessor])}
-                                            </div>
-                                        </td>
-                                    ))}
+                                    {columns.map((col, cIdx) => {
+                                        if (col.accessor === 'SlNo' && !showSerialNo) return null;
+                                        if (columnVisibility[col.accessor] === false) return null;
+
+                                        return (
+                                            <td
+                                                key={cIdx}
+                                                className={styles.td}
+                                                style={{
+                                                    position: col.accessor === 'actions' ? 'sticky' : undefined,
+                                                    right: col.accessor === 'actions' ? 0 : undefined,
+                                                    backgroundColor: col.accessor === 'actions' ? (rIdx % 2 === 0 ? '#f8fafc' : 'white') : undefined,
+                                                    zIndex: col.accessor === 'actions' ? 10 : 1
+                                                }}
+                                            >
+                                                <div className={styles.cellContent}>
+                                                    {col.accessor === 'SlNo' ? listIndex : (col.render ? col.render(row, listIndex) : row[col.accessor])}
+                                                </div>
+                                            </td>
+                                        )
+                                    })}
                                 </tr>
                             );
                         })}

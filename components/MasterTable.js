@@ -264,7 +264,7 @@ export default function MasterTable({ config, title }) {
             } else {
                 const errData = await res.json();
                 console.error("Backend Error:", errData);
-                toast.error('Backend Error: ' + (errData.error || 'Unknown error'));
+                toast.error('Backend Error: ' + (errData.error || errData.message || 'Unknown error'));
             }
         } catch (err) {
             console.error(err);
@@ -300,7 +300,7 @@ export default function MasterTable({ config, title }) {
             width: '80px',
             render: (row, index) => index // Display passed serial number
         },
-        ...config.columns.map(col => {
+        ...config.columns.filter(c => !c.hidden).map(col => {
             const isObj = typeof col === 'object';
             const accessor = isObj ? col.accessor : col;
             const header = isObj && col.label ? col.label : accessor.replace(/([A-Z])/g, ' $1').trim();
@@ -315,7 +315,16 @@ export default function MasterTable({ config, title }) {
                 render: (row) => {
                     // Support displayField for API-joined columns
                     const useDisplayField = isObj && col.displayField;
-                    const val = useDisplayField ? row[col.displayField] : row[accessor];
+
+                    const getValue = (obj, key) => {
+                        if (!obj) return undefined;
+                        if (obj[key] !== undefined) return obj[key];
+                        const lowerKey = key.toLowerCase();
+                        const foundKey = Object.keys(obj).find(k => k.toLowerCase() === lowerKey);
+                        return foundKey ? obj[foundKey] : undefined;
+                    };
+
+                    const val = useDisplayField ? getValue(row, col.displayField) : getValue(row, accessor);
 
                     if (accessor.toLowerCase().includes('date') || accessor.toLowerCase().includes('time')) {
                         try {

@@ -1,3 +1,4 @@
+
 const sql = require('mssql');
 
 const config = {
@@ -13,28 +14,20 @@ const config = {
     },
 };
 
-async function checkSchema() {
+async function checkLoadingSchema() {
     try {
-        await sql.connect(config);
-        console.log("Connected to DB.");
-
-        console.log("Checking [Trans].[TblLoading] columns...");
-        const result1 = await sql.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'TblLoading' AND TABLE_SCHEMA = 'Trans'");
-        console.log("Columns:", result1.recordset.map(r => r.COLUMN_NAME).join(', '));
-
-        console.log("\nChecking for ID 15723...");
-        const result2 = await sql.query("SELECT * FROM [Trans].[TblLoading] WHERE SlNo = 15723");
-        if (result2.recordset.length === 0) {
-            console.log("❌ No record found for ID 15723");
-        } else {
-            console.log("✅ Record found:", result2.recordset[0]);
-        }
-
+        const pool = await new sql.ConnectionPool(config).connect();
+        const res = await pool.request().query(`
+            SELECT COLUMN_NAME, DATA_TYPE 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = 'Trans' AND TABLE_NAME = 'TblLoading'
+        `);
+        console.table(res.recordset);
     } catch (err) {
         console.error("Error:", err);
     } finally {
-        await sql.close();
+        process.exit();
     }
 }
 
-checkSchema();
+checkLoadingSchema();

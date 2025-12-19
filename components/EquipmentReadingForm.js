@@ -185,7 +185,6 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
             // Populate Form for Edit
             // V16: Sanitize nulls to empty strings to avoid React 'uncontrolled to controlled' error
             const safeData = { ...initialData };
-            console.log("DEBUG: Populating Form. Initial Data:", initialData);
 
             Object.keys(safeData).forEach(key => {
                 if (safeData[key] === null) safeData[key] = '';
@@ -205,9 +204,6 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
 
             const parsedShiftIncharge = parseMultiSelect(safeData.ShiftInchargeId);
             const parsedOperator = parseMultiSelect(safeData.OperatorId);
-
-            console.log("DEBUG: Parsed ShiftInchargeId:", parsedShiftIncharge);
-            console.log("DEBUG: Parsed OperatorId:", parsedOperator);
 
             setFormData({
                 ...safeData,
@@ -242,22 +238,21 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                         ...prev,
                         ShiftId: res.data.ShiftId || prev.ShiftId,
                         RelayId: res.data.RelayId || prev.RelayId,
-                        // If multiple incharges logic:
                         ShiftInchargeId: res.data.ShiftInchargeId || prev.ShiftInchargeId,
-                        // Note: ManPower not in form per Requirement? 
-                        // Prompt didn't explicitly list ManPower in Entry Form Row 1.
-                        // "Row 1 -> Date, Shift, Shift In charge, Relay" - Wait, User Request says "Man Power" in Priority 3 logic descriptions.
-                        // But Form Layout list didn't include it.
-                        // "Row 1 -> Date, Shift, Shift In charge, Relay"
-                        // I will skip ManPower if not in layout.
+                        // V19.2: Apply Context Fields if returned (Priorities 1 & 2)
+                        ActivityId: res.data.ActivityId || '', // Reset if empty/null in P3
+                        EquipmentId: res.data.EquipmentId || '',
+                        OperatorId: res.data.OperatorId || [],
                     }));
                     if (res.source) toast.info(`Context Loaded (${res.source})`);
 
-                    // Focus Activity
-                    if (activityRef.current) setTimeout(() => activityRef.current.focus(), 100);
+                    // Focus Activity if not set, or Equipment if Activity set
+                    if (activityRef.current && !res.data.ActivityId) {
+                        setTimeout(() => activityRef.current.focus(), 100);
+                    }
                 }
             } catch (e) {
-                console.error(e);
+                console.error("[loadContext] Error:", e);
             }
         };
 
@@ -371,21 +366,22 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
     // --- 5. Validation & Submit ---
     const validate = () => {
         let errs = {};
+        const REQ_MSG = "Value required"; // V19 Standard Message
 
         // 1. Header (Mandatory)
-        if (!formData.Date) errs.Date = "Required";
-        if (!formData.ShiftId) errs.ShiftId = "Required";
-        if (!formData.ShiftInchargeId?.length) errs.ShiftInchargeId = "Required";
-        if (!formData.RelayId) errs.RelayId = "Required";
+        if (!formData.Date) errs.Date = REQ_MSG;
+        if (!formData.ShiftId) errs.ShiftId = REQ_MSG;
+        if (!formData.ShiftInchargeId?.length) errs.ShiftInchargeId = REQ_MSG;
+        if (!formData.RelayId) errs.RelayId = REQ_MSG;
 
         // 2. Context (Mandatory)
-        if (!formData.ActivityId) errs.ActivityId = "Required";
-        if (!formData.EquipmentId) errs.EquipmentId = "Required";
-        if (!formData.OperatorId?.length) errs.OperatorId = "Required";
+        if (!formData.ActivityId) errs.ActivityId = REQ_MSG;
+        if (!formData.EquipmentId) errs.EquipmentId = REQ_MSG;
+        if (!formData.OperatorId?.length) errs.OperatorId = REQ_MSG;
 
         // 3. HMR (Mandatory)
-        if (formData.OHMR === '') errs.OHMR = "Required";
-        if (formData.CHMR === '') errs.CHMR = "Required";
+        if (formData.OHMR === '') errs.OHMR = REQ_MSG;
+        if (formData.CHMR === '') errs.CHMR = REQ_MSG;
 
         // HMR Logic
         if (parseFloat(formData.NetHMR) < 0) errs.NetHMR = "Cannot be negative";
@@ -393,8 +389,8 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
 
         // 4. KMR (Mandatory if Visible/Applicable)
         if (isDetailActivity) {
-            if (formData.OKMR === '') errs.OKMR = "Required";
-            if (formData.CKMR === '') errs.CKMR = "Required";
+            if (formData.OKMR === '') errs.OKMR = REQ_MSG;
+            if (formData.CKMR === '') errs.CKMR = REQ_MSG;
 
             // KMR Logic
             if (parseFloat(formData.NetKMR) < 0) {
@@ -406,9 +402,9 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
             }
         }
 
-        // 5. Others (Dev Hr, BD, Maint) -> NON MANDATORY per User Request V18.5
-        // Explicitly removed validation for: DevelopmentHrMining, FaceMarchingHr, etc.
-        // Explicitly removed validation for: RunningBDMaintenanceHr, BDHr, MaintenanceHr
+        // 5. Others (Dev Hr, BD, Maint) -> NON MANDATORY per User Request V19
+        // Explicitly optional: DevelopmentHrMining, FaceMarchingHr, etc.
+        // Explicitly optional: RunningBDMaintenanceHr, BDHr, MaintenanceHr
 
         // 6. Critical Safety (Block Save if Calculation Logic Failure)
         if (parseFloat(formData.TotalWorkingHr) < 0) {
@@ -416,8 +412,6 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
             toast.error("Check Calculation: Total Working Hr < 0");
         }
         if (parseFloat(formData.IdleHr) < 0) {
-            // Optional: Block save or just warn? User said "reset are non mandatory".
-            // But Negative Idle means Time > 8 (impossible). I'll keep it as error for data sanity.
             errs.IdleHr = "Idle Hr cannot be negative! (Check inputs)";
             toast.error("Check Calculation: Idle Hr < 0");
         }
@@ -441,63 +435,73 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                     method: 'POST',
                     body: JSON.stringify(formData)
                 }).then(r => r.json());
-                if (dupRes.exists) {
-                    toast.error("Duplicate Entry Found!");
-                    setLoading(false);
-                    return;
+
+                if (dupRes.success && dupRes.exists) {
+                    if (!confirm(`Duplicate warning: Equipment "${dupRes.equipmentName}" already has an entry for this Date/Shift. Continue?`)) {
+                        setLoading(false);
+                        return;
+                    }
                 }
             }
 
             const url = isEdit
                 ? `/api/transaction/equipment-reading/${initialData.SlNo}`
-                : '/api/transaction/equipment-reading/add';
+                : '/api/transaction/equipment-reading';
 
             const method = isEdit ? 'PUT' : 'POST';
 
             const res = await fetch(url, {
-                method,
+                method: method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                body: JSON.stringify({ ...formData, UserId: userId })
             });
-            const result = await res.json();
 
-            if (result.success) {
+
+
+            if (!res.ok) {
+                const txt = await res.text();
+                console.error(`[handleSubmit] Error Body:`, txt);
+                throw new Error(txt || `Server Error: ${res.status}`);
+            }
+
+            const json = await res.json();
+
+            if (json.success) {
                 toast.success(isEdit ? "Updated Successfully" : "Saved Successfully");
 
                 if (isEdit) {
-                    router.back(); // or push main
-                    router.push('/dashboard/transaction/equipment-reading');
+                    router.back();
+                    router.refresh();
                 } else {
-                    // Reset Logic (Add Mode)
-                    // Keep: Date, Shift, Incharge, Relay, Activity, Operator
-                    // Reset: Equipment, Readings, Hours, Remarks
+                    // Reset Logic (Add Mode) - Keep Header & Context
+                    // "Date, Shift,Shift Incharge, Realy,Activity and Operator -> data/selected should remain"
                     setFormData(prev => ({
                         ...prev,
-                        EquipmentId: '',
-
+                        EquipmentId: '', // Reset Equipment
+                        // Reset Meters
                         OHMR: '', CHMR: '', NetHMR: '',
                         OKMR: '', CKMR: '', NetKMR: '',
 
+                        // Reset Detail Hours
                         DevelopmentHrMining: '', FaceMarchingHr: '', DevelopmentHrNonMining: '', BlastingMarchingHr: '',
+
+                        // Reset Common Hours (Optional Now)
                         RunningBDMaintenanceHr: '', TotalWorkingHr: '', BDHr: '', MaintenanceHr: '', IdleHr: '',
 
+                        // Reset Others
                         SectorId: '', PatchId: '', MethodId: '', Remarks: ''
                     }));
 
-                    // Focus Equipment? Or Activity?
-                    // User: "reset to default of other than Date, shift,Shift incharge, relay, operator/driver these control"
-                    // So Activity should potentially NOT be reset?
-                    // "Date, Shift,Shift Incharge, Realy,Activity and Operator -> data/selected should remain"
-                    // OK, so Activity remains. Reset Equipment.
-                    if (equipmentRef.current) equipmentRef.current.focus();
+                    // Focus Equipment (since Activity remains)
+                    if (equipmentRef.current) setTimeout(() => equipmentRef.current.focus(), 100);
                 }
             } else {
-                toast.error(result.message);
+                toast.error(json.message || "Failed to save");
             }
 
         } catch (error) {
-            console.error(error);
-            toast.error("Save Failed");
+            console.error("[handleSubmit] Catch Error:", error);
+            toast.error(error.message);
         } finally {
             setLoading(false);
         }
@@ -515,30 +519,40 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
         return () => window.removeEventListener('keydown', handler);
     }, [formData]);
 
-    // V15: Enter Key Navigation
+    // V15: Enter Key Navigation (Improved V20: Skip ReadOnly)
     const handleContainerKeyDown = (e) => {
         // Only handle Enter
         if (e.key !== 'Enter' || e.defaultPrevented) return;
 
-        // Only on Inputs/Textareas (allow Buttons to behave naturally)
+        // Only on Inputs/Textareas/Selects
         const tagName = e.target.tagName;
-        if (tagName !== 'INPUT' && tagName !== 'TEXTAREA') return;
+        if (tagName !== 'INPUT' && tagName !== 'TEXTAREA' && tagName !== 'SELECT') return;
 
         e.preventDefault(); // Prevent Submit
 
         // Find next focusable
         const formContainer = e.currentTarget;
-        const selector = 'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+        // Include readOnly elements in the query so we can skip them in the loop logic
+        const selector = 'input:not([type="hidden"]), textarea, select, button:not([disabled])';
 
         const focusable = Array.from(formContainer.querySelectorAll(selector))
             .filter(el => {
-                // Visibility check (basic)
-                return el.offsetWidth > 0 && el.offsetHeight > 0;
+                // Must be visible and not disabled
+                return el.offsetWidth > 0 && el.offsetHeight > 0 && !el.disabled;
             });
 
         const index = focusable.indexOf(e.target);
-        if (index > -1 && index < focusable.length - 1) {
-            focusable[index + 1].focus();
+        if (index > -1) {
+            let nextIndex = index + 1;
+            // Scan forward for next editable field
+            while (nextIndex < focusable.length) {
+                const el = focusable[nextIndex];
+                if (!el.readOnly) {
+                    el.focus();
+                    if (document.activeElement === el) return; // Focus success
+                }
+                nextIndex++;
+            }
         }
     };
 
@@ -609,6 +623,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                             error={errors.ShiftId}
                             disabled={isEdit}
                         />
+                        {errors.ShiftId && <span className={styles.errorText}>{errors.ShiftId}</span>}
                     </div>
 
                     <div className={styles.fieldGroup}>
@@ -624,6 +639,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                             multiple={true} // V10: Multi-Select
                             error={errors.ShiftInchargeId}
                         />
+                        {errors.ShiftInchargeId && <span className={styles.errorText}>{errors.ShiftInchargeId}</span>}
                     </div>
 
                     <div className={styles.fieldGroup}>
@@ -636,6 +652,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                             placeholder="Select"
                             error={errors.RelayId}
                         />
+                        {errors.RelayId && <span className={styles.errorText}>{errors.RelayId}</span>}
                     </div>
                 </div>
 
@@ -652,6 +669,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                             placeholder="Select"
                             error={errors.ActivityId}
                         />
+                        {errors.ActivityId && <span className={styles.errorText}>{errors.ActivityId}</span>}
                     </div>
 
                     <div className={styles.fieldGroup}>
@@ -665,6 +683,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                             placeholder="Select"
                             error={errors.EquipmentId}
                         />
+                        {errors.EquipmentId && <span className={styles.errorText}>{errors.EquipmentId}</span>}
                     </div>
 
                     <div className={styles.fieldGroup}>
@@ -679,6 +698,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                             multiple={true} // V10: Multi-Select
                             error={errors.OperatorId}
                         />
+                        {errors.OperatorId && <span className={styles.errorText}>{errors.OperatorId}</span>}
                     </div>
                     {/* Empty Div for Spacing */}
                     <div></div>
@@ -690,10 +710,11 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                 <div className={styles.rowMeter}>
                     <div className={styles.fieldGroup}>
                         <label className={styles.label}>OHMR</label>
-                        <input type="number" step="0.01" className={styles.input}
+                        <input type="number" step="0.01" className={`${styles.input} ${errors.OHMR ? styles.errorInput : ''}`}
                             value={formData.OHMR} onChange={e => setFormData({ ...formData, OHMR: e.target.value })}
                             placeholder="Prev"
                         />
+                        {errors.OHMR && <span className={styles.errorText}>{errors.OHMR}</span>}
                     </div>
                     <div className={styles.fieldGroup}>
                         <label className={styles.label}>CHMR</label>
@@ -747,25 +768,25 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                     {!isDetailActivity && (
                         <>
                             <div className={styles.fieldGroup}>
-                                <label className={styles.label}>Dev(Min)</label>
+                                <label className={styles.label}>Dev. Hr(Mining)</label>
                                 <input type="number" className={`${styles.input} ${errors.DevelopmentHrMining ? styles.errorInput : ''}`}
                                     value={formData.DevelopmentHrMining} onChange={e => setFormData({ ...formData, DevelopmentHrMining: e.target.value })}
                                 />
                             </div>
                             <div className={styles.fieldGroup}>
-                                <label className={styles.label}>Face Mrch</label>
+                                <label className={styles.label}>Face Marching Hr</label>
                                 <input type="number" className={`${styles.input} ${errors.FaceMarchingHr ? styles.errorInput : ''}`}
                                     value={formData.FaceMarchingHr} onChange={e => setFormData({ ...formData, FaceMarchingHr: e.target.value })}
                                 />
                             </div>
                             <div className={styles.fieldGroup}>
-                                <label className={styles.label}>Dev(Non)</label>
+                                <label className={styles.label}>Dev. Hr(Non Mining)</label>
                                 <input type="number" className={`${styles.input} ${errors.DevelopmentHrNonMining ? styles.errorInput : ''}`}
                                     value={formData.DevelopmentHrNonMining} onChange={e => setFormData({ ...formData, DevelopmentHrNonMining: e.target.value })}
                                 />
                             </div>
                             <div className={styles.fieldGroup}>
-                                <label className={styles.label}>Blst Mrch</label>
+                                <label className={styles.label}>Blasting Marching Hr</label>
                                 <input type="number" className={`${styles.input} ${errors.BlastingMarchingHr ? styles.errorInput : ''}`}
                                     value={formData.BlastingMarchingHr} onChange={e => setFormData({ ...formData, BlastingMarchingHr: e.target.value })}
                                 />
@@ -775,13 +796,13 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
 
                     {/* Common Inputs 5-6: Always Visible */}
                     <div className={styles.fieldGroup}>
-                        <label className={styles.label}>Run BD/Mt</label>
+                        <label className={styles.label}>Running BD/Maintenance Hr</label>
                         <input type="number" className={`${styles.input} ${errors.RunningBDMaintenanceHr ? styles.errorInput : ''}`}
                             value={formData.RunningBDMaintenanceHr} onChange={e => setFormData({ ...formData, RunningBDMaintenanceHr: e.target.value })}
                         />
                     </div>
                     <div className={styles.fieldGroup}>
-                        <label className={styles.label}>Total Wrk</label>
+                        <label className={styles.label}>Total Working Hr</label>
                         <input type="number" readOnly className={`${styles.input} ${errors.TotalWorkingHr ? styles.errorInput : ''}`}
                             value={formData.TotalWorkingHr} style={{ fontWeight: 'bold' }}
                         />
@@ -883,6 +904,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
 // Sub-component for auto-fetching history based on context
 function RecentHistory({ config, date, shiftId, userRole }) {
     const [data, setData] = useState([]);
+    const router = useRouter();
 
     useEffect(() => {
         if (!date) return;
@@ -906,6 +928,23 @@ function RecentHistory({ config, date, shiftId, userRole }) {
             data={data}
             isLoading={false}
             userRole={userRole}
+            onEdit={(item) => router.push(`/dashboard/transaction/equipment-reading/${item.SlNo}`)}
+            onDelete={async (item) => {
+                if (!confirm(`Are you sure you want to delete this record (SlNo: ${item.SlNo})?`)) return;
+                try {
+                    const res = await fetch(`/api/transaction/equipment-reading/${item.SlNo}`, { method: 'DELETE' }).then(r => r.json());
+                    if (res.success) {
+                        toast.success("Deleted Successfully");
+                        // Refresh Data
+                        setData(prev => prev.filter(row => row.SlNo !== item.SlNo));
+                    } else {
+                        toast.error(res.message || "Delete Failed");
+                    }
+                } catch (e) {
+                    console.error(e);
+                    toast.error("Delete Failed");
+                }
+            }}
         />
     );
 }
