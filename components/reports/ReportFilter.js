@@ -32,7 +32,8 @@ export default function ReportFilter({
     loading,
     reportOptions = [],
     showReportType = true,
-    singleDate = false
+    singleDate = false,
+    children // NEW: Allow injecting custom inputs
 }) {
     const handleGenerate = async () => {
         if (!fromDate) return toast.error('Please select a date');
@@ -129,6 +130,9 @@ export default function ReportFilter({
                     />
                 </div>
             )}
+
+            {/* Custom Inputs (e.g. Shift Selection) */}
+            {children}
 
             <div className="flex gap-2">
                 <button

@@ -1,0 +1,84 @@
+.container {
+    padding: 20px;
+    background-color: white;
+    min-height: 100%;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.reportSheet {
+    background-color: white;
+    max-width: 1000px;
+    /* A4 width approx */
+    margin: 0 auto;
+}
+
+.table {
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    width: 100%;
+}
+
+.table th,
+.table td {
+    border: 1px solid #334155;
+    /* Slate-700 */
+    padding: 4px 8px;
+    /* text-align: center; REMOVED to allow utility overrides */
+}
+
+
+.table th {
+    font-weight: 700;
+    text-align: center;
+    /* Headers should generally be centered */
+    background-color: #e2e8f0;
+    /* Slate-200 */
+    color: #1e293b;
+    /* Slate-800 for contrast */
+}
+
+/* Print Styles */
+@media print {
+    @page {
+        margin: 10mm;
+        size: auto;
+    }
+
+    :global(body) {
+        background-color: white;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .container {
+        padding: 0;
+        margin: 0;
+    }
+
+    .reportSheet {
+        max-width: none;
+        width: 100%;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Ensure backgrounds work */
+    .table th,
+    .table td {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Hide UI elements */
+    :global(nav),
+    :global(aside),
+    :global(header) {
+        display: none !important;
+    }
+}
