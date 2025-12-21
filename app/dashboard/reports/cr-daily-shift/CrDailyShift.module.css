@@ -1,0 +1,154 @@
+/* Container */
+.container {
+    padding: 20px;
+    background-color: #ffffff;
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Controls */
+.controlsContainer {
+    display: flex;
+    gap: 15px;
+    align-items: flex-end;
+    background-color: #f8fafc;
+    padding: 15px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.label {
+    font-size: 14px;
+    font-weight: bold;
+    color: #475569;
+}
+
+.input {
+    padding: 8px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.showBtn {
+    padding: 8px 16px;
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.showBtn:hover {
+    background-color: #1d4ed8;
+}
+
+/* Toolbar */
+.toolbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.printBtn,
+.excelBtn {
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.printBtn {
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+}
+
+.excelBtn {
+    background-color: #16a34a;
+    color: white;
+    border: none;
+}
+
+/* Tables */
+.tableContainer {
+    overflow-x: auto;
+    margin-bottom: 40px;
+    /* Space between shifts */
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    border: 1px solid black;
+}
+
+.table th,
+.table td {
+    border: 1px solid black;
+    padding: 4px 6px;
+    text-align: center;
+}
+
+.table th {
+    font-weight: bold;
+    vertical-align: middle;
+}
+
+/* Specific Row Colors */
+.rowBlue {
+    background-color: #00b0f0;
+    color: black;
+    font-weight: bold;
+}
+
+.rowYellow {
+    background-color: #ffc000;
+    color: black;
+    font-weight: bold;
+}
+
+/* Cell Styles */
+.tdBold {
+    font-weight: bold;
+}
+
+.table .tdLeft {
+    text-align: left;
+}
+
+.table .tdRight {
+    text-align: right;
+}
+
+/* Print Styles */
+@media print {
+
+    .controlsContainer,
+    .toolbar {
+        display: none !important;
+    }
+
+    .container {
+        padding: 0;
+    }
+
+    .tableContainer {
+        page-break-inside: avoid;
+    }
+}

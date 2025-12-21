@@ -1,20 +1,33 @@
-const { getDbConnection } = require('./lib/db');
+const sql = require('mssql');
 
-async function debugData() {
+const config = {
+    user: 'sa',
+    password: 'Chennai@42',
+    server: 'localhost',
+    port: 1433,
+    database: 'ProdMS_live',
+    options: {
+        encrypt: false,
+        trustServerCertificate: true
+    }
+};
+
+async function run() {
     try {
-        const pool = await getDbConnection();
-        console.log("Connected to DB. Querying [Master].[TblBDReason]...");
-
-        const result = await pool.request().query(`
-            SELECT SlNo, BDReasonName, IsActive, IsDelete 
-            FROM [Master].[TblBDReason]
-        `);
-
-        console.table(result.recordset);
-
+        await sql.connect(config);
+        const res = await sql.query("SELECT TOP 1 * FROM [Master].[TblBDReason]");
+        if (res.recordset.length > 0) {
+            console.log("Columns:", Object.keys(res.recordset[0]));
+        } else {
+            console.log("Table empty, checking schema...");
+            const schema = await sql.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'TblBDReason'");
+            console.log(schema.recordset.map(r => r.COLUMN_NAME));
+        }
     } catch (err) {
-        console.error("Error:", err);
+        console.error("SQL Error:", err);
+    } finally {
+        await sql.close();
     }
 }
 
-debugData();
+run();
