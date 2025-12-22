@@ -234,7 +234,7 @@ export default function TransactionTable({
             </div>
 
             {/* Table */}
-            <div className={styles.tableContainer} ref={tableContainerRef} style={{ height: '380px', flex: 'none', display: 'block', overflowY: 'auto' }}>
+            <div className={styles.tableContainer} ref={tableContainerRef} style={{ height: '456px', flex: 'none', display: 'block', overflowY: 'auto' }}>
                 <table className={styles.table}>
                     <thead>
                         <tr>

@@ -431,13 +431,14 @@ export default function MasterTable({ config, title }) {
 
             {/* Filter Section Removed - Handled by DataTable */}
 
-            <div className={styles.tableContainer}>
+            <div className={styles.tableContainer} style={{ height: '627px' }}>
                 <DataTable
                     columns={columns}
                     data={data}
                     loading={loading}
                     fileName={title}
                     defaultSort={{ key: config.idField || 'SlNo', direction: 'asc' }}
+                    customHeight="627px"
                 />
             </div>
 

@@ -94,7 +94,7 @@
     */
     /* Fixed height strictly to show approx 10 rows */
     /* Height auto to avoid white block if few rows, but max-height for scroll */
-    height: 380px;
+    height: 456px;
     overflow-y: auto;
     overflow-x: auto;
     border: 1px solid #e2e8f0;

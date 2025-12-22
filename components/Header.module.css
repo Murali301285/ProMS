@@ -54,9 +54,12 @@
 }
 
 .searchBar {
-    position: relative;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
     width: 300px;
     display: none;
+    z-index: 50;
 }
 
 @media (min-width: 1024px) {
@@ -87,6 +90,55 @@
 .searchBar input:focus {
     border-color: var(--primary);
     background: var(--card);
+}
+
+.searchResults {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: var(--card) url('/noise.png');
+    /* Glass effect base */
+    border: 1px solid var(--border);
+    border-radius: 0 0 var(--radius) var(--radius);
+    /* Rounded bottom */
+    margin-top: 4px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.searchResultItem {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.searchResultItem:last-child {
+    border-bottom: none;
+}
+
+.searchResultItem.highlighted,
+.searchResultItem:hover {
+    background-color: var(--secondary);
+}
+
+.searchResultItem.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: transparent !important;
+    /* Override hover */
+}
+
+/* Breadcrumb style */
+.resultPath {
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+    margin-top: 2px;
 }
 
 .right {
@@ -142,6 +194,39 @@
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+/* Full Screen Loader */
+.loaderOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: var(--primary);
+    animation: spin 1s ease-in-out infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .username {

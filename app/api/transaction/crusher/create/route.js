@@ -24,10 +24,11 @@ export async function POST(request) {
             TotalQty,
             OHMR,
             CHMR,
+            KWH,
             RunningHr,
             TotalStoppageHours,
             Remarks,
-            UserId = 1, // Default to 1 if not provided, though typically from session
+            UserId = 1, // Default to 1 (Admin in TblUser_New)
             stoppages = []
         } = body;
 
@@ -56,6 +57,7 @@ export async function POST(request) {
             req.input('TotalQty', sql.Decimal(18, 2), TotalQty || 0);
             req.input('OHMR', sql.Decimal(18, 2), OHMR || 0);
             req.input('CHMR', sql.Decimal(18, 2), CHMR || 0);
+            req.input('KWH', sql.Decimal(18, 3), KWH || null);
             req.input('RunningHr', sql.Decimal(18, 2), RunningHr || 0);
             req.input('TotalStoppageHours', sql.Decimal(18, 2), TotalStoppageHours || 0);
 
@@ -67,7 +69,7 @@ export async function POST(request) {
                     [Date], ShiftId, ShiftInChargeId, ManPowerInShift, PlantId,
                     BeltScaleOHMR, BeltScaleCHMR, ProductionUnitId, ProductionQty,
                     HaulerId, NoofTrip, QtyTrip, TripQtyUnitId,
-                    TotalQty, OHMR, CHMR, RunningHr, TotalStoppageHours,
+                    TotalQty, OHMR, CHMR, KWH, RunningHr, TotalStoppageHours,
                     Remarks,
                     CreatedBy, CreatedDate, IsDelete
                 )
@@ -76,7 +78,7 @@ export async function POST(request) {
                     @Date, @ShiftId, @ShiftInChargeId, @ManPowerInShift, @PlantId,
                     @BeltScaleOHMR, @BeltScaleCHMR, @ProductionUnitId, @ProductionQty,
                     @EquipmentId, @NoofTrip, @QtyTrip, @TripQtyUnitId,
-                    @TotalQty, @OHMR, @CHMR, @RunningHr, @TotalStoppageHours,
+                    @TotalQty, @OHMR, @CHMR, @KWH, @RunningHr, @TotalStoppageHours,
                     @Remarks,
                     @UserId, GETDATE(), 0
                 )

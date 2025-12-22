@@ -26,6 +26,7 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
         scale: [],
         strata: [],
         depthSlab: [],
+        drillingAgency: [],
         remarks: [], // Drilling Remarks
         units: [] // For internal mapping math
     });
@@ -36,6 +37,7 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
     const [formData, setFormData] = useState({
         Date: today,
         DrillingPatchId: '',
+        DrillingAgencyId: '',
         EquipmentId: '',
         MaterialId: '',
         LocationId: '',
@@ -68,16 +70,17 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
             setLoading(true);
             try {
                 // Parallel Fetch for Speed
-                const [eqRes, matRes, locRes, secRes, scRes, strRes, dsRes, drRemRes, unitRes] = await Promise.all([
+                const [eqRes, matRes, locRes, secRes, scRes, strRes, dsRes, drRemRes, unitRes, daRes] = await Promise.all([
                     fetch('/api/master/equipment'),
                     fetch('/api/master/material'),
                     fetch('/api/master/location'),
                     fetch('/api/master/sector'),
                     fetch('/api/master/scale'),
-                    fetch('/api/master/strata'), // New API needs ensuring
+                    fetch('/api/master/strata'),
                     fetch('/api/master/depth-slab'),
                     fetch('/api/master/drilling-remarks'),
-                    fetch('/api/master/unit')
+                    fetch('/api/master/unit'),
+                    fetch('/api/master/drilling-agency')
                 ]);
 
                 const eqData = await eqRes.json();
@@ -89,6 +92,7 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
                 const dsData = await dsRes.json();
                 const drRemData = await drRemRes.json();
                 const unitData = await unitRes.json();
+                const daData = await daRes.json();
 
                 // Helper to safely get array from response (handle direct array or { data: [] })
                 const getArr = (res) => Array.isArray(res) ? res : (res.data || []);
@@ -103,7 +107,8 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
                     strata: getArr(strData).filter(i => i.IsActive && !i.IsDelete),
                     depthSlab: getArr(dsData).filter(i => i.IsActive && !i.IsDelete),
                     remarks: getArr(drRemData).filter(i => i.IsActive && !i.IsDelete),
-                    units: getArr(unitData)
+                    units: getArr(unitData),
+                    drillingAgency: getArr(daData).filter(i => i.IsActive && !i.IsDelete)
                 });
 
                 // Set Initial Data if Edit Mode
@@ -200,7 +205,7 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
         'SectorId', 'ScaleId', 'StrataId', 'DepthSlabId',
         'NoofHoles', 'TotalMeters', 'Spacing', 'Burden', 'TopRLBottomRL', 'RemarkId',
         'Output', // Skips AverageDepth
-        'Remarks' // Skips UnitId, TotalQty
+        'DrillingAgencyId', 'Remarks' // Skips UnitId, TotalQty
     ];
 
     // Read Only / Skip Fields
@@ -222,7 +227,7 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
 
         // Mandatory Fields
         const required = [
-            'DrillingPatchId', 'EquipmentId', 'MaterialId', 'LocationId',
+            'DrillingPatchId', 'DrillingAgencyId', 'EquipmentId', 'MaterialId', 'LocationId',
             'SectorId', 'ScaleId', 'StrataId', 'DepthSlabId',
             'NoofHoles', 'TotalMeters', 'Spacing', 'Burden', 'RemarkId',
             'AverageDepth', 'Output', 'UnitId', 'TotalQty'
@@ -282,6 +287,7 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
             const payload = {
                 ...formData,
                 // Ensure IDs are numbers not strings
+                DrillingAgencyId: parseInt(formData.DrillingAgencyId),
                 EquipmentId: parseInt(formData.EquipmentId),
                 MaterialId: parseInt(formData.MaterialId),
                 LocationId: parseInt(formData.LocationId),
@@ -309,7 +315,7 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
                 // Reset Fields except Date
                 setFormData(prev => ({
                     ...prev,
-                    DrillingPatchId: '', EquipmentId: '', MaterialId: '', LocationId: '',
+                    DrillingPatchId: '', DrillingAgencyId: '', EquipmentId: '', MaterialId: '', LocationId: '',
                     SectorId: '', ScaleId: '', StrataId: '', DepthSlabId: '',
                     NoofHoles: '', TotalMeters: '', Spacing: '', Burden: '', TopRLBottomRL: '',
                     AverageDepth: '', Output: '', UnitId: '', TotalQty: '', RemarkId: '', Remarks: ''
@@ -406,7 +412,8 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
             // Using logic: ID = SlNo, Name = (Name || EquipmentName || ... fallback chain)
             const mappedOptions = (props.options || []).map(opt => ({
                 id: opt.SlNo,
-                name: opt.Name || opt.EquipmentName || opt.MaterialName || opt.LocationName || opt.SectorName || opt.DrillingRemarks || opt.Strata || opt.DrillingRemarks || 'Unknown'
+                id: opt.SlNo,
+                name: opt.Name || opt.EquipmentName || opt.MaterialName || opt.LocationName || opt.SectorName || opt.DrillingRemarks || opt.Strata || opt.DrillingRemarks || opt.AgencyName || 'Unknown'
             }));
 
             inputComponent = (
@@ -487,7 +494,6 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
 
                 <div className={css.divider}></div>
 
-                {/* Row 2: Patch, Equipment, Material, Location */}
                 <div className={css.row}>
                     {renderField('DrillingPatchId', 'Drilling Patch ID', 'text', true)}
                     {renderField('EquipmentId', 'Equipment', 'select', true, { options: masters.equipment })}
@@ -517,13 +523,14 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
 
                 {/* Divider Removed as requested */}
 
-                {/* Row 5: Avg, Output, Unit, Total Qty - Half Width */}
-                <div className={css.rowHalf}>
+                {/* Row 5: Avg, Output, Unit, Total Qty, Agency - Custom Width */}
+                <div className={css.rowHalf} style={{ width: '70%', gridTemplateColumns: 'repeat(5, 1fr)' }}>
                     {renderField('AverageDepth', 'Average Depth', 'text', true, { readOnly: true, placeholder: 'Calc: Meters/Holes' })}
                     {renderField('Output', 'Output %', 'text', true, { placeholder: 'e.g. 67.0' })}
                     {/* Unit is ReadOnly and Auto Selected via Material */}
                     {renderField('UnitId', 'Unit', 'select', true, { options: masters.units, readOnly: true })}
                     {renderField('TotalQty', 'Total Qty', 'text', true, { readOnly: true, placeholder: 'Calc: H*M*Out' })}
+                    {renderField('DrillingAgencyId', 'Drilling Agency', 'select', true, { options: masters.drillingAgency })}
                 </div>
 
                 <div className={css.divider}></div>

@@ -32,7 +32,7 @@ export async function POST(req) {
             LEFT JOIN [Master].[TblRoleAuthorization_New] RA 
                 ON P.SlNo = RA.PageId AND RA.RoleId = @roleId AND RA.IsActive = 1 AND RA.IsDeleted = 0
             WHERE MA.IsActive = 1 AND MA.IsDelete = 0
-            ORDER BY M.SortOrder, SG.SortOrder, MA.SortOrder
+            ORDER BY M.SortOrder, SG.SortOrder, MA.SortOrder, P.PageName ASC
         `;
 
         const data = await executeQuery(query, [{ name: 'roleId', value: roleId }]);

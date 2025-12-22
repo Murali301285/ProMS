@@ -61,6 +61,8 @@ export default function SubMenusPage() {
         if (editingId) toast.success("Page updated");
         else toast.success("Page created");
 
+        window.dispatchEvent(new Event('menu-updated')); // Auto-refresh sidebar
+
         setEditingId(null);
         setFormData({ PageName: '', PagePath: '', IsActive: true });
         fetchData();
@@ -83,6 +85,7 @@ export default function SubMenusPage() {
             body: JSON.stringify({ table: 'TblPage', action: 'delete', id })
         });
         toast.success("Page deleted");
+        window.dispatchEvent(new Event('menu-updated')); // Auto-refresh sidebar
         fetchData();
     };
 

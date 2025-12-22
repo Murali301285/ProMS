@@ -17,7 +17,8 @@ export default function DataTable({
     defaultSort = { key: 'SlNo', direction: 'asc' },
     showSerialNo = true, // New Prop: Toggle Serial Number
     reportHeader = null, // New Prop: For Fancy Export Header { title, fromDate, toDate }
-    enableColumnVisibility = false // New Prop: Helper to show/hide column toggle if needed (default visible in my implementation above)
+    enableColumnVisibility = false, // New Prop: Helper to show/hide column toggle if needed (default visible in my implementation above)
+    customHeight = null // New Prop: Allow overriding default height
 }) {
     const tableContainerRef = useRef(null);
 
@@ -271,7 +272,7 @@ export default function DataTable({
             </div>
 
             {/* TableContainer */}
-            <div className={styles.tableContainer} ref={tableContainerRef}>
+            <div className={styles.tableContainer} ref={tableContainerRef} style={customHeight ? { height: customHeight } : {}}>
                 {/* Column Visibility Toggle */}
                 <div style={{ padding: '8px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
 

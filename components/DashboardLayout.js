@@ -29,7 +29,7 @@ export default function DashboardLayout({ children }) {
                 </main>
                 <footer style={{
                     textAlign: 'center',
-                    padding: '1rem',
+                    padding: '0 1rem 1rem 1rem',
                     fontSize: '0.8rem',
                     color: 'var(--secondary-foreground)',
                     opacity: 0.7

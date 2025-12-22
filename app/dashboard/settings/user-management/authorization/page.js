@@ -130,6 +130,7 @@ export default function RoleAuthorizationPage() {
             const result = await res.json();
             if (res.ok) {
                 toast.success("Permissions updated successfully");
+                window.dispatchEvent(new Event('menu-updated')); // Auto-refresh sidebar
                 const refreshRes = await fetch('/api/settings/role-authorization/list', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -197,26 +198,49 @@ export default function RoleAuthorizationPage() {
                             </span>
                         </td>
                         <td className="text-center"><div className="flex justify-center"><ActionCheckbox onChange={(c) => handleModuleSelectAll(group.moduleId, 'IsView', c)} /></div></td>
-                        <td className="text-center"><div className="flex justify-center"><ActionCheckbox onChange={(c) => handleModuleSelectAll(group.moduleId, 'IsAdd', c)} /></div></td>
-                        <td className="text-center"><div className="flex justify-center"><ActionCheckbox onChange={(c) => handleModuleSelectAll(group.moduleId, 'IsEdit', c)} /></div></td>
-                        <td className="text-center"><div className="flex justify-center"><ActionCheckbox onChange={(c) => handleModuleSelectAll(group.moduleId, 'IsDelete', c)} /></div></td>
+                        {(group.moduleName.toLowerCase().includes('report') || group.moduleName.toLowerCase().includes('dashboard')) ? (
+                            <>
+                                <td className="text-center"></td>
+                                <td className="text-center"></td>
+                                <td className="text-center"></td>
+                            </>
+                        ) : (
+                            <>
+                                <td className="text-center"><div className="flex justify-center"><ActionCheckbox onChange={(c) => handleModuleSelectAll(group.moduleId, 'IsAdd', c)} /></div></td>
+                                <td className="text-center"><div className="flex justify-center"><ActionCheckbox onChange={(c) => handleModuleSelectAll(group.moduleId, 'IsEdit', c)} /></div></td>
+                                <td className="text-center"><div className="flex justify-center"><ActionCheckbox onChange={(c) => handleModuleSelectAll(group.moduleId, 'IsDelete', c)} /></div></td>
+                            </>
+                        )}
                     </tr>
 
                     {/* Page Rows */}
-                    {isExpanded && group.items.map(page => (
-                        <tr key={page.PageId} style={{ borderBottom: '1px solid #eee' }}>
-                            <td style={{ paddingLeft: '3.5rem', color: '#555', paddingTop: '8px', paddingBottom: '8px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <span>{page.PageName}</span>
-                                    {page.SubGroupName && <span style={{ fontSize: '0.75em', color: '#999' }}>{page.SubGroupName}</span>}
-                                </div>
-                            </td>
-                            <td className="text-center"><div className="flex justify-center"><Checkbox p={page} field="IsView" onChange={handleCheckboxChange} /></div></td>
-                            <td className="text-center"><div className="flex justify-center"><Checkbox p={page} field="IsAdd" onChange={handleCheckboxChange} /></div></td>
-                            <td className="text-center"><div className="flex justify-center"><Checkbox p={page} field="IsEdit" onChange={handleCheckboxChange} /></div></td>
-                            <td className="text-center"><div className="flex justify-center"><Checkbox p={page} field="IsDelete" onChange={handleCheckboxChange} /></div></td>
-                        </tr>
-                    ))}
+                    {isExpanded && group.items.map(page => {
+                        const isRestrictedModule = group.moduleName.toLowerCase().includes('report') || group.moduleName.toLowerCase().includes('dashboard');
+                        return (
+                            <tr key={page.PageId} style={{ borderBottom: '1px solid #eee' }}>
+                                <td style={{ paddingLeft: '3.5rem', color: '#555', paddingTop: '8px', paddingBottom: '8px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span>{page.PageName}</span>
+                                        {page.SubGroupName && <span style={{ fontSize: '0.75em', color: '#999' }}>{page.SubGroupName}</span>}
+                                    </div>
+                                </td>
+                                <td className="text-center"><div className="flex justify-center"><Checkbox p={page} field="IsView" onChange={handleCheckboxChange} /></div></td>
+                                {isRestrictedModule ? (
+                                    <>
+                                        <td className="text-center"></td>
+                                        <td className="text-center"></td>
+                                        <td className="text-center"></td>
+                                    </>
+                                ) : (
+                                    <>
+                                        <td className="text-center"><div className="flex justify-center"><Checkbox p={page} field="IsAdd" onChange={handleCheckboxChange} /></div></td>
+                                        <td className="text-center"><div className="flex justify-center"><Checkbox p={page} field="IsEdit" onChange={handleCheckboxChange} /></div></td>
+                                        <td className="text-center"><div className="flex justify-center"><Checkbox p={page} field="IsDelete" onChange={handleCheckboxChange} /></div></td>
+                                    </>
+                                )}
+                            </tr>
+                        );
+                    })}
                 </Fragment>
             );
         });

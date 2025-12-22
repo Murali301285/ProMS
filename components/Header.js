@@ -2,7 +2,8 @@
 
 import { Menu, Search, Bell, User } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import styles from './Header.module.css';
 import { getCookie } from 'cookies-next';
 
@@ -11,25 +12,37 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [dbInfo, setDbInfo] = useState(null);
 
-    useEffect(() => {
-        // Fetch DB info from API or infer from cookie
-        // Since we want the display name, we might need to fetch the list or simple mapping
-        // For efficiency, we'll hit an API that returns current session info?
-        // OR: Just fetch the DB list and match with cookie.
+    // Search State
+    const [searchData, setSearchData] = useState([]);
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    const router = useRouter();
+    const searchRef = useRef(null);
 
+    useEffect(() => {
+        // Fetch Search Data
+        async function fetchSearchData() {
+            try {
+                const res = await fetch('/api/search/global-menu');
+                if (res.ok) {
+                    const data = await res.json();
+                    setSearchData(data);
+                }
+            } catch (e) {
+                console.error("Search fetch failed", e);
+            }
+        }
+        fetchSearchData();
+
+        // Environment Fetch (existing)
         async function fetchDbEnv() {
             try {
-                // We'll trust the cookie 'current_db' for now, but to get DisplayName we normally need API
-                // For now, let's call the db-list again and match, OR create a 'me' endpoint.
-                // Simplified: Fetch db-list and match cookie.
                 const res = await fetch('/api/setup/db-list');
                 const dbs = await res.json();
-
-                // Read cookie manually since this is client component or use library
-                // Simple parsing:
                 const match = document.cookie.match(new RegExp('(^| )current_db=([^;]+)'));
                 const currentDbName = match ? match[2] : 'ProdMS_live';
-
                 const currentDb = dbs.find(d => d.DbName === currentDbName) || dbs.find(d => d.DbName === 'ProdMS_live');
                 setDbInfo(currentDb);
             } catch (e) {
@@ -37,7 +50,59 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
             }
         }
         fetchDbEnv();
+
+        // Click Outside to Close
+        function handleClickOutside(event) {
+            if (searchRef.current && !searchRef.current.contains(event.target)) {
+                setShowDropdown(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    const handleSearch = (val) => {
+        setQuery(val);
+        if (!val.trim()) {
+            setResults([]);
+            setShowDropdown(false);
+            return;
+        }
+
+        const filtered = searchData.filter(item =>
+            item.name.toLowerCase().includes(val.toLowerCase()) ||
+            item.module.toLowerCase().includes(val.toLowerCase())
+        ).slice(0, 10); // Limit to 10
+
+        setResults(filtered);
+        setShowDropdown(true);
+        setHighlightedIndex(filtered.length > 0 ? 0 : -1);
+    };
+
+    const handleNavigate = (item) => {
+        if (item && item.isAuthorized) {
+            router.push(item.path);
+            setQuery('');
+            setShowDropdown(false);
+        }
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (prev < results.length - 1 ? prev + 1 : prev));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (prev > 0 ? prev - 1 : prev));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (highlightedIndex >= 0 && results[highlightedIndex]) {
+                handleNavigate(results[highlightedIndex]);
+            }
+        } else if (e.key === 'Escape') {
+            setShowDropdown(false);
+        }
+    };
 
     return (
         <header className={`${styles.header} glass`}>
@@ -55,9 +120,40 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
                 )}
             </div>
 
-            <div className={styles.searchBar}>
+            <div className={styles.searchBar} ref={searchRef}>
                 <Search size={18} className={styles.searchIcon} />
-                <input type="text" placeholder="Search pages..." />
+                <input
+                    type="text"
+                    placeholder="Search pages..."
+                    value={query}
+                    onChange={e => handleSearch(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onFocus={() => { if (query) setShowDropdown(true); }}
+                />
+
+                {showDropdown && (
+                    <div className={styles.searchResults}>
+                        {results.length > 0 ? (
+                            results.map((item, index) => (
+                                <div
+                                    key={item.id}
+                                    className={`${styles.searchResultItem} ${index === highlightedIndex ? styles.highlighted : ''} ${!item.isAuthorized ? styles.disabled : ''}`}
+                                    onClick={() => handleNavigate(item)}
+                                >
+                                    <span className="font-medium flex items-center gap-2">
+                                        {item.name}
+                                        {!item.isAuthorized && <span className="text-xs text-red-400 border border-red-200 px-1 rounded">Locked</span>}
+                                    </span>
+                                    <span className={styles.resultPath}>
+                                        {item.module} {item.subGroup ? `> ${item.subGroup}` : ''}
+                                    </span>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="p-4 text-center text-sm text-gray-500">No results found</div>
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className={styles.right}>

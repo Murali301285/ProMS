@@ -159,6 +159,23 @@
     /* padding-left: 2.75rem; REMOVED: Managed by recursive level padding in JS */
     gap: 0.25rem;
     margin-top: 0.25rem;
+    position: relative;
+    /* Context for connector */
+}
+
+/* Vertical Connector Line */
+.subMenu::before {
+    content: '';
+    position: absolute;
+    left: 1.2rem;
+    /* Align with parent icon center approximately */
+    top: 0;
+    bottom: 0.5rem;
+    width: 0;
+    border-left: 1px dashed var(--sidebar-fg);
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 1;
 }
 
 /* Hide subMenu in mini mode unless hovered */

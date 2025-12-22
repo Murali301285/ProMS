@@ -20,7 +20,11 @@ const checkIsActive = (currentPath, menuPath) => {
 
 function NavItem({ item, pathname, expandedMenus, toggleSubMenu, isCollapsed, level = 0 }) {
     // Determine Icon
-    const IconComponent = item.icon && Icons[item.icon] ? Icons[item.icon] : (level === 0 ? Icons.Circle : null);
+    // Modules (level 0) get specific icon or Circle
+    // Pages (level > 0) get generic Circle if no specific icon
+    const isLeaf = !item.subItems || item.subItems.length === 0;
+    const IconComponent = item.icon && Icons[item.icon] ? Icons[item.icon] : (level === 0 ? Icons.Circle : (isLeaf ? Icons.Circle : null));
+    const iconSize = level === 0 ? 20 : 7; // Smaller circle for pages (reduced by 30%)
 
     // Highlight Logic
     let isActive = false;
@@ -37,18 +41,27 @@ function NavItem({ item, pathname, expandedMenus, toggleSubMenu, isCollapsed, le
                 className={`${styles.navItem} ${isActive ? styles.active : ''}`}
                 onClick={() => hasSubItems ? toggleSubMenu(item.id || item.name) : null}
                 title={isCollapsed ? item.name : ''}
-                style={{ paddingLeft: level > 0 ? `${(level * 0.5) + 0.5}rem` : '' }}
+                style={{ paddingLeft: level > 0 ? `${(level * 0.8) + 0.5}rem` : '' }}
             >
+                {/* Horizontal Connector for Subitems */}
+                {level > 0 && <span style={{
+                    position: 'absolute',
+                    left: `${(level * 0.8) - 0.1}rem`,
+                    top: '50%',
+                    width: '0.6rem',
+                    borderTop: '1px dashed var(--sidebar-fg)',
+                    opacity: 0.3
+                }}></span>}
                 {!hasSubItems && item.path !== '#' ? (
                     <Link href={item.path} className={styles.link}>
-                        {IconComponent && <IconComponent size={20} />}
+                        {IconComponent && <IconComponent size={iconSize} />}
                         <span className={styles.label} style={level > 0 ? { fontSize: '0.9em', fontStyle: 'italic', opacity: 0.8 } : {}}>
                             {item.name}
                         </span>
                     </Link>
                 ) : (
                     <div className={styles.link}>
-                        {IconComponent && <IconComponent size={20} />}
+                        {IconComponent && <IconComponent size={iconSize} />}
                         <span className={styles.label} style={level > 0 ? { fontSize: '0.9em', fontStyle: 'italic', opacity: 0.8 } : {}}>
                             {item.name}
                         </span>
@@ -87,6 +100,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
 
     useEffect(() => {
         async function fetchMenu() {
+            setLoading(true); // Ensure loading state is set when re-fetching
             try {
                 const res = await fetch('/api/setup/menu-tree');
                 if (res.ok) {
@@ -100,6 +114,15 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             }
         }
         fetchMenu();
+
+        // Listen for menu updates
+        const handleMenuUpdate = () => {
+            console.log("Menu update event received, refreshing sidebar...");
+            fetchMenu();
+        };
+
+        window.addEventListener('menu-updated', handleMenuUpdate);
+        return () => window.removeEventListener('menu-updated', handleMenuUpdate);
     }, []);
 
 

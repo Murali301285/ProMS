@@ -52,7 +52,42 @@ export async function POST(request) {
             path: '/',
         });
 
-        return NextResponse.json({ message: 'Login successful', user });
+        // Time Verification Logic
+        let timeMismatch = false;
+        let serverTime = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        let actualTime = null;
+        let diffMinutes = 0;
+
+        try {
+            const timeRes = await fetch('http://worldtimeapi.org/api/timezone/Asia/Kolkata', { signal: AbortSignal.timeout(3000) }); // 3s timeout
+            if (timeRes.ok) {
+                const timeData = await timeRes.json();
+                actualTime = new Date(timeData.datetime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+                const apiDate = new Date(timeData.datetime);
+                const serverDate = new Date();
+
+                const diffMs = Math.abs(serverDate - apiDate);
+                diffMinutes = Math.floor(diffMs / 60000);
+
+                if (diffMinutes > 5) {
+                    timeMismatch = true;
+                }
+            }
+        } catch (e) {
+            console.warn("Time API check failed, skipping verification", e.message);
+        }
+
+        return NextResponse.json({
+            message: 'Login successful',
+            user,
+            timeCheck: {
+                mismatch: timeMismatch,
+                serverTime,
+                actualTime: actualTime || "Could not fetch",
+                diffMinutes
+            }
+        });
 
     } catch (error) {
         console.error('Login Error:', error);

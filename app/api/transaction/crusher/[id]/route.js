@@ -57,6 +57,7 @@ export async function PUT(request, { params }) {
             req.input('TotalQty', sql.Decimal(18, 2), body.TotalQty || 0);
             req.input('OHMR', sql.Decimal(18, 2), body.OHMR || 0);
             req.input('CHMR', sql.Decimal(18, 2), body.CHMR || 0);
+            req.input('KWH', sql.Decimal(18, 3), body.KWH || null);
             req.input('RunningHr', sql.Decimal(18, 2), body.RunningHr || 0);
             req.input('TotalStoppageHours', sql.Decimal(18, 2), body.TotalStoppageHours || 0);
 
@@ -81,6 +82,7 @@ UPDATE [Trans].[TblCrusher] SET
     TotalQty = @TotalQty,
     OHMR = @OHMR,
     CHMR = @CHMR,
+    KWH = @KWH,
     RunningHr = @RunningHr,
     TotalStoppageHours = @TotalStoppageHours,
     Remarks = @Remarks,

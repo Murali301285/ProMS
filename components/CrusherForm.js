@@ -45,6 +45,7 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
         TotalQty: '',
         OHMR: '',
         CHMR: '',
+        KWH: '', // Added KWH
         RunningHr: '',
         TotalStoppageHours: '',
         Remarks: ''
@@ -106,6 +107,7 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
                 TotalQty: initialData.TotalQty || '',
                 OHMR: initialData.OHMR || '',
                 CHMR: initialData.CHMR || '',
+                KWH: initialData.KWH || '', // Added KWH
                 RunningHr: initialData.RunningHr || '',
                 TotalStoppageHours: initialData.TotalStoppageHours || '',
                 Remarks: initialData.Remarks || ''
@@ -169,7 +171,7 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
             ShiftId: '', ShiftInChargeId: '', ManPowerInShift: '', PlantId: '',
             BeltScaleOHMR: '', BeltScaleCHMR: '', ProductionUnitId: 2, ProductionQty: '',
             EquipmentId: '', NoofTrip: '', QtyTrip: '', TripQtyUnitId: 2,
-            TotalQty: '', OHMR: '', CHMR: '', RunningHr: '', TotalStoppageHours: '', Remarks: ''
+            TotalQty: '', OHMR: '', CHMR: '', KWH: '', RunningHr: '', TotalStoppageHours: '', Remarks: ''
         });
         setStoppages([]);
     };
@@ -312,12 +314,15 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
             // REFINED LOGIC: Explicit Chain
             const mapping = {
                 3: () => plantRef.current && plantRef.current.focus(), // Manpower -> Plant
-                4: () => document.getElementById('ohmr-input')?.focus(), // Plant -> OHMR
-                5: () => document.getElementById('chmr-input')?.focus(), // OHMR -> CHMR
+                4: () => document.getElementById('belt-ohmr')?.focus(), // Plant -> OHMR (Belt) - Need ID
+                5: () => document.getElementById('belt-chmr')?.focus(), // OHMR -> CHMR (Belt) - Need ID
                 6: () => haulerRef.current && haulerRef.current.focus(), // CHMR -> Hauler
-                7: () => document.getElementById('notrip-input')?.focus(), // Hauler -> No of Trip (Skip others?)
+                7: () => document.getElementById('notrip-input')?.focus(), // Hauler -> No of Trip
                 10: () => document.getElementById('qtytrip-input')?.focus(), // No of Trip -> Qty/Trip
-                11: () => document.getElementById('add-stoppage-btn')?.focus(), // Qty/Trip -> New Stoppage
+                11: () => document.getElementById('hauler-ohmr')?.focus(), // Qty/Trip -> Hauler OHMR (Jump to Row 4)
+                12: () => document.getElementById('hauler-chmr')?.focus(), // Hauler OHMR -> Hauler CHMR
+                13: () => document.getElementById('kwh-input')?.focus(), // Hauler CHMR -> KWH (Running Hr is ReadOnly skipped)
+                14: () => document.getElementById('add-stoppage-btn')?.focus(), // KWH -> Add Stoppage
             };
 
             if (mapping[index]) {
@@ -443,7 +448,7 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
                     ShiftId: '', ShiftInChargeId: '', ManPowerInShift: '', PlantId: '',
                     BeltScaleOHMR: '', BeltScaleCHMR: '', ProductionUnitId: 2, ProductionQty: '',
                     EquipmentId: '', NoofTrip: '', QtyTrip: '', TripQtyUnitId: 2,
-                    TotalQty: '', OHMR: '', CHMR: '', RunningHr: '', TotalStoppageHours: '', Remarks: ''
+                    TotalQty: '', OHMR: '', CHMR: '', KWH: '', RunningHr: '', TotalStoppageHours: '', Remarks: ''
                 }));
                 setStoppages([]);
                 fetchRecentData();
@@ -536,7 +541,7 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
                             onChange={(e) => {
                                 handleChange('PlantId', e.target.value);
                                 // Auto-focus OHMR after selection if single select
-                                document.getElementById('ohmr-input')?.focus();
+                                document.getElementById('belt-ohmr')?.focus();
                             }}
                             placeholder="Plant"
                             className={css.compactInput}
@@ -553,11 +558,11 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
                 <div className={css.row} style={{ display: 'grid', gridTemplateColumns: '20% 20% 20% 10% auto', gap: '15px' }}>
                     <div className={css.fieldGroup}>
                         <label className={css.label}>OHMR (Belt Scale)</label>
-                        <input id="ohmr-input" type="number" step="0.001" className={css.input} value={formData.BeltScaleOHMR} onChange={e => handleChange('BeltScaleOHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 5)} />
+                        <input id="belt-ohmr" type="number" step="0.001" className={css.input} value={formData.BeltScaleOHMR} onChange={e => handleChange('BeltScaleOHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 5)} />
                     </div>
                     <div className={css.fieldGroup}>
                         <label className={css.label}>CHMR (Belt Scale)</label>
-                        <input id="chmr-input" type="number" step="0.001" className={css.input} value={formData.BeltScaleCHMR} onChange={e => handleChange('BeltScaleCHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 6)} />
+                        <input id="belt-chmr" type="number" step="0.001" className={css.input} value={formData.BeltScaleCHMR} onChange={e => handleChange('BeltScaleCHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 6)} />
                     </div>
                     <div className={css.fieldGroup}>
                         <label className={css.label}>Production Qty</label>
@@ -611,19 +616,23 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
 
                 <div className={css.divider}></div>
 
-                {/* Row 4: Hauler OHMR, CHMR, Running Hr - Compacted */}
-                <div className={css.row} style={{ display: 'grid', gridTemplateColumns: '16% 16% 16% auto', gap: '15px' }}>
+                {/* Row 4: Hauler OHMR, CHMR, Running Hr, KWH */}
+                <div className={css.row} style={{ display: 'grid', gridTemplateColumns: '16% 16% 16% 16% auto', gap: '15px' }}>
                     <div className={css.fieldGroup}>
                         <label className={css.label}>OHMR</label>
-                        <input type="number" step="0.001" className={css.input} value={formData.OHMR} onChange={e => handleChange('OHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 12)} />
+                        <input id="hauler-ohmr" type="number" step="0.001" className={css.input} value={formData.OHMR} onChange={e => handleChange('OHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 12)} />
                     </div>
                     <div className={css.fieldGroup}>
                         <label className={css.label}>CHMR</label>
-                        <input type="number" step="0.001" className={css.input} value={formData.CHMR} onChange={e => handleChange('CHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 13)} />
+                        <input id="hauler-chmr" type="number" step="0.001" className={css.input} value={formData.CHMR} onChange={e => handleChange('CHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 13)} />
                     </div>
                     <div className={css.fieldGroup}>
                         <label className={css.label}>Running Hr</label>
                         <input type="number" step="0.001" className={`${css.input} ${css.readOnly}`} value={formData.RunningHr} readOnly />
+                    </div>
+                    <div className={css.fieldGroup}>
+                        <label className={css.label}>KWH</label>
+                        <input id="kwh-input" type="number" step="0.001" className={css.input} value={formData.KWH} onChange={e => handleChange('KWH', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 14)} />
                     </div>
                 </div>
 
@@ -691,7 +700,7 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
                         </table>
                     </div>
                     <div style={{ marginTop: '10px' }}>
-                        <button type="button" onClick={addStoppageRow} className={css.addBtn} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <button id="add-stoppage-btn" type="button" onClick={addStoppageRow} className={css.addBtn} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <Plus size={14} /> Add Row
                         </button>
                     </div>

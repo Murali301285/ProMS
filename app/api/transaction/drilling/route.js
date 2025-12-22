@@ -55,6 +55,8 @@ export async function GET(request) {
                     WHERE B.[BlastingPatchId] = T.[DrillingPatchId]
                 ) AS DateOfBlasting,
                 T.DrillingPatchId,
+                T.DrillingAgencyId,
+                DA.AgencyName AS DrillingAgency,
                 T.EquipmentId,
                 E.EquipmentName AS Equipment,
                 T.MaterialId,
@@ -91,6 +93,7 @@ export async function GET(request) {
                 COUNT(*) OVER() as TotalCount
             FROM [Trans].[TblDrilling] T
             LEFT JOIN [Master].[TblEquipment] E ON T.EquipmentId = E.SlNo
+            LEFT JOIN [Master].[TblDrillingAgency] DA ON T.DrillingAgencyId = DA.SlNo
             LEFT JOIN [Master].[TblMaterial] M ON T.MaterialId = M.SlNo
             LEFT JOIN [Master].[TblLocation] L ON T.LocationId = L.SlNo
             LEFT JOIN [Master].[TblSector] Sec ON T.SectorId = Sec.SlNo

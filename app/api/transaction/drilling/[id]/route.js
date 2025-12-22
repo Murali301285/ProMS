@@ -42,6 +42,7 @@ export async function PUT(request, { params }) {
             SET 
                 [Date] = @Date,
                 [DrillingPatchId] = @DrillingPatchId,
+                [DrillingAgencyId] = @DrillingAgencyId,
                 [EquipmentId] = @EquipmentId,
                 [MaterialId] = @MaterialId,
                 [LocationId] = @LocationId,
@@ -68,6 +69,7 @@ export async function PUT(request, { params }) {
         requestSql.input('Id', sql.BigInt, id);
         requestSql.input('Date', sql.Date, body.Date);
         requestSql.input('DrillingPatchId', sql.NVarChar, body.DrillingPatchId);
+        requestSql.input('DrillingAgencyId', sql.Int, body.DrillingAgencyId);
         requestSql.input('EquipmentId', sql.BigInt, body.EquipmentId);
         requestSql.input('MaterialId', sql.BigInt, body.MaterialId);
         requestSql.input('LocationId', sql.BigInt, body.LocationId);

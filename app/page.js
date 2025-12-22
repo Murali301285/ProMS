@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Settings } from 'lucide-react';
+import { toast } from 'sonner';
 import { useTheme } from '@/components/ThemeProvider';
 import styles from './login.module.css';
 
@@ -47,8 +48,12 @@ export default function LoginPage() {
         }
     };
 
+    const [timeWarning, setTimeWarning] = useState(null); // { serverTime, actualTime }
+
     const onSubmit = async (data) => {
         setLoading(true);
+        const startTime = Date.now();
+
         try {
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
@@ -56,10 +61,21 @@ export default function LoginPage() {
                 body: JSON.stringify(data),
             });
 
+            // Latency Check
+            const duration = Date.now() - startTime;
+            if (duration > 3000) { // 3 seconds threshold
+                toast.warning("Server response is taking longer than usual...", { duration: 4000 });
+            }
+
             const result = await res.json();
 
             if (res.ok) {
-                router.push('/dashboard');
+                // Check Time Mismatch
+                if (result.timeCheck && result.timeCheck.mismatch) {
+                    setTimeWarning(result.timeCheck);
+                } else {
+                    router.push('/dashboard');
+                }
             } else {
                 alert(result.message || 'Login Failed');
             }
@@ -71,8 +87,33 @@ export default function LoginPage() {
         }
     };
 
+    // ... rest of handlers ...
+
+    const handleTimeWarningProceed = () => {
+        router.push('/dashboard');
+    };
+
+    const handleTimeWarningCancel = async () => {
+        // Logout logic (clear cookies via API or simple refresh since we likely just set them)
+        // Ideally call a logout endpoint
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+        } catch (e) { }
+
+        setTimeWarning(null);
+        window.location.reload();
+    };
+
     return (
         <div className={styles.container}>
+            {loading && (
+                <div className={styles.loaderOverlay}>
+                    <div className={styles.spinner}></div>
+                    <h2>Authenticating...</h2>
+                    <p style={{ marginTop: '10px', fontSize: '0.9rem', opacity: 0.8 }}>Please wait while we verify your credentials.</p>
+                </div>
+            )}
+
             <div className={`${styles.card} glass`}>
                 <div className={styles.header}>
                     <div className={styles.logo}>
@@ -130,6 +171,39 @@ export default function LoginPage() {
                     <p>ProMS 2.0 © 2026</p>
                 </div>
             </div>
+
+            {/* Time Warning Modal */}
+            {timeWarning && (
+                <div className={styles.modalOverlay} style={{ zIndex: 100 }}>
+                    <div className={`${styles.modal} glass`} style={{ border: '1px solid orange' }}>
+                        <h2 className={styles.modalTitle} style={{ color: 'orange' }}>Warning: Invalid Date Time</h2>
+                        <div style={{ padding: '20px 0', fontSize: '1rem', lineHeight: '1.6' }}>
+                            <p><strong>System Time Difference Detected!</strong></p>
+                            <p>The server time differs significantly from Standard Time.</p>
+                            <div style={{ background: 'rgba(0,0,0,0.1)', padding: '10px', borderRadius: '8px', margin: '15px 0' }}>
+                                <p><strong>Server Time:</strong> {timeWarning.serverTime}</p>
+                                <p><strong>Actual Time (IST):</strong> {timeWarning.actualTime}</p>
+                            </div>
+                            <p>Please check your system clock before proceeding.</p>
+                        </div>
+                        <div className={styles.modalActions}>
+                            <button
+                                className={styles.cancelBtn}
+                                onClick={handleTimeWarningCancel}
+                            >
+                                Cancel (Logout)
+                            </button>
+                            <button
+                                className={styles.saveBtn}
+                                onClick={handleTimeWarningProceed}
+                                style={{ background: 'orange' }}
+                            >
+                                Proceed Anyway
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* DB Selection Modal */}
             {showDbModal && (

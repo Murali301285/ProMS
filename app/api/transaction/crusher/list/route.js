@@ -71,6 +71,7 @@ export async function GET(request) {
                 T.OHMR,
                 T.CHMR,
                 T.RunningHr,
+                T.KWH,
                 T.TotalStoppageHours,
                 T.Remarks,
 
@@ -86,8 +87,8 @@ export async function GET(request) {
             LEFT JOIN [Master].[TblUnit] U1 ON T.ProductionUnitId = U1.SlNo
             LEFT JOIN [Master].[TblEquipment] H ON T.HaulerId = H.SlNo
             LEFT JOIN [Master].[TblUnit] U2 ON T.TripQtyUnitId = U2.SlNo
-            LEFT JOIN [Master].[TblUser] CU ON T.CreatedBy = CU.SlNo
-            LEFT JOIN [Master].[TblUser] UU ON T.UpdatedBy = UU.SlNo
+            LEFT JOIN [Master].[TblUser_New] CU ON T.CreatedBy = CU.SlNo
+            LEFT JOIN [Master].[TblUser_New] UU ON T.UpdatedBy = UU.SlNo
             
             ${whereClause}
             ORDER BY T.[Date] DESC, T.SlNo DESC

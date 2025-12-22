@@ -33,6 +33,7 @@ export async function POST(request) {
             INSERT INTO [Trans].[TblDrilling] (
                 [Date],
                 [DrillingPatchId],
+                [DrillingAgencyId],
                 [EquipmentId],
                 [MaterialId],
                 [LocationId],
@@ -57,6 +58,7 @@ export async function POST(request) {
             ) VALUES (
                 @Date,
                 @DrillingPatchId,
+                @DrillingAgencyId,
                 @EquipmentId,
                 @MaterialId,
                 @LocationId,
@@ -83,6 +85,7 @@ export async function POST(request) {
 
         requestSql.input('Date', sql.Date, body.Date);
         requestSql.input('DrillingPatchId', sql.NVarChar, body.DrillingPatchId);
+        requestSql.input('DrillingAgencyId', sql.Int, body.DrillingAgencyId);
         requestSql.input('EquipmentId', sql.BigInt, body.EquipmentId);
         requestSql.input('MaterialId', sql.BigInt, body.MaterialId);
         requestSql.input('LocationId', sql.BigInt, body.LocationId);

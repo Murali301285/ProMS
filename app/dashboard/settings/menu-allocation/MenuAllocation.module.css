@@ -263,3 +263,41 @@
 .tinyInput:focus {
     border-color: var(--primary);
 }
+
+.posInput {
+    width: 40px;
+    padding: 2px 4px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+/* Tree Structure Enhancement */
+.moduleHeader {
+    background-color: rgba(255, 255, 255, 0.5);
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    margin-bottom: 0.5rem;
+    color: var(--primary);
+    border-bottom: 2px solid rgba(0, 0, 0, 0.05);
+    transition: background 0.2s;
+    user-select: none;
+}
+
+.moduleHeader:hover {
+    background-color: rgba(255, 255, 255, 0.8);
+}
+
+.draggablePage {
+    cursor: grab;
+    transition: background-color 0.2s;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+}
+
+.draggablePage:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.05);
+}

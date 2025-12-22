@@ -26,7 +26,7 @@ export async function POST(req) {
             'TblStoppageReason', 'TblStrata', 'TblUnit',
             'TblSMECategory', 'TblDrillingRemarks', 'TblEquipmentOwnerType',
             'TblOperatorCategory', 'TblOperatorSubCategory', 'TblStoppageReason', 'TblStoppageCategory',
-            'tblParty', 'TblBDSEntry', 'TblRole_New', 'TblUser_New'
+            'tblParty', 'TblBDSEntry', 'TblRole_New', 'TblUser_New', 'TblDrillingAgency'
         ];
         if (!validTables.includes(table)) return NextResponse.json({ message: 'Invalid table' }, { status: 403 });
 
