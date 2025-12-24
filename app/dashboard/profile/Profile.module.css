@@ -1,0 +1,293 @@
+.container {
+    padding: 40px;
+    max-width: 800px;
+    margin: 0 auto;
+    font-family: Arial, sans-serif;
+}
+
+.backBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 16px;
+    cursor: pointer;
+    margin-bottom: 20px;
+}
+
+.backBtn:hover {
+    color: #1e293b;
+}
+
+.card {
+    background-color: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+}
+
+.header {
+    padding: 24px;
+    background-color: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #1e293b;
+    margin: 0;
+}
+
+.subtitle {
+    font-size: 14px;
+    color: #64748b;
+    margin: 4px 0 0 0;
+}
+
+.body {
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+/* Profile Image */
+.imageSection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.imageWrapper {
+    position: relative;
+    width: 128px;
+    height: 128px;
+    border-radius: 50%;
+    border: 4px solid #f1f5f9;
+    overflow: hidden;
+    background-color: #f8fafc;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.profileImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.placeholderImg {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 48px;
+    font-weight: bold;
+}
+
+.cameraOverlay {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+    cursor: pointer;
+}
+
+.imageWrapper:hover .cameraOverlay {
+    opacity: 1;
+}
+
+.changePhotoText {
+    font-size: 14px;
+    font-weight: 500;
+    color: #2563eb;
+    margin-top: 12px;
+    cursor: pointer;
+}
+
+.changePhotoText:hover {
+    text-decoration: underline;
+}
+
+/* Form Fields */
+.formGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+}
+
+.input {
+    width: 100%;
+    padding: 10px 16px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.inputDisabled {
+    background-color: #f1f5f9;
+    color: #64748b;
+    cursor: not-allowed;
+}
+
+/* Password Section */
+.passwordSection {
+    border-top: 1px solid #e2e8f0;
+    padding-top: 24px;
+}
+
+.sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.sectionTitle {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+}
+
+.toggleBtn {
+    color: #2563eb;
+    font-size: 14px;
+    font-weight: 500;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.toggleBtn:hover {
+    text-decoration: underline;
+}
+
+.passwordForm {
+    background-color: #f8fafc;
+    padding: 24px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.passwordInputWrapper {
+    position: relative;
+}
+
+.eyeBtn {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.eyeBtn:hover {
+    color: #475569;
+}
+
+.policyContainer {
+    margin-top: 12px;
+    padding: 12px;
+    background-color: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.policyItem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.policyValid {
+    color: #16a34a;
+}
+
+.policyInvalid {
+    color: #ef4444;
+}
+
+.errorText {
+    font-size: 12px;
+    color: #ef4444;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Footer */
+.footer {
+    padding: 24px;
+    background-color: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.saveBtn {
+    padding: 10px 24px;
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.2s;
+}
+
+.saveBtn:hover {
+    background-color: #1d4ed8;
+}
+
+.saveBtn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}

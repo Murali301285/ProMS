@@ -52,11 +52,18 @@ export default function SubMenusPage() {
             id: editingId
         };
 
-        await fetch('/api/settings/crud', {
+        const res = await fetch('/api/settings/crud', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
+
+        const result = await res.json();
+
+        if (!res.ok) {
+            toast.error(result.error || result.message || "Failed to save page");
+            return;
+        }
 
         if (editingId) toast.success("Page updated");
         else toast.success("Page created");

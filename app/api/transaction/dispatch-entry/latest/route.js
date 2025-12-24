@@ -4,9 +4,8 @@ import { executeQuery } from '@/lib/db';
 export async function GET() {
     try {
         const query = `
-            SELECT TOP 1 t.Date, t.CreatedBy, p.PartyName 
-            FROM [Trans].[TblBDSEntry] t
-            LEFT JOIN [Master].[tblParty] p ON t.PartyId = p.SlNo
+            SELECT TOP 1 t.Date, t.CreatedBy 
+            FROM [Trans].[TblDispatchEntry] t
             WHERE t.isDelete = 0
             ORDER BY t.CreatedDate DESC
         `;

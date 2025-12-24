@@ -69,7 +69,7 @@ export async function PUT(request, { params }) {
                     AirPressure = ${body.AirPressure || 0},
                     TotalExplosiveUsed = ${body.TotalExplosiveUsed || 0},
                     Remarks = '${body.Remarks || ''}',
-                    UpdatedBy = 2,
+                    UpdatedBy = '${body.UserName || 'Admin'}',
                     UpdatedDate = GETDATE()
                 WHERE SlNo = ${id}
             `);
@@ -99,7 +99,7 @@ export async function PUT(request, { params }) {
                             ${acc.TotalNonelMeters || 0}, 
                             ${acc.TotalTLDMeters || 0}, 
                             GETDATE(), 
-                            2, 
+                            '${body.UserName || 'Admin'}', 
                             0
                         )
                     `);

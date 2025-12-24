@@ -362,6 +362,7 @@ export default function TransactionTable({
                                             let val = row[col.accessor];
                                             if (col.accessor === 'SlNo') val = listIndex;
                                             if (col.type === 'date' && val) val = new Date(val).toLocaleDateString('en-GB');
+                                            if (col.type === 'datetime' && val) val = String(val).replace('T', ' ').split('.')[0]; // Display raw server time without timezone conversion
 
                                             return (
                                                 <td

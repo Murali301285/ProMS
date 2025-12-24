@@ -114,7 +114,8 @@
 }
 
 .th {
-    background-color: #f8fafc;
+    background-color: #e2e8f0;
+    /* Darker grey for visibility */
     color: #1e293b;
     font-weight: 700;
     padding: 8px 10px;

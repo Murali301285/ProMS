@@ -114,6 +114,17 @@ export default function CrusherPage() {
         }
         router.push(`/dashboard/transaction/crusher/${row.SlNo}`);
     };
+    // Shortcut for Add New
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'F3' || (e.ctrlKey && e.key === 'a')) {
+                e.preventDefault();
+                router.push('/dashboard/transaction/crusher/add');
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [router]);
 
     return (
         <div className={styles.page}>
@@ -122,15 +133,23 @@ export default function CrusherPage() {
             <div className={styles.header}>
                 <div>
                     <h1 className={styles.title}>Crusher</h1>
-                    {lastEntry && (
-                        <div className="text-xs text-gray-500 mt-1">
-                            Last data entered on &rarr; Date: {new Date(lastEntry.CreatedDate).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedByName}
-                        </div>
-                    )}
+
                 </div>
                 <div className={styles.headerActions}>
+                    {lastEntry && (
+                        <span style={{
+                            color: '#2563eb',
+                            fontStyle: 'italic',
+                            fontSize: '0.85rem',
+                            marginRight: '16px',
+                            fontWeight: 500,
+                            alignSelf: 'center'
+                        }}>
+                            Last data entered on -&gt; Date: {new Date(lastEntry.Date).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedBy || 'Admin'}
+                        </span>
+                    )}
                     <button className={styles.addNew} onClick={() => router.push('/dashboard/transaction/crusher/add')}>
-                        <Plus size={16} /> Add New
+                        <Plus size={16} /> <span style={{ textDecoration: 'underline' }}>A</span>dd New (F3)
                     </button>
                     <button className={styles.refreshBtn} onClick={fetchData} title="Reload">
                         <RotateCcw size={16} />

@@ -1,0 +1,199 @@
+.container {
+    padding: 12px;
+    background-color: #f8fafc;
+    min-height: calc(100vh - 64px);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 100%;
+    margin: 0;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+    flex-grow: 1;
+    text-align: center;
+}
+
+.backBtn {
+    background-color: white;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.backBtn:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+}
+
+.headerActions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.refreshBtn {
+    background-color: white;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+.saveBtn {
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.saveBtn:hover {
+    background-color: #1d4ed8;
+}
+
+.card {
+    background: #ffffff;
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+}
+
+/* Grids for Water Tanker Entry */
+.row1 {
+    display: grid;
+    grid-template-columns: 20% 20% 1fr;
+    /* Date, Shift, Spacer */
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.row2 {
+    display: grid;
+    grid-template-columns: 22% 22% 22% 22%;
+    /* Dest, Hauler, FillingPt, FillingPump (Reduced by ~10%) */
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.row3 {
+    display: grid;
+    grid-template-columns: 10% 10% 10% 1fr;
+    /* Trips, Capacity, Total, Spacer (Reduced by 50%) */
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.required {
+    color: #ef4444;
+    margin-left: 2px;
+}
+
+/* Common Form Elements */
+.group {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.group label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 700;
+    font-size: 12px;
+    color: #374151;
+}
+
+.input,
+.select {
+    height: 30px;
+    padding: 0 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 12px;
+    width: 100%;
+    outline: none;
+    transition: all 0.2s;
+    background: #fff;
+    color: #0f172a;
+}
+
+.input:focus,
+.select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.readOnly {
+    background-color: #f1f5f9 !important;
+    border-color: #e2e8f0;
+    color: #64748b;
+    cursor: default;
+}
+
+.errorBorder {
+    border-color: #ef4444 !important;
+    background-color: #fef2f2;
+}
+
+.errorMsg {
+    color: red;
+    font-size: 10px;
+    position: absolute;
+    right: 0;
+    top: 0;
+    background: #fff;
+    padding: 0 4px;
+    border: 1px solid red;
+    border-radius: 4px;
+    z-index: 10;
+}
+
+.dataTableSection {
+    margin-top: 20px;
+    background: white;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tableTitle {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 10px;
+}

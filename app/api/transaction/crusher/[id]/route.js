@@ -62,7 +62,7 @@ export async function PUT(request, { params }) {
             req.input('TotalStoppageHours', sql.Decimal(18, 2), body.TotalStoppageHours || 0);
 
             req.input('Remarks', sql.NVarChar, body.Remarks);
-            req.input('UserId', sql.Int, body.UserId || 1);
+            req.input('UserName', sql.VarChar(50), body.UserName || 'Admin');
 
             await req.query(`
 UPDATE [Trans].[TblCrusher] SET
@@ -86,7 +86,7 @@ UPDATE [Trans].[TblCrusher] SET
     RunningHr = @RunningHr,
     TotalStoppageHours = @TotalStoppageHours,
     Remarks = @Remarks,
-    UpdatedBy = @UserId,
+    UpdatedBy = @UserName,
     UpdatedDate = GETDATE()
                 WHERE SlNo = @id
     `);

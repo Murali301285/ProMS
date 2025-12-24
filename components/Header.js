@@ -7,12 +7,18 @@ import { useRouter } from 'next/navigation';
 import styles from './Header.module.css';
 import { getCookie } from 'cookies-next';
 
+// ... imports
+// ... imports
+// import ProfileModal from './ProfileModal'; // Removed
+
 export default function Header({ toggleSidebar, isSidebarOpen }) {
+    // ... (Keep existing setup)
     const { theme, toggleTheme } = useTheme();
     const [userMenuOpen, setUserMenuOpen] = useState(false);
+    // const [profileModalOpen, setProfileModalOpen] = useState(false); // Removed
     const [dbInfo, setDbInfo] = useState(null);
 
-    // Search State
+    // ... (Keep existing search logic)
     const [searchData, setSearchData] = useState([]);
     const [query, setQuery] = useState('');
     const [results, setResults] = useState([]);
@@ -21,6 +27,7 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
     const router = useRouter();
     const searchRef = useRef(null);
 
+    // ... (Keep existing useEffects)
     useEffect(() => {
         // Fetch Search Data
         async function fetchSearchData() {
@@ -160,10 +167,11 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
                 <button className={styles.iconBtn} onClick={toggleTheme}>
                     {theme === 'light' ? '🌙' : '☀️'}
                 </button>
-                <button className={styles.iconBtn}>
+                {/* Alert Hidden for now */}
+                {/* <button className={styles.iconBtn}>
                     <Bell size={20} />
                     <span className={styles.badge}>3</span>
-                </button>
+                </button> */}
 
                 <div className={styles.profile} onClick={() => setUserMenuOpen(!userMenuOpen)}>
                     <div className={styles.avatar}>
@@ -173,11 +181,22 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
 
                     {userMenuOpen && (
                         <div className={`${styles.dropdown} glass`}>
-                            <div className={styles.dropdownItem}>Profile</div>
+                            <div
+                                className={styles.dropdownItem}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setUserMenuOpen(false);
+                                    router.push('/dashboard/profile'); // Navigate to new page
+                                }}
+                            >
+                                Profile
+                            </div>
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* <ProfileModal isOpen={profileModalOpen} onClose={() => setProfileModalOpen(false)} /> */}
         </header>
     );
 }

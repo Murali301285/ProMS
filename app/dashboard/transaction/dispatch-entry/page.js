@@ -133,25 +133,43 @@ export default function DispatchEntryList() {
         }
         router.push(`/dashboard/transaction/dispatch-entry/${row.SlNo}`);
     };
+    // Shortcut for Add New
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'F3' || (e.ctrlKey && e.key === 'a')) {
+                e.preventDefault();
+                router.push('/dashboard/transaction/dispatch-entry/create');
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [router]);
 
     return (
         <div className={styles.page}>
             <div className={styles.header}>
                 <div>
-                    <h1 className={styles.title} style={{ fontSize: '20px' }}>Dispatch Entry List</h1>
-                    {lastEntry && (
-                        <div className="text-xs text-gray-500 mt-1">
-                            Last data entered on -&gt; Date: <span className="font-semibold">{new Date(lastEntry.Date).toLocaleDateString('en-GB')}</span> | Party: <span className="font-semibold text-blue-600">{lastEntry.PartyName}</span> | By: <span className="font-semibold text-blue-600">{lastEntry.CreatedByName || lastEntry.CreatedBy || 'Admin'}</span>
-                        </div>
-                    )}
+                    <h1 className={styles.title} style={{ fontSize: '20px' }}>Dispatch Entry</h1>
                 </div>
                 <div className={styles.headerActions}>
+                    {lastEntry && (
+                        <span style={{
+                            color: '#2563eb',
+                            fontStyle: 'italic',
+                            fontSize: '0.85rem',
+                            marginRight: '16px',
+                            fontWeight: 500,
+                            alignSelf: 'center'
+                        }}>
+                            Last data entered on -&gt; Date: {new Date(lastEntry.Date).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedByName || lastEntry.CreatedBy || 'Admin'}
+                        </span>
+                    )}
 
                     <button
                         onClick={() => router.push('/dashboard/transaction/dispatch-entry/create')}
                         className={styles.addNew}
                     >
-                        <Plus size={16} /> Add New
+                        <Plus size={16} /> <span style={{ textDecoration: 'underline' }}>A</span>dd New (F3)
                     </button>
                     <button
                         onClick={fetchData}

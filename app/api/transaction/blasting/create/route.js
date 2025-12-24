@@ -46,11 +46,11 @@ export async function POST(request) {
                     ${body.TotalExplosiveUsed || 0}, 
                     '${body.Remarks || ''}', 
                     GETDATE(), 
-                    2, 
+                    '${body.UserName || 'Admin'}', 
                     0
                 )
             `;
-            // Using CreatedBy = 2 (Admin) as per previous fixes.
+            // Using CreatedBy = UserName mapped from body
 
             const parentRes = await transaction.request().query(insertParent);
             const blastingId = parentRes.recordset[0].SlNo;
@@ -71,7 +71,7 @@ export async function POST(request) {
                             ${acc.TotalNonelMeters || 0}, 
                             ${acc.TotalTLDMeters || 0}, 
                             GETDATE(), 
-                            2, 
+                            '${body.UserName || 'Admin'}', 
                             0
                         )
                     `;

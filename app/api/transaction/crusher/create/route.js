@@ -28,7 +28,7 @@ export async function POST(request) {
             RunningHr,
             TotalStoppageHours,
             Remarks,
-            UserId = 1, // Default to 1 (Admin in TblUser_New)
+            UserName = 'Admin', // Default to 'Admin'
             stoppages = []
         } = body;
 
@@ -62,7 +62,7 @@ export async function POST(request) {
             req.input('TotalStoppageHours', sql.Decimal(18, 2), TotalStoppageHours || 0);
 
             req.input('Remarks', sql.NVarChar, Remarks);
-            req.input('UserId', sql.Int, UserId);
+            req.input('UserName', sql.VarChar(50), UserName);
 
             const query = `
                 INSERT INTO [Trans].[TblCrusher] (
@@ -80,7 +80,7 @@ export async function POST(request) {
                     @EquipmentId, @NoofTrip, @QtyTrip, @TripQtyUnitId,
                     @TotalQty, @OHMR, @CHMR, @KWH, @RunningHr, @TotalStoppageHours,
                     @Remarks,
-                    @UserId, GETDATE(), 0
+                    @UserName, GETDATE(), 0
                 )
             `;
 

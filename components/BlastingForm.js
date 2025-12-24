@@ -47,6 +47,7 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
     // Refs for Focus
     const dateRef = useRef(null);
     const formRef = useRef(null);
+    const smeSupplierRef = useRef(null);
 
     // Initial Load
     useEffect(() => {
@@ -136,8 +137,13 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                 setFormData(prev => ({
                     ...prev,
                     NoofHoles: result.data.holes,
-                    AverageDepth: result.data.averageDepth
+                    AverageDepth: result.data.averageDepth,
+                    Percentage: result.data.percentage
                 }));
+                // Auto focus to SME Supplier
+                setTimeout(() => {
+                    if (smeSupplierRef.current) smeSupplierRef.current.focus();
+                }, 100);
             } else {
                 toast.warning("No Drilling information found for this Patch ID.");
                 setFormData(prev => ({ ...prev, NoofHoles: '', AverageDepth: '' }));
@@ -268,6 +274,19 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
         }
     };
 
+
+    // --- Global Shortcuts (F2) ---
+    useEffect(() => {
+        const handleGlobalKeyDown = (e) => {
+            if (e.key === 'F2') {
+                e.preventDefault();
+                handleSave();
+            }
+        };
+        window.addEventListener('keydown', handleGlobalKeyDown);
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+    });
+
     // Keyboard Navigation (Enter)
     const handleKeyDown = (e, index) => {
         if (e.key === 'Enter') {
@@ -368,6 +387,7 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                                 onChange={(val) => handleChange('SMESupplierId', val)}
                                 placeholder="Select Supplier"
                                 className={css.compactInput}
+                                ref={smeSupplierRef}
                             />
                         </div>
                     </div>

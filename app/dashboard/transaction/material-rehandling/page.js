@@ -45,7 +45,7 @@ export default function MaterialRehandlingPage() {
                 }
 
                 // Fetch Last Entry Info (Specific API)
-                const lastRes = await fetch('/api/transaction/helper/last-rehandling-entry-info');
+                const lastRes = await fetch('/api/transaction/material-rehandling/latest');
                 const lastData = await lastRes.json();
                 if (lastData.success && lastData.data) {
                     setLastEntry(lastData.data);
@@ -78,7 +78,7 @@ export default function MaterialRehandlingPage() {
             }
 
             // Refresh Last Entry
-            fetch('/api/transaction/helper/last-rehandling-entry-info')
+            fetch('/api/transaction/material-rehandling/latest')
                 .then(r => r.json())
                 .then(res => {
                     if (res.success) setLastEntry(res.data);
@@ -97,6 +97,18 @@ export default function MaterialRehandlingPage() {
         fetchData();
     }, [query]);
 
+    // Shortcut for Add New
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'F3' || (e.ctrlKey && e.key === 'a')) {
+                e.preventDefault();
+                router.push('/dashboard/transaction/material-rehandling/add');
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [router]);
+
     return (
         <div className={styles.container}>
             {loading && <LoadingOverlay message="Loading Rehandling Data..." />}
@@ -106,15 +118,21 @@ export default function MaterialRehandlingPage() {
                 <h1 className={styles.title}>Material Rehandling</h1>
                 <div className={`${styles.actions} items-center`}>
                     {lastEntry && (
-                        <span className={styles.lastEntryText}>
-                            Last data entered on -&gt; Loading Date: {new Date(lastEntry.RehandlingDate).toLocaleDateString()} | Entered by : {lastEntry.CreatedByName}
+                        <span style={{
+                            color: '#2563eb',
+                            fontStyle: 'italic',
+                            fontSize: '0.85rem',
+                            marginRight: '16px',
+                            fontWeight: 500
+                        }}>
+                            Last data entered on -&gt; Date: {new Date(lastEntry.Date).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedBy || 'Admin'}
                         </span>
                     )}
                     <button
                         onClick={() => router.push('/dashboard/transaction/material-rehandling/add')}
                         className={`${styles.addButton} transition-transform active:scale-95 hover:scale-105 duration-200`}
                     >
-                        <Plus size={18} /> Add New
+                        <Plus size={18} /> <span style={{ textDecoration: 'underline' }}>A</span>dd New (F3)
                     </button>
                     {/* Refresh Button Removed */}
                 </div>

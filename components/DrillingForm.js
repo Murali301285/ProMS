@@ -379,6 +379,19 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
         }
     };
 
+
+    // --- Global Shortcuts (F2) ---
+    useEffect(() => {
+        const handleGlobalKeyDown = (e) => {
+            if (e.key === 'F2') {
+                e.preventDefault();
+                handleSave();
+            }
+        };
+        window.addEventListener('keydown', handleGlobalKeyDown);
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+    });
+
     // --- Table Actions ---
     const handleEdit = (row) => {
         router.push(`/dashboard/transaction/drilling/${row.SlNo}`);

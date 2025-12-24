@@ -10,7 +10,7 @@ export async function GET(request) {
         const { searchParams } = new URL(request.url);
         const type = searchParams.get('type');
 
-        // Use getDbConnection instead of getPool
+        // Use getDbConnection
         const pool = await getDbConnection();
 
         if (type === 'shifts') {

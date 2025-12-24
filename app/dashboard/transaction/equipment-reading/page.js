@@ -123,6 +123,17 @@ export default function EquipmentReadingPage() {
             setLoading(false);
         }
     };
+    // Shortcut for Add New
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'F3' || (e.ctrlKey && e.key === 'a')) {
+                e.preventDefault();
+                router.push('/dashboard/transaction/equipment-reading/add');
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [router]);
 
     return (
         <div className={styles.page} style={{ position: 'relative' }}>
@@ -143,12 +154,12 @@ export default function EquipmentReadingPage() {
                             marginRight: '16px',
                             fontWeight: 500
                         }}>
-                            Last data entered on -&gt; Loading Date: {new Date(lastEntry.CreatedDate).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedByName || 'Unknown'}
+                            Last data entered on -&gt; Date: {new Date(lastEntry.CreatedDate).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedByName || 'Unknown'}
                         </span>
                     )}
 
                     <button className={styles.addNew} onClick={() => router.push('/dashboard/transaction/equipment-reading/add')}>
-                        <Plus size={16} /> Add New
+                        <Plus size={16} /> <span style={{ textDecoration: 'underline' }}>A</span>dd New (F3)
                     </button>
                     <button className={styles.refreshBtn} onClick={() => fetchData()} title="Reload">
                         <RotateCcw size={16} />

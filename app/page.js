@@ -55,17 +55,23 @@ export default function LoginPage() {
         const startTime = Date.now();
 
         try {
+            // Start Slow Connection Warning Timer
+            const slowTimer = setTimeout(() => {
+                toast.warning("Connecting to server is taking longer than usual...", {
+                    description: "Please check your internet connection.",
+                    duration: 5000
+                });
+            }, 3000); // Alert after 3 seconds
+
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
             });
 
-            // Latency Check
-            const duration = Date.now() - startTime;
-            if (duration > 3000) { // 3 seconds threshold
-                toast.warning("Server response is taking longer than usual...", { duration: 4000 });
-            }
+            clearTimeout(slowTimer); // Clear timer if successful within time
+
+            // Latency Check (Removed retroactive check)
 
             const result = await res.json();
 

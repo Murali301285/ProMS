@@ -26,7 +26,8 @@ export async function POST(req) {
             'TblStoppageReason', 'TblStrata', 'TblUnit',
             'TblSMECategory', 'TblDrillingRemarks', 'TblEquipmentOwnerType',
             'TblOperatorCategory', 'TblOperatorSubCategory', 'TblStoppageReason', 'TblStoppageCategory',
-            'tblParty', 'TblBDSEntry', 'TblRole_New', 'TblUser_New', 'TblDrillingAgency'
+            'tblParty', 'TblBDSEntry', 'TblRole_New', 'TblUser_New', 'TblDrillingAgency',
+            'tblFillingPoint', 'tblFillingPump'
         ];
         if (!validTables.includes(table)) return NextResponse.json({ message: 'Invalid table' }, { status: 403 });
 
@@ -112,20 +113,24 @@ export async function POST(req) {
                         const trimmedVal = data[colName].toString().trim();
 
                         // Case-insensitive check
+                        // Case-insensitive check
                         const existing = await executeQuery(`
-                            SELECT Top 1 SlNo, IsDelete FROM ${tableName} 
+                            SELECT SlNo, IsDelete FROM ${tableName} 
                             WHERE LOWER(LTRIM(RTRIM(${colName}))) = LOWER(@val)
                         `, [{ name: 'val', type: 'NVarChar', value: trimmedVal }]);
 
                         if (existing.length > 0) {
-                            const record = existing[0];
-                            if (!record.IsDelete) {
+                            const activeRecord = existing.find(r => !r.IsDelete);
+                            const deletedRecord = existing.find(r => r.IsDelete);
+
+                            if (activeRecord) {
                                 return NextResponse.json({
                                     error: `${isObj && col.label ? col.label : colName} is already there`,
-                                    existingId: record.SlNo // Return ID for Upsert logic
+                                    existingId: activeRecord.SlNo // Return ID for Upsert logic
                                 }, { status: 409 });
-                            } else {
+                            } else if (deletedRecord) {
                                 // RESTORE LOGIC
+                                const record = deletedRecord;
                                 // Exclude IsActive from dynamic keys to avoid duplicate set
                                 const auditCols = ['createdby', 'createddate', 'updatedby', 'updateddate', 'isdelete', 'isactive'];
                                 const keys = Object.keys(data).filter(k =>
@@ -182,18 +187,28 @@ export async function POST(req) {
                     });
 
                     const existing = await executeQuery(`
-                        SELECT Top 1 SlNo, IsDelete FROM ${tableName}
+                        SELECT SlNo, IsDelete FROM ${tableName}
                         WHERE ${whereConditions}
                     `, inputs);
 
-                    if (existing.length > 0 && !existing[0].IsDelete) {
-                        const colLabels = constraintCols.map(col => {
-                            const colConfig = config.columns.find(c => typeof c === 'object' && c.accessor === col);
-                            return colConfig?.label || col;
-                        }).join(' + ');
-                        return NextResponse.json({
-                            error: `${colLabels} combination already exists. Please use the data table to search and modify if needed.`
-                        }, { status: 409 });
+                    if (existing.length > 0) {
+                        const activeMatch = existing.find(r => !r.IsDelete);
+                        if (activeMatch) {
+                            const colLabels = constraintCols.map(col => {
+                                const colConfig = config.columns.find(c => typeof c === 'object' && c.accessor === col);
+                                return colConfig?.label || col;
+                            }).join(' + ');
+                            return NextResponse.json({
+                                error: `${colLabels} combination already exists. Please use the data table to search and modify if needed.`
+                            }, { status: 409 });
+                        }
+                        // If only deleted match exists, we proceed to Create (which will create a duplicate Active one currently)
+                        // Or we could implement Restore logic here too, but composite restore is complex.
+                        // For now, allowing creation is better than blocking on a deleted record.
+                        // Ideally, we should check if we can restore the deleted one.
+                        // Simpler fix: If deleted one exists, just error? No, that blocks reuse.
+                        // So: If Active exists -> Error. If Deleted exists -> Continue to Insert (duplicate ID, different SlNo).
+                        // This is acceptable behavior for composite keys if they are not strictly DB unique constraints.
                     }
                 }
             }
@@ -271,8 +286,8 @@ export async function POST(req) {
                         const trimmedVal = data[colName].toString().trim();
 
                         const existing = await executeQuery(`
-                            SELECT Top 1 SlNo, IsDelete FROM ${tableName} 
-                            WHERE LOWER(LTRIM(RTRIM(${colName}))) = LOWER(@val) AND SlNo != @id
+                            SELECT Top 1 SlNo FROM ${tableName} 
+                            WHERE LOWER(LTRIM(RTRIM(${colName}))) = LOWER(@val) AND SlNo != @id AND IsDelete = 0
                         `, [
                             { name: 'val', type: 'NVarChar', value: trimmedVal },
                             { name: 'id', type: 'Int', value: id }
@@ -298,8 +313,8 @@ export async function POST(req) {
                     inputs.push({ name: 'id', type: 'Int', value: id });
 
                     const existing = await executeQuery(`
-                        SELECT Top 1 SlNo, IsDelete FROM ${tableName}
-                        WHERE ${whereConditions} AND SlNo != @id
+                        SELECT Top 1 SlNo FROM ${tableName}
+                        WHERE ${whereConditions} AND SlNo != @id AND IsDelete = 0
                     `, inputs);
 
                     if (existing.length > 0 && !existing[0].IsDelete) {
@@ -325,7 +340,10 @@ export async function POST(req) {
 
             const inputs = keys.map(k => {
                 let type = 'NVarChar';
-                if (typeof data[k] === 'number') type = 'Int';
+                if (typeof data[k] === 'number') {
+                    if (Number.isInteger(data[k])) type = 'Int';
+                    else type = 'Decimal';
+                }
                 if (typeof data[k] === 'boolean') type = 'Bit';
                 return { name: k, type, value: data[k] };
             });

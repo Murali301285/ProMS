@@ -208,7 +208,7 @@ const SearchableSelect = forwardRef(({
                 onClick={() => setIsOpen(!isOpen)}
                 onKeyDown={handleKeyDown}
                 data-searchable="true"
-                style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: 'var(--input)', minHeight: '38px' }}
+                style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: 'var(--input)', border: '1px solid #cbd5e1' }}
                 autoFocus={autoFocus}
             >
                 <span style={{ opacity: (multiple ? value?.length : value) ? 1 : 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '8px' }}>

@@ -31,7 +31,7 @@ export async function POST(req) {
             JOIN [Master].[TblPage] P ON MA.PageId = P.SlNo
             LEFT JOIN [Master].[TblRoleAuthorization_New] RA 
                 ON P.SlNo = RA.PageId AND RA.RoleId = @roleId AND RA.IsActive = 1 AND RA.IsDeleted = 0
-            WHERE MA.IsActive = 1 AND MA.IsDelete = 0
+            WHERE MA.IsActive = 1 AND MA.IsDelete = 0 AND P.IsActive = 1 AND P.IsDelete = 0
             ORDER BY M.SortOrder, SG.SortOrder, MA.SortOrder, P.PageName ASC
         `;
 

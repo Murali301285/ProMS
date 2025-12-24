@@ -18,7 +18,8 @@ export default function DataTable({
     showSerialNo = true, // New Prop: Toggle Serial Number
     reportHeader = null, // New Prop: For Fancy Export Header { title, fromDate, toDate }
     enableColumnVisibility = false, // New Prop: Helper to show/hide column toggle if needed (default visible in my implementation above)
-    customHeight = null // New Prop: Allow overriding default height
+    customHeight = null, // New Prop: Allow overriding default height
+    stickyLeft = 0 // New Prop: Number of columns to stick to the left
 }) {
     const tableContainerRef = useRef(null);
 
@@ -130,6 +131,14 @@ export default function DataTable({
     const handleSelectAll = (colKey) => {
         const allVals = uniqueValues[colKey];
         setColumnFilters(prev => ({ ...prev, [colKey]: new Set(allVals) }));
+        setCurrentPage(1);
+    };
+
+    const handleClearFilter = (colKey) => {
+        setColumnFilters(prev => {
+            const { [colKey]: _, ...rest } = prev;
+            return rest;
+        });
         setCurrentPage(1);
     };
 
@@ -278,13 +287,22 @@ export default function DataTable({
 
                     {/* Column Visibility Dropdown */}
                     <div style={{ position: 'relative' }}>
-                        <button
-                            onClick={() => setActiveFilterCol(activeFilterCol === 'COL_VISIBILITY' ? null : 'COL_VISIBILITY')}
-                            className={styles.exportBtn}
-                            style={{ backgroundColor: 'white', border: '1px solid #cbd5e1', color: '#64748b' }}
-                        >
-                            <Filter size={14} /> Columns
-                        </button>
+                        {(() => {
+                            const isAnyColumnHidden = Object.values(columnVisibility).some(v => v === false);
+                            return (
+                                <button
+                                    onClick={() => setActiveFilterCol(activeFilterCol === 'COL_VISIBILITY' ? null : 'COL_VISIBILITY')}
+                                    className={styles.exportBtn}
+                                    style={{
+                                        backgroundColor: isAnyColumnHidden ? '#fef9c3' : 'white',
+                                        border: isAnyColumnHidden ? '1px solid #eab308' : '1px solid #cbd5e1',
+                                        color: isAnyColumnHidden ? '#854d0e' : '#64748b'
+                                    }}
+                                >
+                                    <Filter size={14} className={isAnyColumnHidden ? "fill-yellow-600 text-yellow-600" : ""} /> Columns
+                                </button>
+                            );
+                        })()}
                         {activeFilterCol === 'COL_VISIBILITY' && (
                             <div className={styles.filterDropdown} style={{ right: 0, left: 'auto', width: '200px' }}>
                                 <div className={styles.filterHeader}>
@@ -315,39 +333,27 @@ export default function DataTable({
                                 if (col.accessor === 'SlNo' && !showSerialNo) return null;
                                 if (columnVisibility[col.accessor] === false) return null;
 
-                                const isSticky = index < 1;
+                                const isSticky = index < (stickyLeft || 0);
                                 const isAction = col.accessor === 'actions';
-
-                                // Prepare Filter Options Logic Here
-                                let filterOptions = uniqueValues[col.accessor] || [];
-                                if (activeFilterSearch && activeFilterCol === col.accessor) {
-                                    filterOptions = filterOptions.filter(v =>
-                                        String(v).toLowerCase().includes(activeFilterSearch.toLowerCase())
-                                    );
-                                }
-                                const selectedSet = columnFilters[col.accessor] || new Set();
-                                // We can sort in place or copy. Safest to copy if we didn't already.
-                                // uniqueValues is derived, so better copy before sort if we are mutating. 
-                                // But filter returns new array. If no filter, we might mutate uniqueValues.
-                                // Let's simplify:
-                                const displayOptions = [...filterOptions].sort((a, b) => {
-                                    const aSelected = selectedSet.has(a);
-                                    const bSelected = selectedSet.has(b);
-                                    if (aSelected && !bSelected) return -1;
-                                    if (!aSelected && bSelected) return 1;
-                                    return String(a).localeCompare(String(b));
-                                });
+                                const leftOffset = isSticky ? getLeftOffset(index) : undefined;
+                                const isFiltered = columnFilters[col.accessor]?.size > 0;
 
                                 return (
                                     <th
                                         key={index}
                                         className={styles.th}
                                         style={{
-                                            position: isSticky ? 'sticky' : 'sticky', // Header always sticky top
+                                            position: (isSticky || isAction) ? 'sticky' : 'sticky',
                                             top: 0,
-                                            zIndex: isAction ? 40 : 30,
+                                            left: isSticky ? leftOffset : undefined,
+                                            right: isAction ? 0 : undefined,
+                                            maxWidth: col.width,
+                                            minWidth: col.width,
                                             width: col.width,
-                                            right: isAction ? 0 : undefined
+                                            zIndex: isAction ? 41 : (isSticky ? 40 : 30),
+                                            backgroundColor: isFiltered ? '#fef9c3' : (isSticky || isAction ? '#f8fafc' : undefined),
+                                            borderBottom: isFiltered ? '2px solid #eab308' : undefined,
+                                            boxShadow: isSticky ? '2px 0 5px -2px rgba(0,0,0,0.1)' : (isAction ? '-2px 0 5px -2px rgba(0,0,0,0.1)' : undefined)
                                         }}
                                     >
                                         <div className="flex items-center justify-between" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -359,21 +365,23 @@ export default function DataTable({
                                                 {sortConfig.key === col.accessor && <span className="text-[10px] ml-1">{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>}
                                             </span>
 
-                                            <Filter
-                                                size={12}
-                                                className={`cursor-pointer ${columnFilters[col.accessor]?.size > 0 ? 'text-blue-600 fill-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (activeFilterCol === col.accessor) {
-                                                        setActiveFilterCol(null);
-                                                    } else {
-                                                        setActiveFilterCol(col.accessor);
-                                                        setActiveFilterSearch(''); // Reset Search
-                                                    }
-                                                }}
-                                            />
+                                            {col.accessor !== 'SlNo' && col.accessor !== 'actions' && (
+                                                <Filter
+                                                    size={12}
+                                                    className={`cursor-pointer ${columnFilters[col.accessor]?.size > 0 ? 'text-blue-600 fill-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (activeFilterCol === col.accessor) {
+                                                            setActiveFilterCol(null);
+                                                        } else {
+                                                            setActiveFilterCol(col.accessor);
+                                                            setActiveFilterSearch(''); // Reset Search
+                                                        }
+                                                    }}
+                                                />
+                                            )}
 
-                                            {activeFilterCol === col.accessor && (
+                                            {activeFilterCol === col.accessor && col.accessor !== 'SlNo' && col.accessor !== 'actions' && (
                                                 <div className={styles.filterDropdown} onClick={e => e.stopPropagation()}>
                                                     <div className={styles.filterHeader}>
                                                         <span onClick={() => handleSelectAll(col.accessor)} className="cursor-pointer text-blue-600 text-xs hover:underline">Select All</span>
@@ -454,15 +462,20 @@ export default function DataTable({
                                         if (col.accessor === 'SlNo' && !showSerialNo) return null;
                                         if (columnVisibility[col.accessor] === false) return null;
 
+                                        const isSticky = cIdx < (stickyLeft || 0);
+                                        const leftOffset = isSticky ? getLeftOffset(cIdx) : undefined;
+
                                         return (
                                             <td
                                                 key={cIdx}
                                                 className={styles.td}
                                                 style={{
-                                                    position: col.accessor === 'actions' ? 'sticky' : undefined,
+                                                    position: (col.accessor === 'actions' || isSticky) ? 'sticky' : undefined,
                                                     right: col.accessor === 'actions' ? 0 : undefined,
-                                                    backgroundColor: col.accessor === 'actions' ? (rIdx % 2 === 0 ? '#f8fafc' : 'white') : undefined,
-                                                    zIndex: col.accessor === 'actions' ? 10 : 1
+                                                    left: isSticky ? leftOffset : undefined,
+                                                    backgroundColor: (col.accessor === 'actions' || isSticky) ? (rIdx % 2 === 0 ? '#f8fafc' : 'white') : undefined,
+                                                    zIndex: col.accessor === 'actions' ? 10 : (isSticky ? 5 : 1),
+                                                    boxShadow: isSticky ? '2px 0 5px -2px rgba(0,0,0,0.1)' : (col.accessor === 'actions' ? '-2px 0 5px -2px rgba(0,0,0,0.1)' : undefined)
                                                 }}
                                             >
                                                 <div className={styles.cellContent}>

@@ -12,9 +12,27 @@ const bottomItems = [
 ];
 
 // Helper for strict path matching
-const checkIsActive = (currentPath, menuPath) => {
+const checkIsActive = (currentPath, menuPath, isLeaf = false) => {
     if (menuPath === '#' || !menuPath) return false;
     if (menuPath === '/dashboard') return currentPath === '/dashboard';
+
+    // For leaf nodes (actual pages), prefer exact match or sub-routes like /edit/1
+    // But prevent /dashboard/reports from matching /dashboard/reports/day-wise-production
+    if (isLeaf) {
+        if (currentPath === menuPath) return true;
+        // Check if it is a sub-route (e.g. /details/1) but NOT a sibling path
+        // We assume valid sub-routes are like /path/to/page/123 or /path/to/page/add
+        // If currentPath starts with menuPath + '/', it might be a sub-route OR a sibling with same prefix.
+        // Ideally, menu structure shouldn't have overlapping prefixes for siblings, but here we do.
+        // So we can try to be stricter: 
+        // If currentPath is exactly menuPath, return true.
+        // If currentPath starts with menuPath + '/', checking if it corresponds to ANOTHER menu item is hard here without full list.
+        // BUT, given the bug, "Reports Dashboard" (/reports) vs "Day Wise" (/reports/day-wise).
+        // We will assume that if we are on "Day Wise", "Reports Dashboard" should NOT be active.
+        return currentPath === menuPath;
+    }
+
+    // For Groups/Modules involving children, we still want prefix matching
     return currentPath === menuPath || currentPath.startsWith(menuPath + '/');
 };
 
@@ -29,7 +47,7 @@ function NavItem({ item, pathname, expandedMenus, toggleSubMenu, isCollapsed, le
     // Highlight Logic
     let isActive = false;
     if (item.path !== '#') {
-        isActive = checkIsActive(pathname, item.path);
+        isActive = checkIsActive(pathname, item.path, isLeaf);
     }
 
     const isExpanded = expandedMenus[item.id || item.name];

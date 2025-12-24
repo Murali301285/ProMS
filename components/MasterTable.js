@@ -25,6 +25,27 @@ export default function MasterTable({ config, title }) {
     const [activeFilters, setActiveFilters] = useState({});
     const [isFilterOpen, setIsFilterOpen] = useState(false);
 
+    // Fetch Data
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const table = config.table.replace('[Master].[', '').replace(']', '');
+            console.log("Fetching data for:", table);
+            const res = await fetch('/api/settings/crud', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'read', table })
+            });
+            const result = await res.json();
+            setData(Array.isArray(result) ? result : []);
+        } catch (error) {
+            console.error(error);
+            setData([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Toggle Filter Value
     const handleFilterChange = (accessor, value) => {
         setActiveFilters(prev => {
@@ -79,26 +100,6 @@ export default function MasterTable({ config, title }) {
         fetchLookups();
     }, [config]);
 
-    // Fetch Data
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            const table = config.table.replace('[Master].[', '').replace(']', '');
-            console.log("Fetching data for:", table);
-            const res = await fetch('/api/settings/crud', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'read', table })
-            });
-            const result = await res.json();
-            setData(Array.isArray(result) ? result : []);
-        } catch (error) {
-            console.error(error);
-            setData([]);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     useEffect(() => {
         fetchData();
@@ -233,10 +234,14 @@ export default function MasterTable({ config, title }) {
 
         const action = editId ? 'update' : 'create';
 
-        // Filter out audit columns from formData before sending to API
+        // Filter out audit columns and viewOnly columns from formData before sending to API
         const cleanData = {};
+        const viewOnlyFields = config.columns
+            .filter(col => typeof col === 'object' && col.viewOnly)
+            .map(col => col.accessor);
+
         Object.keys(formData).forEach(key => {
-            if (!['CreatedBy', 'CreatedDate', 'UpdatedBy', 'UpdatedDate', 'IsDelete'].includes(key)) {
+            if (!['CreatedBy', 'CreatedDate', 'UpdatedBy', 'UpdatedDate', 'IsDelete'].includes(key) && !viewOnlyFields.includes(key)) {
                 cleanData[key] = formData[key];
             }
         });
@@ -395,7 +400,7 @@ export default function MasterTable({ config, title }) {
     return (
         <div className={styles.container}>
             <div className={styles.header}>
-                <h1 className={styles.title}>{title} Master</h1>
+                <h1 className={styles.title}>{title}</h1>
                 <div className={styles.headerActions}>
                     <button onClick={handleAdd} className={styles.btnPrimary} title="Add New Record">
                         <Plus size={16} /> Add New

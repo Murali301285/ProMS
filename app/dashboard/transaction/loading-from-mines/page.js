@@ -118,6 +118,18 @@ export default function LoadingFromMinesPage() {
         alert("Delete functionality pending API implementation.");
     };
 
+    // Shortcut for Add New
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'F3' || (e.ctrlKey && e.key === 'a')) {
+                e.preventDefault();
+                router.push('/dashboard/transaction/loading-from-mines/add');
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [router]);
+
     return (
         <div className={styles.page} style={{ position: 'relative' }}>
             {/* Blocking Overlay */}
@@ -141,7 +153,7 @@ export default function LoadingFromMinesPage() {
                     )}
 
                     <button className={styles.addNew} onClick={() => router.push('/dashboard/transaction/loading-from-mines/add')}>
-                        <Plus size={16} /> Add New
+                        <Plus size={16} /> <span style={{ textDecoration: 'underline' }}>A</span>dd New (F3)
                     </button>
                     <button className={styles.refreshBtn} onClick={() => fetchData()} title="Reload">
                         <RotateCcw size={16} />
