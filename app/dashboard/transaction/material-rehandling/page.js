@@ -111,7 +111,7 @@ export default function MaterialRehandlingPage() {
 
     return (
         <div className={styles.container}>
-            {loading && <LoadingOverlay message="Loading Rehandling Data..." />}
+            {/* {loading && <LoadingOverlay message="Loading Rehandling Data..." />} */}
 
             {/* Header */}
             <div className={styles.header}>
@@ -125,7 +125,7 @@ export default function MaterialRehandlingPage() {
                             marginRight: '16px',
                             fontWeight: 500
                         }}>
-                            Last data entered on -&gt; Date: {new Date(lastEntry.Date).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedBy || 'Admin'}
+                            Last data entered on -&gt; Date: {new Date(lastEntry.Date).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedByName || lastEntry.CreatedBy || 'Admin'}
                         </span>
                     )}
                     <button
@@ -184,7 +184,8 @@ export default function MaterialRehandlingPage() {
                 <TransactionTable
                     data={data}
                     config={config}
-                    loading={loading}
+                    loading={loading} // passed to table
+                    isLoading={loading}
                     userRole={userRole}
                     onEdit={(row) => router.push(`/dashboard/transaction/material-rehandling/${row.SlNo}`)}
                 />

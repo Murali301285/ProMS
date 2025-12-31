@@ -506,7 +506,7 @@ export default function InternalTransferForm({ initialData = null, isEdit = fals
                 toast.success(isEdit ? "Record updated successfully!" : "Record saved successfully!");
                 if (isEdit) {
                     router.refresh();
-                    router.back();
+                    router.push('/dashboard/transaction/internal-transfer');
                 } else {
                     // Reset Row 3 ONLY (Keep Context)
                     // Reset Logic as per User Request

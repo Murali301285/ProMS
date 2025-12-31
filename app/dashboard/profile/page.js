@@ -93,6 +93,9 @@ export default function ProfilePage() {
 
             if (result.success) {
                 toast.success("Profile Updated Successfully");
+                // Dispatch event to update Header
+                window.dispatchEvent(new Event('profile-updated'));
+
                 // Optionally reset password fields
                 setPasswords({ old: '', new: '', confirm: '' });
                 setShowPasswordSection(false);

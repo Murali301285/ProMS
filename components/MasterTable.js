@@ -280,6 +280,11 @@ export default function MasterTable({ config, title }) {
     // Global Shortcuts
     useEffect(() => {
         const handleGlobalKeyDown = (e) => {
+            if (e.key === 'F3' && !isEditing) {
+                e.preventDefault();
+                handleAdd();
+                return;
+            }
             if (!isEditing) return;
             if (e.key === 'F2') {
                 e.preventDefault();
@@ -403,7 +408,7 @@ export default function MasterTable({ config, title }) {
                 <h1 className={styles.title}>{title}</h1>
                 <div className={styles.headerActions}>
                     <button onClick={handleAdd} className={styles.btnPrimary} title="Add New Record">
-                        <Plus size={16} /> Add New
+                        <Plus size={16} /> Add New (F3)
                     </button>
                     {(config.bulkUpload || title === 'Drilling Remarks' || title === 'SME Category' || title === 'Equipment Group' || title === 'Equipment') && (
                         <button
@@ -467,7 +472,7 @@ export default function MasterTable({ config, title }) {
                 <div className={styles.buttonGroup} style={{ marginTop: '20px', justifyContent: 'flex-end' }}>
                     <button onClick={() => setIsEditing(false)} className={styles.btnSecondary} title="(F5)">Cancel</button>
                     <button onClick={handleSave} className={styles.btnPrimary} title="(F2)">
-                        <Save size={16} /> {editId ? 'Update' : 'Save'}
+                        <Save size={16} /> {editId ? 'Update (F2)' : 'Save (F2)'}
                     </button>
                 </div>
             </Modal>

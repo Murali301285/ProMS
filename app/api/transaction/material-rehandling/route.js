@@ -72,13 +72,16 @@ export async function GET(request) {
         let query = "SELECT ";
         query += "T.SlNo, T.RehandlingDate, T.ShiftId, T.RelayId, T.SourceId, T.DestinationId, T.MaterialId, T.HaulerEquipmentId, T.LoadingMachineEquipmentId, ";
         query += "S.ShiftName, ";
-        query += "(SELECT STUFF((SELECT ', ' + O.OperatorName FROM [Trans].[TblMaterialRehandlingShiftIncharge] LSI JOIN [Master].[TblOperator] O ON LSI.OperatorId = O.SlNo WHERE LSI.MaterialRehandlingId = T.SlNo FOR XML PATH('')), 1, 2, '')) AS ShiftInCharge, ";
+        query += "SI.OperatorName AS ShiftInchargeName, ";
+        query += "MI.OperatorName AS MidScaleInchargeName, ";
         query += "T.ManPowerInShift AS ManPower, R.Name AS RelayName, Src.Name AS SourceName, Dest.Name AS DestinationName, Mat.MaterialName, ";
         query += "HE.EquipmentName AS HaulerName, LME.EquipmentName AS LoadingMachineName, ";
         query += "T.NoofTrip, T.QtyTrip, T.NtpcQtyTrip, T.TotalQty, T.TotalNtpcQty, U.Name AS UnitName, T.Remarks, ";
-        query += "T.CreatedDate, T.UpdatedDate, CU.UserName AS CreatedByName, UU.UserName AS UpdatedByName ";
+        query += "T.CreatedDate, T.UpdatedDate, CU.EmpName AS CreatedByName, UU.EmpName AS UpdatedByName ";
         query += "FROM [Trans].[TblMaterialRehandling] T ";
         query += "LEFT JOIN [Master].[TblShift] S ON T.ShiftId = S.SlNo ";
+        query += "LEFT JOIN [Master].[TblOperator] SI ON T.ShiftInchargeId = SI.SlNo ";
+        query += "LEFT JOIN [Master].[TblOperator] MI ON T.MidScaleInchargeId = MI.SlNo ";
         query += "LEFT JOIN [Master].[TblRelay] R ON T.RelayId = R.SlNo ";
         query += "LEFT JOIN [Master].[TblSource] Src ON T.SourceId = Src.SlNo ";
         query += "LEFT JOIN [Master].[TblDestination] Dest ON T.DestinationId = Dest.SlNo ";
@@ -86,8 +89,8 @@ export async function GET(request) {
         query += "LEFT JOIN [Master].[TblEquipment] HE ON T.HaulerEquipmentId = HE.SlNo ";
         query += "LEFT JOIN [Master].[TblEquipment] LME ON T.LoadingMachineEquipmentId = LME.SlNo ";
         query += "LEFT JOIN [Master].[TblUnit] U ON T.UnitId = U.SlNo ";
-        query += "LEFT JOIN [Master].[TblUser] CU ON T.CreatedBy = CU.SlNo ";
-        query += "LEFT JOIN [Master].[TblUser] UU ON T.UpdatedBy = UU.SlNo ";
+        query += "LEFT JOIN [Master].[TblUser_New] CU ON T.CreatedBy = CU.SlNo ";
+        query += "LEFT JOIN [Master].[TblUser_New] UU ON T.UpdatedBy = UU.SlNo ";
         query += whereClause;
         query += " ORDER BY T.RehandlingDate DESC OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
 
@@ -106,14 +109,19 @@ export async function GET(request) {
     }
 }
 
+import { authenticateUser } from '@/lib/auth';
+
 export async function POST(request) {
     try {
+        const user = await authenticateUser(request);
+        const UserId = user ? user.id : 1; // Default to Admin if auth fails (e.g. dev mode) or handle strictly
+
         const body = await request.json();
         const {
-            Date: date, ShiftId, ShiftInchargeId, ManPower, RelayId,
+            Date: date, ShiftId, ShiftInchargeId, MidScaleInchargeId, ManPower, RelayId,
             SourceId, DestinationId, MaterialId, HaulerId, LoadingMachineId,
             NoOfTrips, MangQtyTrip, NTPCQtyTrip, Unit, MangTotalQty, NTPCTotalQty,
-            UserId = 2, Remarks
+            Remarks
         } = body;
 
         // console.log("📝 [POST-REHANDLING] Creating Record:", body);
@@ -153,14 +161,14 @@ export async function POST(request) {
 
         const query = `
             INSERT INTO [Trans].[TblMaterialRehandling] (
-                RehandlingDate, ShiftId, ManPowerInShift, RelayId,
+                RehandlingDate, ShiftId, ShiftInchargeId, MidScaleInchargeId, ManPowerInShift, RelayId,
                 SourceId, DestinationId, MaterialId, HaulerEquipmentId, LoadingMachineEquipmentId,
                 NoofTrip, QtyTrip, NtpcQtyTrip, UnitId, TotalQty, TotalNtpcQty,
                 Remarks, CreatedBy, CreatedDate, IsDelete
             )
             OUTPUT INSERTED.SlNo
             VALUES (
-                @date, @ShiftId, @ManPower, @RelayId,
+                @date, @ShiftId, @ShiftInchargeId, @MidScaleInchargeId, @ManPower, @RelayId,
                 @SourceId, @DestinationId, @MaterialId, @HaulerId, @LoadingMachineId,
                 @NoOfTrips, @MangQtyTrip, @NTPCQtyTrip, @Unit, @MangTotalQty, @NTPCTotalQty,
                 @Remarks, @UserId, GETDATE(), 0
@@ -170,6 +178,8 @@ export async function POST(request) {
         const result = await executeQuery(query, [
             { name: 'date', type: sql.Date, value: date },
             { name: 'ShiftId', type: sql.Int, value: ShiftId },
+            { name: 'ShiftInchargeId', type: sql.Int, value: ShiftInchargeId },
+            { name: 'MidScaleInchargeId', type: sql.Int, value: MidScaleInchargeId },
             { name: 'ManPower', type: sql.Int, value: ManPower },
             { name: 'RelayId', type: sql.Int, value: RelayId },
             { name: 'SourceId', type: sql.Int, value: SourceId },
@@ -193,16 +203,7 @@ export async function POST(request) {
 
         const newId = result[0].SlNo;
 
-        // Insert Shift Incharges
-        if (ShiftInchargeId) {
-            const incharges = Array.isArray(ShiftInchargeId) ? ShiftInchargeId : [ShiftInchargeId];
-            for (const opId of incharges) {
-                await executeQuery(`INSERT INTO [Trans].[TblMaterialRehandlingShiftIncharge] (MaterialRehandlingId, OperatorId) VALUES (@lid, @oid)`, [
-                    { name: 'lid', type: sql.Int, value: newId },
-                    { name: 'oid', type: sql.Int, value: opId }
-                ]);
-            }
-        }
+        // Legacy Shift Incharges Link Table (Removed)
 
         return NextResponse.json({ success: true, message: 'Saved Successfully', id: newId });
 

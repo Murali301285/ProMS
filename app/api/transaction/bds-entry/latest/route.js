@@ -4,9 +4,11 @@ import { executeQuery } from '@/lib/db';
 export async function GET() {
     try {
         const query = `
-            SELECT TOP 1 t.Date, t.CreatedBy, p.PartyName 
+            SELECT TOP 1 t.Date, t.CreatedBy, t.SMECategoryId, s.Category as SMECategoryName,
+                ISNULL(U.EmpName, 'Unknown') as CreatedByName
             FROM [Trans].[TblBDSEntry] t
-            LEFT JOIN [Master].[tblParty] p ON t.PartyId = p.SlNo
+            LEFT JOIN [Master].[TblSMECategory] s ON t.SMECategoryId = s.SlNo
+            LEFT JOIN [Master].[TblUser_New] U ON t.CreatedBy = U.SlNo
             WHERE t.isDelete = 0
             ORDER BY t.CreatedDate DESC
         `;

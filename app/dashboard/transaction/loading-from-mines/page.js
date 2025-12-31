@@ -132,8 +132,8 @@ export default function LoadingFromMinesPage() {
 
     return (
         <div className={styles.page} style={{ position: 'relative' }}>
-            {/* Blocking Overlay */}
-            {loading && <LoadingOverlay message="Processing..." />}
+            {/* Blocking Overlay - Removed for Async Loading as per user request */}
+            {/* {loading && <LoadingOverlay message="Processing..." />} */}
 
             {/* Header */}
             <div className={styles.header}>
@@ -155,9 +155,7 @@ export default function LoadingFromMinesPage() {
                     <button className={styles.addNew} onClick={() => router.push('/dashboard/transaction/loading-from-mines/add')}>
                         <Plus size={16} /> <span style={{ textDecoration: 'underline' }}>A</span>dd New (F3)
                     </button>
-                    <button className={styles.refreshBtn} onClick={() => fetchData()} title="Reload">
-                        <RotateCcw size={16} />
-                    </button>
+
                 </div>
             </div>
 
@@ -192,7 +190,7 @@ export default function LoadingFromMinesPage() {
             <TransactionTable
                 config={config}
                 data={data} // Full Data passed
-                isLoading={false} // Loading handled by overlay
+                isLoading={loading} // Passed loading state to table
                 onDelete={handleDelete}
                 userRole={userRole}
                 onEdit={(row) => router.push(`/dashboard/transaction/loading-from-mines/${row.SlNo}`)}

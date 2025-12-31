@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import sql from 'mssql';
 import { getDbConnection } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 
 // GET Single Record
 export async function GET(request, { params }) {
@@ -33,6 +34,8 @@ export async function PUT(request, { params }) {
     try {
         const { id } = await params;
         const body = await request.json();
+        const user = await authenticateUser(request);
+        const userId = user ? user.id : 1;
 
         const pool = await getDbConnection();
         const requestSql = pool.request();
@@ -88,7 +91,7 @@ export async function PUT(request, { params }) {
         requestSql.input('TotalQty', sql.Decimal(18, 3), body.TotalQty);
         requestSql.input('RemarkId', sql.BigInt, body.RemarkId);
         requestSql.input('Remarks', sql.NVarChar, body.Remarks);
-        requestSql.input('UpdatedBy', sql.BigInt, body.UpdatedBy || 2);
+        requestSql.input('UpdatedBy', sql.BigInt, userId);
 
         await requestSql.query(query);
 

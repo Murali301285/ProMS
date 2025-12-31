@@ -99,11 +99,16 @@ function formatNumber(num) {
 export default function Dashboard() {
     const [activeDetail, setActiveDetail] = useState(null);
     const scrollRef = useRef(null);
-    const [isPaused, setIsPaused] = useState(false);
+    const [isPaused, setIsPaused] = useState(false); // Hover Pause State
+    const [isManualPaused, setIsManualPaused] = useState(false); // Manual Toggle State
 
-    // State for chart toggles
-    const [haulingView, setHaulingView] = useState('best'); // 'best' or 'worst'
-    const [loadingView, setLoadingView] = useState('best'); // 'best' or 'worst'
+    // Metric Toggle State: 'prod' (Productivity) or 'time' (Working Hours)
+    const [haulingMetric, setHaulingMetric] = useState('prod');
+    const [loadingMetric, setLoadingMetric] = useState('prod');
+
+    // State for chart toggles (Best vs Worst)
+    const [haulingView, setHaulingView] = useState('best');
+    const [loadingView, setLoadingView] = useState('best');
 
     // Date Filter State (Default to Current Date)
     const [dateRange, setDateRange] = useState({ from: '', to: '' });
@@ -118,13 +123,10 @@ export default function Dashboard() {
     }, []);
 
     // Duplicate logic for seamless loop
-    // Quadruple the sections to ensure smooth long scroll
     const displaySections = [...sections, ...sections, ...sections, ...sections];
 
     const toggleDetail = (id) => {
-        // Strip _dup suffix if present to handle active state correctly
         const realId = id.split('_dup')[0];
-
         if (activeDetail === realId) {
             setActiveDetail(null);
         } else {
@@ -135,7 +137,7 @@ export default function Dashboard() {
     const handleScrollLeft = () => {
         const container = scrollRef.current;
         if (container) {
-            container.scrollBy({ left: -340, behavior: 'smooth' }); // Approx card width + gap
+            container.scrollBy({ left: -340, behavior: 'smooth' });
         }
     };
 
@@ -146,7 +148,7 @@ export default function Dashboard() {
         }
     };
 
-    // Auto-scroll effect
+    // Update Auto-scroll to respect Manual Pause
     useEffect(() => {
         const scrollContainer = scrollRef.current;
         if (!scrollContainer) return;
@@ -155,14 +157,9 @@ export default function Dashboard() {
         let animationFrameId;
 
         const scroll = () => {
-            if (!isPaused && scrollContainer) {
-                // Robust infinite scroll logic
-                // If we've scrolled past half the content (first 2 duplicated sets out of 4)
-                // convert that to a percentage or pixel check.
-                // Assuming uniform cards, check scrollLeft against scrollWidth.
+            // Scroll only if NOT paused (hover) AND NOT manually paused
+            if (!isPaused && !isManualPaused && scrollContainer) {
                 if (scrollContainer.scrollLeft >= (scrollContainer.scrollWidth / 2)) {
-                    // Instantly jump back by exactly half the width
-                    // This creates a seamless loop because the second half is a clone of the first half.
                     scrollContainer.scrollLeft = scrollContainer.scrollLeft - (scrollContainer.scrollWidth / 2);
                 } else {
                     scrollContainer.scrollLeft += speed;
@@ -172,14 +169,88 @@ export default function Dashboard() {
         };
 
         animationFrameId = requestAnimationFrame(scroll);
-
         return () => cancelAnimationFrame(animationFrameId);
-    }, [isPaused]);
+    }, [isPaused, isManualPaused]); // Add isManualPaused dependency
+
+    // Helper to get formatted data based on Metric and View
+    const getChartData = (type, view, metric) => {
+        // Base Data (Simulated)
+        let rawData = [];
+        const maxVal = type === 'hauling' ? 4 : 400; // Normalizer
+
+        if (type === 'hauling') {
+            rawData = [
+                { name: 'DT-12', val: 3.8, hrs: 12 }, { name: 'DT-45', val: 3.7, hrs: 11.5 },
+                { name: 'DT-08', val: 3.6, hrs: 12 }, { name: 'DT-33', val: 3.5, hrs: 10 },
+                { name: 'DT-21', val: 3.4, hrs: 11 }, { name: 'DT-05', val: 3.3, hrs: 10.5 },
+                { name: 'DT-19', val: 3.2, hrs: 11 }, { name: 'DT-67', val: 3.1, hrs: 9.5 },
+                { name: 'DT-88', val: 3.0, hrs: 10 }, { name: 'DT-91', val: 2.9, hrs: 10 },
+                // Extra data for 'worst' scenarios (simulated as separate pool in real app, here checking logic)
+                { name: 'DT-04', val: 1.8, hrs: 9 }, { name: 'DT-56', val: 1.6, hrs: 8 },
+                { name: 'DT-11', val: 1.5, hrs: 6 }, { name: 'DT-99', val: 1.2, hrs: 7.5 },
+                { name: 'DT-02', val: 0.9, hrs: 4 }, { name: 'DT-15', val: 0.8, hrs: 3 },
+                { name: 'DT-77', val: 0.7, hrs: 5 }, { name: 'DT-31', val: 0.5, hrs: 2 },
+                { name: 'DT-40', val: 0.3, hrs: 1 }, { name: 'DT-XX', val: 0.1, hrs: 0.5 }
+            ];
+        } else {
+            rawData = [
+                { name: 'EX-05', val: 380, hrs: 14 }, { name: 'EX-12', val: 360, hrs: 13 },
+                { name: 'EX-09', val: 350, hrs: 13.5 }, { name: 'EX-22', val: 340, hrs: 12 },
+                { name: 'EX-01', val: 335, hrs: 12.5 }, { name: 'EX-19', val: 330, hrs: 12 },
+                { name: 'EX-08', val: 320, hrs: 11 }, { name: 'EX-15', val: 310, hrs: 10 },
+                { name: 'EX-33', val: 300, hrs: 11.5 }, { name: 'EX-41', val: 290, hrs: 10 },
+                // Worst
+                { name: 'EX-18', val: 180, hrs: 9 }, { name: 'EX-30', val: 150, hrs: 8 },
+                { name: 'EX-04', val: 120, hrs: 5 }, { name: 'EX-07', val: 100, hrs: 6.5 },
+                { name: 'EX-14', val: 80, hrs: 4 }, { name: 'EX-29', val: 70, hrs: 3 },
+                { name: 'EX-11', val: 60, hrs: 3.5 }, { name: 'EX-50', val: 50, hrs: 2 },
+                { name: 'EX-66', val: 30, hrs: 1 }, { name: 'EX-99', val: 10, hrs: 0.5 }
+            ];
+        }
+
+        // Sorting Logic
+        if (metric === 'time') {
+            // Sort by Hours
+            if (view === 'best') {
+                rawData.sort((a, b) => b.hrs - a.hrs); // Descending
+            } else {
+                rawData.sort((a, b) => a.hrs - b.hrs); // Ascending
+            }
+        } else {
+            // Sort by Productivity (val)
+            if (view === 'best') {
+                rawData.sort((a, b) => b.val - a.val);
+            } else {
+                rawData.sort((a, b) => a.val - b.val);
+            }
+        }
+
+        // Slice top 10
+        const displayData = rawData.slice(0, 10);
+
+        // Normalize for Bar Height
+        // If Time: Max is roughly 12-14 hrs. Let's use 15 as max.
+        // If Prod: Use passed maxVal (4 or 400).
+        const normalizer = metric === 'time' ? 15 : maxVal;
+
+        return displayData.map(d => ({
+            ...d,
+            displayVal: metric === 'time' ? d.hrs : d.val,
+            heightItems: ((metric === 'time' ? d.hrs : d.val) / normalizer) * 100,
+            colorClass: metric === 'time'
+                ? (type === 'hauling' ? styles.barHaulingTime : styles.barLoadingTime)
+                : (view === 'best'
+                    ? (type === 'hauling' ? styles.barHaulingBest : styles.barLoadingBest)
+                    : styles.barWorst)
+        }));
+    };
 
     return (
         <div className={styles.container}>
+            {/* ... Header ... */}
             <div className={styles.pageHeader}>
                 <h1>Analytical Dashboard</h1>
+                {/* ... Date Filter ... */}
                 <div className={styles.dateFilter}>
                     <input
                         type="date"
@@ -198,7 +269,19 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            <div className={styles.gridContainer}> {/* Wrapper for arrows and grid */}
+            <div
+                className={styles.gridContainer}
+                onMouseEnter={() => setIsPaused(true)}
+                onMouseLeave={() => setIsPaused(false)}
+            >
+                {/* Play/Pause Toggle */}
+                <button
+                    className={styles.playPauseBtn}
+                    onClick={() => setIsManualPaused(!isManualPaused)}
+                    title={isManualPaused ? "Resume Scroll" : "Pause Scroll"}
+                >
+                    {isManualPaused ? <span style={{ fontSize: '1.2rem' }}>▶</span> : <span style={{ fontSize: '1.2rem' }}>⏸</span>}
+                </button>
 
                 {/* Left Arrow */}
                 <button
@@ -207,7 +290,6 @@ export default function Dashboard() {
                 >
                     <ChevronLeft size={24} />
                 </button>
-
                 {/* Right Arrow */}
                 <button
                     onClick={handleScrollRight}
@@ -216,39 +298,25 @@ export default function Dashboard() {
                     <ChevronRight size={24} />
                 </button>
 
-                <div
-                    className={styles.grid}
-                    ref={scrollRef}
-                    onMouseEnter={() => setIsPaused(true)}
-                    onMouseLeave={() => setIsPaused(false)}
-                >
+                <div className={styles.grid} ref={scrollRef}>
                     {displaySections.map((section, index) => {
-                        // Generate a unique key for duplicates using index
                         const uniqueId = `${section.id}_${index}`;
                         const serialNo = (index % sections.length) + 1;
 
                         return (
                             <div key={uniqueId} className={`${styles.card} glass ${section.bgClass}`}>
-                                {/* Serial Number Watermark */}
                                 <div className={styles.serialNumber}>{serialNo}</div>
-
-                                {/* Header: Icon & Title */}
                                 <div className={styles.cardHeader}>
                                     <div className={styles.iconBox}>
                                         <section.icon size={20} color="white" />
                                     </div>
                                     <h3 className={styles.cardTitle}>{section.title}</h3>
                                 </div>
-
-                                {/* Main Value: FTD (Day) */}
                                 <div className={styles.mainValueContainer}>
                                     <div className={styles.mainValueLabel}>Day (FTD)</div>
                                     <div className={styles.mainValue}>{formatNumber(section.data.ftd)}</div>
                                 </div>
-
                                 <div className={styles.separator}></div>
-
-                                {/* Sub Values: MTD, Avg, YTD */}
                                 <div className={styles.subValuesGrid}>
                                     <div className={styles.subValueItem}>
                                         <span className={styles.subValueLabel}>Month</span>
@@ -263,8 +331,6 @@ export default function Dashboard() {
                                         <span className={styles.subValue}>{formatNumber(section.data.ytd)}</span>
                                     </div>
                                 </div>
-
-                                {/* Details Toggle Button (Corner +) */}
                                 {section.hasDetails && (
                                     <button
                                         className={styles.toggleBtn}
@@ -279,7 +345,7 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* Details Section - Appears below grid */}
+            {/* Details Section */}
             {activeDetail && detailData[activeDetail] && (
                 <div
                     className={`${styles.detailSection} ${sections.find(s => s.id === activeDetail)?.bgClass || ''}`}
@@ -289,6 +355,7 @@ export default function Dashboard() {
                         <span>Detailed Breakdown: {sections.find(s => s.id === activeDetail)?.title}</span>
                         <button onClick={() => setActiveDetail(null)} className={styles.closeBtn}>Close</button>
                     </div>
+                    {/* ... Table logic ... */}
                     <div className="overflow-x-auto">
                         <table className={styles.detailTable}>
                             <thead>
@@ -321,28 +388,48 @@ export default function Dashboard() {
                 {/* Hauling Chart */}
                 <div className={styles.chartCard}>
                     <div className={styles.chartHeader}>
-                        <div>
+                        <div style={{ flex: 1 }}>
                             <div className={styles.chartTitle}>Top 10 Hauling Performance</div>
-                            <div className={styles.chartSubtitle}>10 Best & Below Performers (Trip/Hr & Working Hrs)</div>
+                            <div className={styles.chartSubtitle}>
+                                {haulingMetric === 'prod' ? 'Based on Productivity (Trips/Hr)' : 'Based on Working Duration (Hrs)'}
+                            </div>
                         </div>
-                        <div className={styles.chartControls}>
-                            <button
-                                className={`${styles.controlBtn} ${haulingView === 'best' ? styles.controlBtnActive : ''}`}
-                                onClick={() => setHaulingView('best')}
-                            >
-                                Best
-                            </button>
-                            <button
-                                className={`${styles.controlBtn} ${haulingView === 'worst' ? styles.controlBtnActive : ''}`}
-                                onClick={() => setHaulingView('worst')}
-                            >
-                                Below
-                            </button>
+                        <div className={styles.chartActions}>
+                            {/* Metric Toggle */}
+                            <div className={styles.togglePill}>
+                                <button
+                                    className={`${styles.pillBtn} ${haulingMetric === 'prod' ? styles.pillActive : ''}`}
+                                    onClick={() => setHaulingMetric('prod')}
+                                >
+                                    Trip/Hr
+                                </button>
+                                <button
+                                    className={`${styles.pillBtn} ${haulingMetric === 'time' ? styles.pillActive : ''}`}
+                                    onClick={() => setHaulingMetric('time')}
+                                >
+                                    Work Hrs
+                                </button>
+                            </div>
+
+                            <div className={styles.chartControls}>
+                                <button
+                                    className={`${styles.controlBtn} ${haulingView === 'best' ? styles.controlBtnActive : ''}`}
+                                    onClick={() => setHaulingView('best')}
+                                >
+                                    Best
+                                </button>
+                                <button
+                                    className={`${styles.controlBtn} ${haulingView === 'worst' ? styles.controlBtnActive : ''}`}
+                                    onClick={() => setHaulingView('worst')}
+                                >
+                                    Below
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <div className={styles.chartBody}>
-                        {/* Background Grid Lines (Approximate) */}
+                        {/* Background Grid Lines */}
                         <div className={styles.gridLines}>
                             <div className={styles.gridLine}></div>
                             <div className={styles.gridLine}></div>
@@ -351,75 +438,65 @@ export default function Dashboard() {
                             <div className={styles.gridLine}></div>
                         </div>
 
-                        {/* Conditional Rendering of Bars */}
-                        {haulingView === 'best' ? (
-                            // 10 Best (Simulated more data)
-                            [
-                                { name: 'DT-12', val: 3.8, hrs: 12 }, { name: 'DT-45', val: 3.7, hrs: 11.5 },
-                                { name: 'DT-08', val: 3.6, hrs: 12 }, { name: 'DT-33', val: 3.5, hrs: 10 },
-                                { name: 'DT-21', val: 3.4, hrs: 11 }, { name: 'DT-05', val: 3.3, hrs: 10.5 },
-                                { name: 'DT-19', val: 3.2, hrs: 11 }, { name: 'DT-67', val: 3.1, hrs: 9.5 },
-                                { name: 'DT-88', val: 3.0, hrs: 10 }, { name: 'DT-91', val: 2.9, hrs: 10 }
-                            ].map((d, i) => (
-                                <div key={`best-${i}`} className={styles.barColumn}>
-                                    <div className={styles.barWrapper}>
-                                        <div
-                                            className={`${styles.bar} ${styles.barHaulingBest}`}
-                                            style={{ height: `${(d.val / 4) * 100}%` }}
-                                        >
-                                            <span className={styles.barLabel}>{d.name}</span>
-                                            <span className={styles.barValue}>{d.val}</span>
-                                        </div>
-                                        <div className={styles.tooltip}>{d.val} Trips/Hr<br />{d.hrs} Hrs</div>
+                        {getChartData('hauling', haulingView, haulingMetric).map((d, i) => (
+                            <div key={`h-${i}`} className={styles.barColumn}>
+                                <div className={styles.barWrapper}>
+                                    <div
+                                        className={`${styles.bar} ${d.colorClass}`}
+                                        style={{ height: `${d.heightItems}%` }}
+                                    >
+                                        <span className={styles.barLabel}>{d.name}</span>
+                                        <span className={styles.barValue}>{d.displayVal}</span>
+                                    </div>
+                                    <div className={styles.tooltip}>
+                                        {d.val} Trips/Hr<br />{d.hrs} Hrs
                                     </div>
                                 </div>
-                            ))
-                        ) : (
-                            // 10 Worst
-                            [
-                                { name: 'DT-04', val: 1.8, hrs: 9 }, { name: 'DT-56', val: 1.6, hrs: 8 },
-                                { name: 'DT-11', val: 1.5, hrs: 6 }, { name: 'DT-99', val: 1.2, hrs: 7.5 },
-                                { name: 'DT-02', val: 0.9, hrs: 4 }, { name: 'DT-15', val: 0.8, hrs: 3 },
-                                { name: 'DT-77', val: 0.7, hrs: 5 }, { name: 'DT-31', val: 0.5, hrs: 2 },
-                                { name: 'DT-40', val: 0.3, hrs: 1 }, { name: 'DT-XX', val: 0.1, hrs: 0.5 }
-                            ].map((d, i) => (
-                                <div key={`worst-${i}`} className={styles.barColumn}>
-                                    <div className={styles.barWrapper}>
-                                        <div
-                                            className={`${styles.bar} ${styles.barWorst}`}
-                                            style={{ height: `${(d.val / 4) * 100}%` }}
-                                        >
-                                            <span className={styles.barLabel}>{d.name}</span>
-                                            <span className={styles.barValue}>{d.val}</span>
-                                        </div>
-                                        <div className={styles.tooltip}>{d.val} Trips/Hr<br />{d.hrs} Hrs</div>
-                                    </div>
-                                </div>
-                            ))
-                        )}
+                            </div>
+                        ))}
                     </div>
                 </div>
 
                 {/* Loading Chart */}
                 <div className={styles.chartCard}>
                     <div className={styles.chartHeader}>
-                        <div>
+                        <div style={{ flex: 1 }}>
                             <div className={styles.chartTitle}>Top 10 Loading Performance</div>
-                            <div className={styles.chartSubtitle}>10 Best & Below Performers (BCM/Hr & Working Hrs)</div>
+                            <div className={styles.chartSubtitle}>
+                                {loadingMetric === 'prod' ? 'Based on Productivity (BCM/Hr)' : 'Based on Working Duration (Hrs)'}
+                            </div>
                         </div>
-                        <div className={styles.chartControls}>
-                            <button
-                                className={`${styles.controlBtn} ${loadingView === 'best' ? styles.controlBtnActive : ''}`}
-                                onClick={() => setLoadingView('best')}
-                            >
-                                Best
-                            </button>
-                            <button
-                                className={`${styles.controlBtn} ${loadingView === 'worst' ? styles.controlBtnActive : ''}`}
-                                onClick={() => setLoadingView('worst')}
-                            >
-                                Below
-                            </button>
+                        <div className={styles.chartActions}>
+                            {/* Metric Toggle */}
+                            <div className={styles.togglePill}>
+                                <button
+                                    className={`${styles.pillBtn} ${loadingMetric === 'prod' ? styles.pillActive : ''}`}
+                                    onClick={() => setLoadingMetric('prod')}
+                                >
+                                    BCM/Hr
+                                </button>
+                                <button
+                                    className={`${styles.pillBtn} ${loadingMetric === 'time' ? styles.pillActive : ''}`}
+                                    onClick={() => setLoadingMetric('time')}
+                                >
+                                    Work Hrs
+                                </button>
+                            </div>
+
+                            <div className={styles.chartControls}>
+                                <button
+                                    className={`${styles.controlBtn} ${loadingView === 'best' ? styles.controlBtnActive : ''}`}
+                                    onClick={() => setLoadingView('best')}
+                                >
+                                    Best
+                                </button>
+                                <button
+                                    className={`${styles.controlBtn} ${loadingView === 'worst' ? styles.controlBtnActive : ''}`}
+                                    onClick={() => setLoadingView('worst')}
+                                >
+                                    Below
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -432,51 +509,22 @@ export default function Dashboard() {
                             <div className={styles.gridLine}></div>
                         </div>
 
-                        {loadingView === 'best' ? (
-                            // 10 Best
-                            [
-                                { name: 'EX-05', val: 380, hrs: 14 }, { name: 'EX-12', val: 360, hrs: 13 },
-                                { name: 'EX-09', val: 350, hrs: 13.5 }, { name: 'EX-22', val: 340, hrs: 12 },
-                                { name: 'EX-01', val: 335, hrs: 12.5 }, { name: 'EX-19', val: 330, hrs: 12 },
-                                { name: 'EX-08', val: 320, hrs: 11 }, { name: 'EX-15', val: 310, hrs: 10 },
-                                { name: 'EX-33', val: 300, hrs: 11.5 }, { name: 'EX-41', val: 290, hrs: 10 }
-                            ].map((d, i) => (
-                                <div key={`best-load-${i}`} className={styles.barColumn}>
-                                    <div className={styles.barWrapper}>
-                                        <div
-                                            className={`${styles.bar} ${styles.barLoadingBest}`}
-                                            style={{ height: `${(d.val / 400) * 100}%` }}
-                                        >
-                                            <span className={styles.barLabel}>{d.name}</span>
-                                            <span className={styles.barValue}>{d.val}</span>
-                                        </div>
-                                        <div className={styles.tooltip}>{d.val} BCM/Hr<br />{d.hrs} Hrs</div>
+                        {getChartData('loading', loadingView, loadingMetric).map((d, i) => (
+                            <div key={`l-${i}`} className={styles.barColumn}>
+                                <div className={styles.barWrapper}>
+                                    <div
+                                        className={`${styles.bar} ${d.colorClass}`}
+                                        style={{ height: `${d.heightItems}%` }}
+                                    >
+                                        <span className={styles.barLabel}>{d.name}</span>
+                                        <span className={styles.barValue}>{d.displayVal}</span>
+                                    </div>
+                                    <div className={styles.tooltip}>
+                                        {d.val} BCM/Hr<br />{d.hrs} Hrs
                                     </div>
                                 </div>
-                            ))
-                        ) : (
-                            // 10 Worst
-                            [
-                                { name: 'EX-18', val: 180, hrs: 9 }, { name: 'EX-30', val: 150, hrs: 8 },
-                                { name: 'EX-04', val: 120, hrs: 5 }, { name: 'EX-07', val: 100, hrs: 6.5 },
-                                { name: 'EX-14', val: 80, hrs: 4 }, { name: 'EX-29', val: 70, hrs: 3 },
-                                { name: 'EX-11', val: 60, hrs: 3.5 }, { name: 'EX-50', val: 50, hrs: 2 },
-                                { name: 'EX-66', val: 30, hrs: 1 }, { name: 'EX-99', val: 10, hrs: 0.5 }
-                            ].map((d, i) => (
-                                <div key={`worst-load-${i}`} className={styles.barColumn}>
-                                    <div className={styles.barWrapper}>
-                                        <div
-                                            className={`${styles.bar} ${styles.barWorst}`}
-                                            style={{ height: `${(d.val / 400) * 100}%` }}
-                                        >
-                                            <span className={styles.barLabel}>{d.name}</span>
-                                            <span className={styles.barValue}>{d.val}</span>
-                                        </div>
-                                        <div className={styles.tooltip}>{d.val} BCM/Hr<br />{d.hrs} Hrs</div>
-                                    </div>
-                                </div>
-                            ))
-                        )}
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>

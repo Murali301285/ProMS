@@ -158,7 +158,19 @@ export default function DataTable({
         // Actually usually export respect sort too. So sortedData is fine.
         const rows = sortedData.map((row, idx) => visibleCols.map(c => {
             let val = row[c.accessor];
-            if (c.accessor === 'SlNo') val = idx + 1;
+            if (c.accessor === 'SlNo') {
+                val = idx + 1;
+            } else if (c.render) {
+                // Try to use the rendered value export if it's a simple string/number
+                try {
+                    const rendered = c.render(row, idx);
+                    if (rendered !== null && typeof rendered !== 'object' && typeof rendered !== 'function') {
+                        val = rendered;
+                    }
+                } catch (e) {
+                    // Fallback to raw value on error
+                }
+            }
             return val || '';
         }));
 

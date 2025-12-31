@@ -79,15 +79,15 @@ export async function GET(request) {
                 T.MaterialId, -- Required for Context Filter
                 T.HaulerEquipmentId, -- Required for Context Filter
                 T.LoadingMachineEquipmentId, -- Required for Context Filter
+                T.ShiftInchargeId,
+                T.MidScaleInchargeId,
+                O_Large.OperatorName AS ShiftInchargeName,
+                O_Mid.OperatorName AS MidScaleInchargeName,
                 S.ShiftName,
                 (
-                    SELECT STUFF((
-                        SELECT ', ' + O.OperatorName
-                        FROM [Trans].[TblLoadingShiftIncharge] LSI
-                        JOIN [Master].[TblOperator] O ON LSI.OperatorId = O.SlNo
-                        WHERE LSI.LoadingId = T.SlNo
-                        FOR XML PATH('')
-                    ), 1, 2, '')
+                    ISNULL(O_Large.OperatorName, '') + 
+                    CASE WHEN O_Large.OperatorName IS NOT NULL AND O_Mid.OperatorName IS NOT NULL THEN ', ' ELSE '' END + 
+                    ISNULL(O_Mid.OperatorName, '')
                 ) AS ShiftInCharge,
                 T.ManPowerInShift AS ManPower,
                 R.Name AS RelayName,
@@ -102,10 +102,10 @@ export async function GET(request) {
                 T.TotalQty,
                 T.TotalNtpcQty,
                 U.Name AS UnitName,
-                CU.UserName AS CreatedByName,
+                CU.EmpName AS CreatedByName,
                 T.CreatedDate,
                 T.UpdatedDate,
-                UU.UserName AS UpdatedByName,
+                UU.EmpName AS UpdatedByName,
                 COUNT(*) OVER() as TotalCount
             FROM [Trans].[TblLoading] T
             LEFT JOIN [Master].[TblShift] S ON T.ShiftId = S.SlNo
@@ -115,9 +115,11 @@ export async function GET(request) {
             LEFT JOIN [Master].[TblMaterial] Mat ON T.MaterialId = Mat.SlNo
             LEFT JOIN [Master].[TblEquipment] HE ON T.HaulerEquipmentId = HE.SlNo
             LEFT JOIN [Master].[TblEquipment] LME ON T.LoadingMachineEquipmentId = LME.SlNo
+            LEFT JOIN [Master].[TblOperator] O_Large ON T.ShiftInchargeId = O_Large.SlNo
+            LEFT JOIN [Master].[TblOperator] O_Mid ON T.MidScaleInchargeId = O_Mid.SlNo
             LEFT JOIN [Master].[TblUnit] U ON T.UnitId = U.SlNo
-            LEFT JOIN [Master].[TblUser] CU ON T.CreatedBy = CU.SlNo
-            LEFT JOIN [Master].[TblUser] UU ON T.UpdatedBy = UU.SlNo
+            LEFT JOIN [Master].[TblUser_New] CU ON T.CreatedBy = CU.SlNo
+            LEFT JOIN [Master].[TblUser_New] UU ON T.UpdatedBy = UU.SlNo
             ${whereClause}
             ORDER BY T.LoadingDate DESC
             OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY

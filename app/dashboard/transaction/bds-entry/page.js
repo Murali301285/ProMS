@@ -18,7 +18,7 @@ export default function BDSEntryList() {
         columns: [
             { accessor: 'SlNo', label: '#', width: 50, frozen: true },
             { accessor: 'Date', label: 'Date', type: 'date', width: 120, frozen: true },
-            { accessor: 'PartyName', label: 'Party', width: 150 },
+            { accessor: 'SMECategoryName', label: 'SME Category', width: 200 },
             { accessor: 'VehicleNo', label: 'Vehicle No', width: 120 },
             { accessor: 'Weighment', label: 'Weighment (Kg)', type: 'number', width: 120 },
             { accessor: 'CounterReading', label: 'Counter Reading (Kg)', type: 'number', width: 150 },
@@ -145,7 +145,7 @@ export default function BDSEntryList() {
                             fontWeight: 500,
                             alignSelf: 'center'
                         }}>
-                            Last data entered on -&gt; Date: {new Date(lastEntry.Date).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedByName || lastEntry.CreatedBy || 'Admin'}
+                            Last data entered on -&gt; Date: {new Date(lastEntry.Date).toLocaleDateString('en-GB')} | SME: {lastEntry.SMECategoryName} | Entered by : {lastEntry.CreatedByName || lastEntry.CreatedBy || 'Admin'}
                         </span>
                     )}
                     <button

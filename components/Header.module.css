@@ -97,7 +97,7 @@
     top: 100%;
     left: 0;
     width: 100%;
-    background: var(--card) url('/noise.png');
+    background: var(--card);
     /* Glass effect base */
     border: 1px solid var(--border);
     border-radius: 0 0 var(--radius) var(--radius);
@@ -147,7 +147,46 @@
     gap: 1rem;
 }
 
+.fontControls {
+    display: flex;
+    align-items: center;
+    background: rgba(var(--background-rgb), 0.5);
+    /* Semi-transparent */
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2px;
+    margin-right: 12px;
+    height: 36px;
+    overflow: hidden;
+}
+
+.fontBtn {
+    background: transparent;
+    border: none;
+    padding: 0 12px;
+    height: 100%;
+    font-weight: 700;
+    color: var(--secondary-foreground);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: calc(var(--radius) - 2px);
+    display: flex;
+    align-items: center;
+    font-size: 0.85rem;
+}
+
+.fontBtn:hover {
+    background: var(--secondary);
+}
+
+.activeFontBtn {
+    background: var(--primary) !important;
+    color: var(--primary-foreground) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 .iconBtn {
+    /* ... existing */
     background: none;
     border: none;
     cursor: pointer;
@@ -194,6 +233,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
+    /* Ensure image stays inside circle */
+}
+
+.profileImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 /* Full Screen Loader */

@@ -28,14 +28,17 @@ export async function POST(request) {
         // Query Helper
         const fetchRecords = async (d, s, u) => {
             let q = `
-                SELECT 
-                    T.SlNo, T.Date, S.ShiftName, R.Name as RelayName, E.EquipmentName,
+                SELECT
+                    T.SlNo, T.Date, S.ShiftName, R.Name as RelayName,
+                    CASE WHEN T.PlantId IS NOT NULL THEN P.Name ELSE E.EquipmentName END as EquipmentName,
+                    T.Type,
                     T.OMR, T.CMR, T.TotalUnit, U.Name as UnitName, T.Remarks,
-                    T.CreatedBy, T.CreatedDate
+                    T.CreatedBy as CreatedByName, T.CreatedDate
                 FROM [Trans].[TblElectricalEntry] T
                 LEFT JOIN [Master].[TblShift] S ON T.ShiftId = S.SlNo
                 LEFT JOIN [Master].[TblRelay] R ON T.RelayId = R.SlNo
                 LEFT JOIN [Master].[TblEquipment] E ON T.EquipmentId = E.SlNo
+                LEFT JOIN [Master].[TblPlant] P ON T.PlantId = P.SlNo
                 LEFT JOIN [Master].[TblUnit] U ON T.UnitId = U.SlNo
                 WHERE T.IsDelete = 0 AND CAST(T.Date AS DATE) = @date
             `;

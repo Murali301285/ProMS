@@ -31,11 +31,10 @@ export async function PUT(request, { params }) {
         const body = await request.json();
         const cookieStore = await cookies();
         const authToken = cookieStore.get('auth_token')?.value;
-        let user = 'Admin';
-
+        let userId = 1;
         if (authToken) {
             const decoded = jwt.decode(authToken);
-            if (decoded?.name) user = decoded.name;
+            if (decoded?.id) userId = decoded.id;
         }
 
         const {
@@ -43,7 +42,6 @@ export async function PUT(request, { params }) {
             DestinationId,
             HaulerId,
             FillingPointId,
-            FillingPumpId,
             NoOfTrip,
             Capacity,
             TotalQty,
@@ -58,7 +56,6 @@ export async function PUT(request, { params }) {
                 DestinationId = @dest,
                 HaulerId = @hauler,
                 FillingPointId = @fillpt,
-                FillingPumpId = @fillpump,
                 NoOfTrip = @trips,
                 Capacity = @cap,
                 TotalQty = @qty,
@@ -72,13 +69,12 @@ export async function PUT(request, { params }) {
             { name: 'dest', value: DestinationId },
             { name: 'hauler', value: HaulerId },
             { name: 'fillpt', value: FillingPointId },
-            { name: 'fillpump', value: FillingPumpId },
             { name: 'trips', value: NoOfTrip },
             { name: 'cap', value: Capacity || 0 },
             { name: 'qty', value: TotalQty },
             { name: 'remarks', value: Remarks || null },
             { name: 'date', value: EntryDate },
-            { name: 'user', value: user },
+            { name: 'user', value: userId },
             { name: 'id', value: id }
         ]);
 
@@ -95,10 +91,10 @@ export async function DELETE(request, { params }) {
         const { id } = await params;
         const cookieStore = await cookies();
         const authToken = cookieStore.get('auth_token')?.value;
-        let user = 'Admin';
+        let userId = 1;
         if (authToken) {
             const decoded = jwt.decode(authToken);
-            if (decoded?.name) user = decoded.name;
+            if (decoded?.id) userId = decoded.id;
         }
 
         await executeQuery(`
@@ -107,7 +103,7 @@ export async function DELETE(request, { params }) {
             WHERE SlNo = @id
         `, [
             { name: 'id', value: id },
-            { name: 'user', value: user }
+            { name: 'user', value: userId }
         ]);
 
         return NextResponse.json({ message: 'Deleted successfully' });

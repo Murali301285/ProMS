@@ -3,27 +3,32 @@ import { executeQuery } from '@/lib/db';
 
 export async function POST(req) {
     try {
-        const { fromDate, toDate } = await req.json();
-
-        // Get Party Name via Look up
-        // Get CreatedBy Name if possible (assuming simple text or lookup)
-        // User requirements: Date, Party, Vehicle No, Weighment(Kg). Counter Reading(Kg), Loading Sheet(Kg) ,Standard Deduction(kg), Accepted Quantity(kg), Challan No, Remarks, CreatedBy, Created DateTime, UpdatedBy, Updated DateTime
+        const { fromDate, toDate, dispatchLocationId } = await req.json();
 
         const query = `
             SELECT 
                 t.*,
-                p.PartyName,
-                -- Format Dates for consistent UI if needed, or handle in frontend
-                t.CreatedBy as CreatedByName -- Assuming text, or join with User table if needed. Using direct column for now as per schema
-            FROM [Trans].[TblBDSEntry] t
-            LEFT JOIN [Master].[tblParty] p ON t.PartyId = p.SlNo
-            WHERE t.isDelete = 0 
-            AND t.Date >= @fromDate 
-            AND t.Date <= @toDate
-            ORDER BY t.CreatedDate DESC
+                l.LocationName as DispatchLocationName,
+                u.Name as UnitName,
+                usr.EmpName as CreatedByName,
+                usr2.EmpName as UpdatedByName
+            FROM [Trans].[TblDispatchEntry] t
+            LEFT JOIN [Master].[TblLocation] l ON t.DispatchLocationId = l.SlNo
+            LEFT JOIN [Master].[TblUnit] u ON t.UOMId = u.SlNo
+            LEFT JOIN [Master].[TblUser_New] usr ON t.CreatedBy = usr.SlNo
+            LEFT JOIN [Master].[TblUser_New] usr2 ON t.UpdatedBy = usr2.SlNo
+            WHERE (t.isDelete = 0 OR t.isDelete IS NULL) 
+            AND CAST(t.Date AS DATE) >= @fromDate 
+            AND CAST(t.Date AS DATE) <= @toDate
+            AND (@dispatchLocationId IS NULL OR t.DispatchLocationId = @dispatchLocationId)
+            ORDER BY t.SlNo DESC
         `;
 
-        const data = await executeQuery(query, { fromDate, toDate });
+        const data = await executeQuery(query, [
+            { name: 'fromDate', value: fromDate },
+            { name: 'toDate', value: toDate },
+            { name: 'dispatchLocationId', value: dispatchLocationId || null }
+        ]);
         return NextResponse.json({ success: true, data });
     } catch (error) {
         console.error("Dispatch Entry List Error:", error);

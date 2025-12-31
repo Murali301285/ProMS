@@ -2,6 +2,8 @@
 import { NextResponse } from 'next/server';
 import { executeQuery, sql } from '@/lib/db';
 
+import { authenticateUser } from '@/lib/auth';
+
 export const dynamic = 'force-dynamic';
 
 // GET Single Record
@@ -27,7 +29,9 @@ export async function GET(request, { params }) {
                 UnitId,
                 TotalQty,
                 TotalNtpcQty,
-                Remarks
+                Remarks,
+                ShiftInchargeId,
+                MidScaleInchargeId
             FROM [Trans].[TblMaterialRehandling] 
             WHERE SlNo = @id AND IsDelete = 0
         `;
@@ -41,17 +45,6 @@ export async function GET(request, { params }) {
             return NextResponse.json({ success: false, message: 'Record not found' }, { status: 404 });
         }
 
-        // Fetch Incharges
-        try {
-            const queryInc = `SELECT OperatorId FROM [Trans].[TblMaterialRehandlingShiftIncharge] WHERE MaterialRehandlingId = @lid`;
-            const resInc = await executeQuery(queryInc, [
-                { name: 'lid', type: sql.Int, value: id }
-            ]);
-            mainData.ShiftInchargeId = resInc.map(row => row.OperatorId);
-        } catch (incError) {
-            mainData.ShiftInchargeId = [];
-        }
-
         return NextResponse.json({ success: true, data: mainData });
 
     } catch (error) {
@@ -62,13 +55,16 @@ export async function GET(request, { params }) {
 
 export async function PUT(request, { params }) {
     try {
+        const user = await authenticateUser(request);
+        const UserId = user ? user.id : 1;
+
         const body = await request.json();
         const { id } = await params;
         const {
-            Date: date, ShiftId, ShiftInchargeId, ManPower, RelayId,
+            Date: date, ShiftId, ShiftInchargeId, MidScaleInchargeId, ManPower, RelayId,
             SourceId, DestinationId, MaterialId, HaulerId, LoadingMachineId,
             NoOfTrips, MangQtyTrip, NTPCQtyTrip, Unit, MangTotalQty, NTPCTotalQty,
-            UserId, Remarks
+            Remarks
         } = body;
 
         // 1. Duplicate Check (Exclude Current ID)
@@ -126,17 +122,21 @@ export async function PUT(request, { params }) {
                 TotalNtpcQty = @NTPCTotalQty,
                 UpdatedDate = GETDATE(),
                 UpdatedBy = @UserId,
-                Remarks = @Remarks
+                Remarks = @Remarks,
+                ShiftInchargeId = @ShiftInchargeId,
+                MidScaleInchargeId = @MidScaleInchargeId
             OUTPUT INSERTED.SlNo
             WHERE SlNo = @id;
             
-            DELETE FROM [Trans].[TblMaterialRehandlingShiftIncharge] WHERE MaterialRehandlingId = @id;
+            -- DELETE FROM [Trans].[TblMaterialRehandlingShiftIncharge] WHERE MaterialRehandlingId = @id; -- Legacy
         `;
 
         const result = await executeQuery(query, [
             { name: 'id', type: sql.Int, value: id },
             { name: 'date', type: sql.Date, value: date },
             { name: 'ShiftId', type: sql.Int, value: ShiftId },
+            { name: 'ShiftInchargeId', type: sql.Int, value: ShiftInchargeId || null },
+            { name: 'MidScaleInchargeId', type: sql.Int, value: MidScaleInchargeId || null },
             { name: 'ManPower', type: sql.Int, value: ManPower },
             { name: 'RelayId', type: sql.Int, value: RelayId },
             { name: 'SourceId', type: sql.Int, value: SourceId },
@@ -158,13 +158,7 @@ export async function PUT(request, { params }) {
             return NextResponse.json({ success: false, message: 'Record not found' }, { status: 404 });
         }
 
-        const incharges = Array.isArray(ShiftInchargeId) ? ShiftInchargeId : (ShiftInchargeId ? [ShiftInchargeId] : []);
-        for (const opId of incharges) {
-            await executeQuery(`INSERT INTO [Trans].[TblMaterialRehandlingShiftIncharge] (MaterialRehandlingId, OperatorId) VALUES (@lid, @oid)`, [
-                { name: 'lid', type: sql.Int, value: id },
-                { name: 'oid', type: sql.Int, value: opId }
-            ]);
-        }
+        // Legacy Loop Removed
 
         return NextResponse.json({ success: true, message: 'Updated Successfully' });
 

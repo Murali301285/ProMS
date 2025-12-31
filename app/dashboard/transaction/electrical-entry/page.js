@@ -21,6 +21,7 @@ export default function ElectricalEntryList() {
             { accessor: 'Date', label: 'Date', type: 'date', width: 120, frozen: true },
             { accessor: 'ShiftName', label: 'Shift', width: 100, frozen: true },
             { accessor: 'RelayName', label: 'Relay', width: 150, frozen: true },
+            { accessor: 'Type', label: 'Type', width: 100 },
             { accessor: 'EquipmentName', label: 'Equipment/Plant', width: 180 },
             { accessor: 'OMR', label: 'OMR', type: 'number', width: 100 },
             { accessor: 'CMR', label: 'CMR', type: 'number', width: 100 },

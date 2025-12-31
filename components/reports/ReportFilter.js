@@ -1,5 +1,6 @@
 import { Search, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import styles from './ReportFilter.module.css';
 
@@ -35,6 +36,8 @@ export default function ReportFilter({
     singleDate = false,
     children // NEW: Allow injecting custom inputs
 }) {
+    const router = useRouter(); // Initialize router
+
     const handleGenerate = async () => {
         if (!fromDate) return toast.error('Please select a date');
         if (!singleDate && !toDate) return toast.error('Please select both From and To dates');
@@ -72,6 +75,8 @@ export default function ReportFilter({
                             </div>
                             , { duration: 5000 }
                         );
+                        // Auto-redirect to Generated Reports page
+                        router.push('/dashboard/reports/generated');
                     } else {
                         toast.error(result.message || 'Request Failed');
                     }

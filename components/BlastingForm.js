@@ -49,10 +49,167 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
     const formRef = useRef(null);
     const smeSupplierRef = useRef(null);
 
-    // Initial Load
+    // User State for Title
+    const [user, setUser] = useState(null);
+
+    // Initial Load - Get User
     useEffect(() => {
-        // Get Role
-        // Get Role from API (More reliable than localStorage)
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            try {
+                const parsed = JSON.parse(userStr);
+                // Standardize user object for title
+                const displayUser = {
+                    ...parsed,
+                    username: parsed.EmpName || parsed.UserName || parsed.username || parsed.name || 'User'
+                };
+                setUser(displayUser);
+            } catch (e) {
+                console.error("[BlastingForm] User Parse Error:", e);
+            }
+        }
+    }, []);
+
+    // --- SMART DATE CONTEXT LOGIC ---
+    useEffect(() => {
+        if (mode !== 'create') return;
+
+        // 1. Initial Load: Get Absolute Last Context (Regardless of Date)
+        const fetchInitialContext = async () => {
+            try {
+                const res = await fetch('/api/transaction/blasting/helper/last-context', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({}) // No Date -> Absolute Last
+                });
+                const context = await res.json();
+                console.log("[BlastingForm] Initial Absolute Context:", context);
+
+                if (context && Object.keys(context).length > 0) {
+                    const receivedDate = context.Date;
+                    const parsedDate = receivedDate ? new Date(receivedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+                    setFormData(prev => ({
+                        ...prev,
+                        Date: parsedDate, // Overwrite Date
+                        BlastingPatchId: context.BlastingPatchId || '',
+                        SMESupplierId: context.SMESupplierId || '',
+                        SMEQty: context.SMEQty || '',
+                        MaxCharge: context.MaxCharge || '',
+                        PPV: context.PPV || '',
+                        DeckHoles: context.DeckHoles || '',
+                        WetHoles: context.WetHoles || '',
+                        AirPressure: context.AirPressure || '',
+                        // Reset entry specific
+                        TotalExplosiveUsed: 0, Remarks: ''
+                    }));
+                }
+            } catch (err) {
+                console.error("Initial context fetch failed", err);
+            }
+        };
+
+        fetchInitialContext();
+    }, [mode]);
+
+    // 2. Date Change: Get Context Specific to Selected Date
+    useEffect(() => {
+        if (mode !== 'create') return;
+
+        const fetchDateContext = async () => {
+            if (!formData.Date) return;
+
+            try {
+                console.log("[BlastingForm] Checking Context for Date:", formData.Date);
+                const res = await fetch('/api/transaction/blasting/helper/last-context', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ Date: formData.Date }) // Specific Date
+                });
+                const context = await res.json();
+
+                if (context && Object.keys(context).length > 0) {
+                    console.log("[BlastingForm] Found Context for Date:", context);
+                    setFormData(prev => ({
+                        ...prev,
+                        // Date: prev.Date, // Keep User Selection
+                        BlastingPatchId: context.BlastingPatchId || '',
+                        SMESupplierId: context.SMESupplierId || '',
+                        SMEQty: context.SMEQty || '',
+                        MaxCharge: context.MaxCharge || '',
+                        PPV: context.PPV || '',
+                        DeckHoles: context.DeckHoles || '',
+                        WetHoles: context.WetHoles || '',
+                        AirPressure: context.AirPressure || '',
+                        // Reset entry specific
+                        TotalExplosiveUsed: 0, Remarks: ''
+                    }));
+
+                    // Focus logic - Patch ID
+                    setTimeout(() => {
+                        const inputs = formRef.current.querySelectorAll('input');
+                        if (inputs[1]) inputs[1].focus();
+                    }, 100);
+
+                } else {
+                    console.log("[BlastingForm] No context for date. Resetting fields.");
+                    setFormData(prev => ({
+                        ...prev,
+                        // Date: prev.Date, // Keep User Selection
+                        BlastingPatchId: '', SMESupplierId: '', SMEQty: '', MaxCharge: '',
+                        PPV: '', DeckHoles: '', WetHoles: '', AirPressure: '',
+                        TotalExplosiveUsed: 0, Remarks: ''
+                    }));
+                }
+
+            } catch (err) {
+                console.error("Date context fetch failed", err);
+            }
+        };
+
+        fetchDateContext();
+    }, [formData.Date, mode]);
+
+
+    // --- DYNAMIC RECENT LIST LOGIC ---
+    const fetchTableData = async () => {
+        // Triggered by changes in filter fields
+        try {
+            const payload = {
+                Date: formData.Date,
+                // Removed specific filters (PatchId, SupplierId) to show ALL records for the selected Date
+                // BlastingPatchId: formData.BlastingPatchId, 
+                // SMESupplierId: formData.SMESupplierId
+            };
+
+            const res = await fetch('/api/transaction/blasting/helper/recent-list', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+            if (result.data) {
+                setRecentData(result.data);
+            }
+        } catch (err) {
+            console.error("Failed to load table data", err);
+        }
+    };
+
+    useEffect(() => {
+        // Debounce fetch
+        const timer = setTimeout(() => {
+            fetchTableData();
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [
+        formData.Date
+        // Only refresh on Date change (or User change implicitly)
+    ]);
+
+    // Initial Load Masters Only
+    useEffect(() => {
+        // Get Role ...
         fetch('/api/auth/me')
             .then(res => res.json())
             .then(data => {
@@ -61,18 +218,19 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
             .catch(err => console.error("Failed to fetch role", err));
 
         loadMasters();
+
         if (initialData) {
             setFormData({
                 Date: initialData.Date ? new Date(initialData.Date).toISOString().split('T')[0] : '',
-                BlastingPatchId: initialData.PatchId || '',
-                NoofHoles: initialData.HolesCharged || '', // Verify mapping
-                AverageDepth: '', // Will specific fetch if needed, or if API returns it
+                BlastingPatchId: initialData.BlastingPatchId || initialData.PatchId || '', // Check prop name
+                NoofHoles: initialData.NoofHoles || initialData.HolesCharged || '',
+                AverageDepth: initialData.AverageDepth || '',
                 SMESupplierId: initialData.SMESupplierId || '',
                 SMEQty: initialData.SMEQty || '',
-                MaxCharge: initialData.MaxCharge || '',
+                MaxCharge: initialData.MaxChargeHole || initialData.MaxCharge || '',
                 PPV: initialData.PPV || '',
-                DeckHoles: initialData.HolesCharged || '', // Wait, holes charged is different? No, check schema
-                WetHoles: initialData.WetHoles || '',
+                DeckHoles: initialData.NoofHolesDeckCharged || initialData.DeckHoles || '',
+                WetHoles: initialData.NoofWetHole || initialData.WetHoles || '',
                 AirPressure: initialData.AirPressure || '',
                 Remarks: initialData.Remarks || '',
                 TotalExplosiveUsed: initialData.TotalExplosiveUsed || 0
@@ -81,28 +239,17 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                 setAccessories(initialData.accessories);
             }
         }
-        // Auto focus
-        if (dateRef.current) dateRef.current.focus();
-        fetchRecentData();
-    }, [initialData, formData.Date]); // Reload recent when Date changes
+        // Auto focus handled by context now or specific logic
+    }, [initialData]); // Removed formData.Date dependency to avoid loop with smart context
 
     // Lookup Patch ID on Edit Load
     useEffect(() => {
-        if (mode === 'update' && initialData?.PatchId) {
-            handleLookup(initialData.PatchId);
+        if (mode === 'update' && initialData?.BlastingPatchId) {
+            // Handle lookup if needed, usually data is already there in initialData
         }
     }, [mode, initialData]);
 
-    const fetchRecentData = async () => {
-        try {
-            // Reusing list API with Date Filter
-            const res = await fetch(`/api/transaction/blasting/list?fromDate=${formData.Date}&toDate=${formData.Date}`);
-            const result = await res.json();
-            if (result.data) setRecentData(result.data);
-        } catch (err) {
-            console.error(err);
-        }
-    };
+    /* Removed old fetchRecentData definition to avoid confusion */
 
     const loadMasters = async () => {
         try {
@@ -310,10 +457,10 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
         <div className={css.container}>
             {/* Header */}
             <div className={css.header}>
-                <button onClick={() => router.back()} className={css.backBtn}>
+                <button onClick={() => router.push('/dashboard/transaction/blasting')} className={css.backBtn}>
                     <ArrowLeft size={16} /> Back
                 </button>
-                <h1 className={css.title}>{mode === 'create' ? 'Create' : 'Update'} Blasting</h1>
+                <h1 className={css.title}>{mode === 'create' ? 'Create Blasting Entry' : 'Update Blasting Entry'}</h1>
                 <div className={css.headerActions}>
                     <button className={css.saveBtn} onClick={handleSave}>
                         <Save size={16} /> Save (F2)
@@ -321,123 +468,132 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                 </div>
             </div>
 
-            <div className={css.formSection} ref={formRef}>
-                {/* Row 1: Date */}
-                <div className={css.row}>
-                    <div className={css.fieldGroup}>
-                        <label className={css.label}>Date<span className={css.required}>*</span></label>
-                        <input
-                            type="date"
-                            ref={dateRef}
-                            className={css.input}
-                            value={formData.Date}
-                            max={new Date().toISOString().split('T')[0]}
-                            onChange={e => handleChange('Date', e.target.value)}
-                            onKeyDown={(e) => handleKeyDown(e, 0)}
+            {/* Form - 8 Column Grid */}
+            <div className={css.formSection} ref={formRef} style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '15px', padding: '15px' }}>
+
+                {/* --- Row 1 --- */}
+                {/* Date: C1 */}
+                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                    <label className={css.label}>Date<span className={css.required}>*</span></label>
+                    <input
+                        type="date"
+                        ref={dateRef}
+                        className={css.input}
+                        value={formData.Date}
+                        max={new Date().toISOString().split('T')[0]}
+                        onChange={e => handleChange('Date', e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, 0)}
+                    />
+                </div>
+
+                {/* Patch ID: C2 */}
+                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                    <label className={css.label}>
+                        Blasting Patch ID
+                        {errors.BlastingPatchId && <span className={css.errorLabel}>value is missing</span>}
+                    </label>
+                    <input
+                        className={`${css.input} ${errors.BlastingPatchId ? css.errorInput : ''}`}
+                        value={formData.BlastingPatchId}
+                        onChange={e => handleChange('BlastingPatchId', e.target.value)}
+                        onBlur={handlePatchIdBlur}
+                        placeholder="Enter Patch ID"
+                        onKeyDown={(e) => handleKeyDown(e, 1)}
+                    />
+                </div>
+
+
+
+                {/* --- Row 2 --- */}
+                {/* No of Holes: C1 */}
+                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                    <label className={css.label}>No of Holes</label>
+                    <input
+                        className={`${css.input} ${css.readOnly}`}
+                        value={formData.NoofHoles}
+                        readOnly
+                    />
+                </div>
+
+                {/* Avg Depth: C2 */}
+                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                    <label className={css.label}>Avg Depth</label>
+                    <input
+                        className={`${css.input} ${css.readOnly}`}
+                        value={formData.AverageDepth}
+                        readOnly
+                    />
+                </div>
+
+                {/* SME Supplier: C3 */}
+                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                    <label className={css.label}>
+                        SME Supplier<span className={css.required}>*</span>
+                        {errors.SMESupplierId && <span className={css.errorLabel}>value is missing</span>}
+                    </label>
+                    <div className={errors.SMESupplierId ? css.errorInput : ''} style={{ borderRadius: 4, border: errors.SMESupplierId ? '1px solid #ef4444' : 'none' }}>
+                        <SearchableSelect
+                            options={suppliers}
+                            value={formData.SMESupplierId}
+                            onChange={(val) => handleChange('SMESupplierId', val)}
+                            placeholder="Select Supplier"
+                            className={css.compactInput}
+                            ref={smeSupplierRef}
                         />
                     </div>
                 </div>
 
-                <div className={css.divider}></div>
-
-                {/* Row 2: Patch ID, Holes, Depth, Supplier, Qty */}
-                <div className={css.row5}>
-                    <div className={css.fieldGroup}>
-                        <label className={css.label}>
-                            Blasting Patch ID
-                            {errors.BlastingPatchId && <span className={css.errorLabel}>value is missing</span>}
-                        </label>
-                        <input
-                            className={`${css.input} ${errors.BlastingPatchId ? css.errorInput : ''}`}
-                            value={formData.BlastingPatchId}
-                            onChange={e => handleChange('BlastingPatchId', e.target.value)}
-                            onBlur={handlePatchIdBlur}
-                            placeholder="Enter Patch ID"
-                            onKeyDown={(e) => handleKeyDown(e, 1)}
-                        />
-                    </div>
-
-                    <div className={css.fieldGroup}>
-                        <label className={css.label}>No of Holes</label>
-                        <input
-                            className={`${css.input} ${css.readOnly}`}
-                            value={formData.NoofHoles}
-                            readOnly
-                        />
-                    </div>
-
-                    <div className={css.fieldGroup}>
-                        <label className={css.label}>Avg Depth</label>
-                        <input
-                            className={`${css.input} ${css.readOnly}`}
-                            value={formData.AverageDepth}
-                            readOnly
-                        />
-                    </div>
-
-                    <div className={css.fieldGroup}>
-                        <label className={css.label}>
-                            SME Supplier<span className={css.required}>*</span>
-                            {errors.SMESupplierId && <span className={css.errorLabel}>value is missing</span>}
-                        </label>
-                        <div className={errors.SMESupplierId ? css.errorInput : ''} style={{ borderRadius: 4, border: errors.SMESupplierId ? '1px solid #ef4444' : 'none' }}>
-                            <SearchableSelect
-                                options={suppliers}
-                                value={formData.SMESupplierId}
-                                onChange={(val) => handleChange('SMESupplierId', val)}
-                                placeholder="Select Supplier"
-                                className={css.compactInput}
-                                ref={smeSupplierRef}
-                            />
-                        </div>
-                    </div>
-
-                    <div className={css.fieldGroup}>
-                        <label className={css.label}>
-                            SME Qty (KG)<span className={css.required}>*</span>
-                            {errors.SMEQty && <span className={css.errorLabel}>value is missing</span>}
-                        </label>
-                        <input
-                            type="number"
-                            step="0.001"
-                            className={`${css.input} ${errors.SMEQty ? css.errorInput : ''}`}
-                            value={formData.SMEQty}
-                            onChange={e => handleChange('SMEQty', e.target.value)}
-                            onKeyDown={(e) => handleKeyDown(e, 5)}
-                        />
-                    </div>
+                {/* SME Qty: C4 */}
+                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                    <label className={css.label}>
+                        SME Qty (KG)<span className={css.required}>*</span>
+                        {errors.SMEQty && <span className={css.errorLabel}>value is missing</span>}
+                    </label>
+                    <input
+                        type="number"
+                        step="0.001"
+                        className={`${css.input} ${errors.SMEQty ? css.errorInput : ''}`}
+                        value={formData.SMEQty}
+                        onChange={e => handleChange('SMEQty', e.target.value)}
+                        onKeyDown={(e) => handleKeyDown(e, 5)}
+                    />
                 </div>
 
-                <div className={css.divider}></div>
 
-                {/* Row 3: Max Charge, PPV, Deck Holes, Wet Holes, Air Press */}
-                <div className={css.row5}>
-                    <div className={css.fieldGroup}>
-                        <label className={css.label}>Max Charge/Hole (KG)</label>
-                        <input type="number" step="0.001" className={css.input} value={formData.MaxCharge} onChange={e => handleChange('MaxCharge', e.target.value)} />
-                    </div>
-                    <div className={css.fieldGroup}>
-                        <label className={css.label}>PPV (mm/sec)</label>
-                        <input type="number" step="0.001" className={css.input} value={formData.PPV} onChange={e => handleChange('PPV', e.target.value)} />
-                    </div>
-                    <div className={css.fieldGroup}>
-                        <label className={css.label}>Holes Deck Charged</label>
-                        <input type="number" step="0.001" className={css.input} value={formData.DeckHoles} onChange={e => handleChange('DeckHoles', e.target.value)} />
-                    </div>
-                    <div className={css.fieldGroup}>
-                        <label className={css.label}>Wet Holes</label>
-                        <input type="number" step="0.001" className={css.input} value={formData.WetHoles} onChange={e => handleChange('WetHoles', e.target.value)} />
-                    </div>
-                    <div className={css.fieldGroup}>
-                        <label className={css.label}>Air Pressure (DB)</label>
-                        <input type="number" step="0.001" className={css.input} value={formData.AirPressure} onChange={e => handleChange('AirPressure', e.target.value)} />
-                    </div>
+
+                {/* --- Row 3 --- */}
+                {/* Max Charge: C1 */}
+                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                    <label className={css.label}>Max Charge/Hole (KG)</label>
+                    <input type="number" step="0.001" className={css.input} value={formData.MaxCharge} onChange={e => handleChange('MaxCharge', e.target.value)} />
                 </div>
 
-                <div className={css.divider}></div>
+                {/* PPV: C2 */}
+                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                    <label className={css.label}>PPV (mm/sec)</label>
+                    <input type="number" step="0.001" className={css.input} value={formData.PPV} onChange={e => handleChange('PPV', e.target.value)} />
+                </div>
 
-                {/* Row 4: Accessories Table */}
-                <div className={css.dataTableSection}>
+                {/* Deck Holes: C3 */}
+                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                    <label className={css.label}>Holes Deck Charged</label>
+                    <input type="number" step="0.001" className={css.input} value={formData.DeckHoles} onChange={e => handleChange('DeckHoles', e.target.value)} />
+                </div>
+
+                {/* Wet Holes: C4 */}
+                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                    <label className={css.label}>Wet Holes</label>
+                    <input type="number" step="0.001" className={css.input} value={formData.WetHoles} onChange={e => handleChange('WetHoles', e.target.value)} />
+                </div>
+
+                {/* Air Pressure: C5 */}
+                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                    <label className={css.label}>Air Pressure (DB)</label>
+                    <input type="number" step="0.001" className={css.input} value={formData.AirPressure} onChange={e => handleChange('AirPressure', e.target.value)} />
+                </div>
+
+                {/* --- Row 4: Accessories --- */}
+                <div className={css.dataTableSection} style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
                     <div className={css.tableTitle} style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span>Accessories Details</span>
                         <div style={{ fontSize: '13px', fontWeight: 'bold' }}>
@@ -500,26 +656,25 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                     </button>
                 </div>
 
-                <div className={css.divider}></div>
 
-                {/* Row 5: Remarks */}
-                <div className={css.row}>
-                    <div className={css.fieldGroup} style={{ gridColumn: '1 / -1' }}>
-                        <label className={css.label}>Remarks</label>
-                        <textarea
-                            className={css.textarea}
-                            value={formData.Remarks}
-                            onChange={e => handleChange('Remarks', e.target.value)}
-                        />
-                    </div>
+
+                {/* --- Row 5: Remarks --- */}
+                {/* Remarks: Span 6 */}
+                <div className={css.fieldGroup} style={{ gridColumn: 'span 6' }}>
+                    <label className={css.label}>Remarks</label>
+                    <textarea
+                        className={css.textarea}
+                        value={formData.Remarks}
+                        onChange={e => handleChange('Remarks', e.target.value)}
+                    />
                 </div>
 
             </div>
 
             {/* Recent Blasting List */}
             <div className={css.dataTableSection}>
-                <div className={css.tableTitle}>Recent Transactions</div>
                 <TransactionTable
+                    title={`Recent Transactions - By ${user?.username || 'User'}`}
                     config={TRANSACTION_CONFIG['blasting']}
                     data={recentData}
                     isLoading={false}

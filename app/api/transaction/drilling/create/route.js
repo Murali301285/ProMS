@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import sql from 'mssql';
 import { getDbConnection } from '@/lib/db';
 import { cookies } from 'next/headers';
+import { authenticateUser } from '@/lib/auth';
 
 export async function POST(request) {
     try {
@@ -16,10 +17,9 @@ export async function POST(request) {
         const requestSql = pool.request();
 
         // Get User ID from Session/Cookie if possible, else Default to 1 (Admin) or from body
-        // For now, assumming we get User ID from auth middleware or passed in body
-        // In this project, we usually fetch it from session. 
-        // Let's assume passed in body or default to 2 (Admin) for safety if auth fails
-        let createdBy = 2;
+        const user = await authenticateUser(request);
+        let createdBy = user ? user.id : 1;
+        /*
         try {
             // Mock Auth check or similar if needed. For now simple.
             // If you have a solid auth system, retrieve userId there.
@@ -27,6 +27,7 @@ export async function POST(request) {
             // Here we will use the one passed from frontend or default
             if (body.CreatedBy) createdBy = body.CreatedBy;
         } catch (e) { }
+        */
 
 
         const query = `

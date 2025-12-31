@@ -36,7 +36,9 @@ async function getData(id) {
                 UnitId,
                 TotalQty,
                 TotalNtpcQty,
-                Remarks
+                Remarks,
+                ShiftInchargeId,
+                MidScaleInchargeId
             FROM [Trans].[TblLoading] 
             WHERE SlNo = @id AND IsDelete = 0
         `;
@@ -51,23 +53,9 @@ async function getData(id) {
             return null;
         }
 
-        // 2. Fetch Shift Incharges (Multi-Select)
-        try {
-            const queryInc = `SELECT OperatorId FROM [Trans].[TblLoadingShiftIncharge] WHERE LoadingId = @lid`;
-            const resInc = await executeQuery(queryInc, [
-                { name: 'lid', type: sql.Int, value: safeId }
-            ]);
+        // Removed Legacy Multi-Select Fetch Logic
 
-            mainData.ShiftInchargeId = resInc.map(row => row.OperatorId);
-
-            console.log("✅ Edit Page: Data Fetched", {
-                id: mainData.SlNo,
-                LoadingMachineId: mainData.LoadingMachineId
-            });
-        } catch (incError) {
-            console.error("❌ Edit Page: Failed to fetch Incharges. Error: " + incError.message);
-            mainData.ShiftInchargeId = [];
-        }
+        console.log("✅ Edit Page: Data Fetched", mainData);
 
         return mainData;
     } catch (e) {

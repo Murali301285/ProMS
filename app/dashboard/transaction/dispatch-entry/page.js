@@ -13,24 +13,20 @@ export default function DispatchEntryList() {
 
     // Configuration
     const config = {
-        table: '[Trans].[TblBDSEntry]',
+        table: '[Trans].[TblDispatchEntry]',
         idField: 'SlNo',
         apiPath: '/api/transaction/dispatch-entry',
         columns: [
             { accessor: 'SlNo', label: '#', width: 50, frozen: true },
             { accessor: 'Date', label: 'Date', type: 'date', width: 120, frozen: true },
-            { accessor: 'PartyName', label: 'Party', width: 150 },
-            { accessor: 'VehicleNo', label: 'Vehicle No', width: 120 },
-            { accessor: 'Weighment', label: 'Weighment (Kg)', type: 'number', width: 120 },
-            { accessor: 'CounterReading', label: 'Counter Reading (Kg)', type: 'number', width: 150 },
-            { accessor: 'LoadingSheet', label: 'Loading Sheet (Kg)', type: 'number', width: 140 },
-            { accessor: 'StandardDeduction', label: 'Std Deduction (Kg)', type: 'number', width: 150 },
-            { accessor: 'AcceptedQuantity', label: 'Accepted Qty (Kg)', type: 'number', width: 150 },
-            { accessor: 'ChallanNo', label: 'Challan No', width: 120 },
+            { accessor: 'DispatchLocationName', label: 'Dispatch Location', width: 180 },
+            { accessor: 'Trip', label: 'Trip', type: 'number', width: 80 },
+            { accessor: 'TotalQty', label: 'Total Qty', type: 'number', width: 120 },
+            { accessor: 'UnitName', label: 'UOM', width: 80 },
             { accessor: 'Remarks', label: 'Remarks', width: 200 },
             { accessor: 'CreatedByName', label: 'Created By', width: 150 },
             { accessor: 'CreatedDate', label: 'Created Time', type: 'datetime', width: 180, disableFilter: true },
-            { accessor: 'UpdatedBy', label: 'Updated By', width: 150 },
+            { accessor: 'UpdatedByName', label: 'Updated By', width: 150 },
             { accessor: 'UpdatedDate', label: 'Updated Time', type: 'datetime', width: 180, disableFilter: true }
         ]
     };

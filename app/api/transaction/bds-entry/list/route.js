@@ -8,10 +8,13 @@ export async function POST(req) {
         const query = `
             SELECT 
                 t.*,
-                p.PartyName,
-                t.CreatedBy as CreatedByName
+                s.Category as SMECategoryName,
+                UC.EmpName as CreatedByName,
+                UU.EmpName as UpdatedByName
             FROM [Trans].[TblBDSEntry] t
-            LEFT JOIN [Master].[tblParty] p ON t.PartyId = p.SlNo
+            LEFT JOIN [Master].[TblSMECategory] s ON t.SMECategoryId = s.SlNo
+            LEFT JOIN [Master].[TblUser_New] UC ON t.CreatedBy = UC.SlNo
+            LEFT JOIN [Master].[TblUser_New] UU ON t.UpdatedBy = UU.SlNo
             WHERE t.isDelete = 0 
             AND t.Date >= @fromDate 
             AND t.Date <= @toDate

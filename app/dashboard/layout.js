@@ -1,5 +1,11 @@
 import DashboardLayout from '@/components/DashboardLayout';
+import SessionManager from '@/components/SessionManager';
 
 export default function Layout({ children }) {
-    return <DashboardLayout>{children}</DashboardLayout>;
+    return (
+        <>
+            <SessionManager />
+            <DashboardLayout>{children}</DashboardLayout>
+        </>
+    );
 }

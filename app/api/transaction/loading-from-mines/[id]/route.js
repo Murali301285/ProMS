@@ -1,6 +1,7 @@
 /* 🔒 LOCKED MODULE: DO NOT EDIT WITHOUT CONFIRMATION */
 import { NextResponse } from 'next/server';
 import { executeQuery, sql, getDbConnection } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,13 +20,19 @@ export async function DELETE(request, { params }) {
 
 export async function PUT(request, { params }) {
     try {
+        const user = await authenticateUser(request);
+        if (!user) {
+            return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+        }
+        const UserId = user.id;
+
         const body = await request.json();
         const { id } = await params; // FIXED: Await Params
         const {
-            Date: date, ShiftId, ShiftInchargeId, ManPower, RelayId,
+            Date: date, ShiftId, ShiftInchargeId, MidScaleInchargeId, ManPower, RelayId,
             SourceId, DestinationId, MaterialId, HaulerId, LoadingMachineId,
             NoOfTrips, MangQtyTrip, NTPCQtyTrip, Unit, MangTotalQty, NTPCTotalQty,
-            UserId, Remarks
+            Remarks // UserId removed
         } = body;
 
         console.log("📝 [UPDATE-MINES] Payload:", body);
@@ -35,6 +42,8 @@ export async function PUT(request, { params }) {
             SET 
                 LoadingDate = @date,
                 ShiftId = @ShiftId,
+                ShiftInchargeId = @ShiftInchargeId,
+                MidScaleInchargeId = @MidScaleInchargeId,
                 ManPowerInShift = @ManPower,
                 RelayId = @RelayId,
                 SourceId = @SourceId,
@@ -54,13 +63,15 @@ export async function PUT(request, { params }) {
             OUTPUT INSERTED.SlNo
             WHERE SlNo = @id;
             
-            DELETE FROM [Trans].[TblLoadingShiftIncharge] WHERE LoadingId = @id;
+            -- DELETE FROM [Trans].[TblLoadingShiftIncharge] WHERE LoadingId = @id; -- No longer used
         `;
 
         const result = await executeQuery(query, [
             { name: 'id', type: sql.Int, value: id },
             { name: 'date', type: sql.Date, value: date },
             { name: 'ShiftId', type: sql.Int, value: ShiftId },
+            { name: 'ShiftInchargeId', type: sql.Int, value: ShiftInchargeId || null },
+            { name: 'MidScaleInchargeId', type: sql.Int, value: MidScaleInchargeId || null },
             { name: 'ManPower', type: sql.Int, value: ManPower },
             { name: 'RelayId', type: sql.Int, value: RelayId },
             { name: 'SourceId', type: sql.Int, value: SourceId },
@@ -74,7 +85,7 @@ export async function PUT(request, { params }) {
             { name: 'Unit', type: sql.Int, value: Unit ? Number(Unit) : 1 }, // FIXED: Casting
             { name: 'MangTotalQty', type: sql.Decimal(18, 2), value: MangTotalQty },
             { name: 'NTPCTotalQty', type: sql.Decimal(18, 2), value: NTPCTotalQty },
-            { name: 'UserId', type: sql.Int, value: UserId || 2 }, // FIXED: Default to 2 (Admin) as 1 doesn't exist
+            { name: 'UserId', type: sql.Int, value: UserId },
             { name: 'Remarks', type: sql.NVarChar, value: Remarks }
         ]);
 
@@ -85,6 +96,7 @@ export async function PUT(request, { params }) {
 
         console.log("✅ [UPDATE-MINES] Detailed Update Success for ID:", id);
 
+        /*
         const incharges = Array.isArray(ShiftInchargeId) ? ShiftInchargeId : (ShiftInchargeId ? [ShiftInchargeId] : []);
         for (const opId of incharges) {
             await executeQuery(`INSERT INTO [Trans].[TblLoadingShiftIncharge] (LoadingId, OperatorId) VALUES (@lid, @oid)`, [
@@ -92,6 +104,7 @@ export async function PUT(request, { params }) {
                 { name: 'oid', type: sql.Int, value: opId }
             ]);
         }
+        */
 
         return NextResponse.json({ success: true, message: 'Updated Successfully' });
 

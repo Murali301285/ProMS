@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 
 export async function POST(request) {
     try {
@@ -27,14 +28,16 @@ export async function POST(request) {
             // BETTER: Add "Shift" to Row 1 as it's standard.
             // Use '2' for now to avoid error, as user said "Row 1 -> Date".
 
+            const user = await authenticateUser(request);
+            let createdBy = user ? user.id : 1;
+
             const insertParent = `
                 INSERT INTO [Trans].[TblBlasting] (
-                    Date, ShiftId, BlastingPatchId, SMESupplierId, SMEQty, 
+                    Date, BlastingPatchId, SMESupplierId, SMEQty, 
                     MaxChargeHole, PPV, NoofHolesDeckCharged, NoofWetHole, AirPressure, 
                     TotalExplosiveUsed, Remarks, CreatedDate, CreatedBy, IsDelete
                 ) OUTPUT INSERTED.SlNo VALUES (
                     '${body.Date}', 
-                    2, 
                     '${body.BlastingPatchId}', 
                     ${body.SMESupplierId}, 
                     ${body.SMEQty || 0}, 
@@ -46,7 +49,8 @@ export async function POST(request) {
                     ${body.TotalExplosiveUsed || 0}, 
                     '${body.Remarks || ''}', 
                     GETDATE(), 
-                    '${body.UserName || 'Admin'}', 
+                    GETDATE(), 
+                    ${createdBy}, 
                     0
                 )
             `;
@@ -71,7 +75,8 @@ export async function POST(request) {
                             ${acc.TotalNonelMeters || 0}, 
                             ${acc.TotalTLDMeters || 0}, 
                             GETDATE(), 
-                            '${body.UserName || 'Admin'}', 
+                            GETDATE(), 
+                            ${createdBy}, 
                             0
                         )
                     `;

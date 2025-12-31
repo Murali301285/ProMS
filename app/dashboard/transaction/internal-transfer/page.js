@@ -130,7 +130,7 @@ export default function InternalTransferPage() {
     return (
         <div style={styles.page}>
             {/* Blocking Overlay */}
-            {loading && <LoadingOverlay message="Processing..." />}
+            {/* {loading && <LoadingOverlay message="Processing..." />} */}
 
             {/* Header */}
             <div style={styles.header}>
@@ -179,7 +179,7 @@ export default function InternalTransferPage() {
             <TransactionTable
                 config={config}
                 data={data}
-                isLoading={false}
+                isLoading={loading}
                 onDelete={handleDelete}
                 userRole={userRole}
             />

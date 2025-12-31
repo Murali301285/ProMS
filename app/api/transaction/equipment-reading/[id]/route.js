@@ -29,23 +29,15 @@ export async function GET(request, { params }) {
 
         const record = result[0];
 
-        // Fetch Child Tables (Incharges & Operators)
+        // Fetch Child Tables (Operators Only)
+        // Incharges now in Main Table
 
-        const incharges = await executeQuery(
-            `SELECT OperatorId FROM [Trans].[TblEquipmentReadingShiftIncharge] WHERE EquipmentReadingId = @id`,
-            [{ name: 'id', type: sql.Int, value: id }]
-        );
-
-        const operators = await executeQuery(
-            `SELECT OperatorId FROM [Trans].[TblEquipmentReadingOperator] WHERE EquipmentReadingId = @id`,
-            [{ name: 'id', type: sql.Int, value: id }]
-        );
+        // Fetch Child Tables - NONE (Everything is single column now)
 
         // Format for Frontend
         const data = {
             ...record,
-            ShiftInchargeId: incharges.map(i => i.OperatorId),
-            OperatorId: operators.map(i => i.OperatorId)
+            OperatorId: record.OperatorId // Direct mapping
         };
 
         return NextResponse.json({ success: true, data });
@@ -57,19 +49,23 @@ export async function GET(request, { params }) {
 }
 
 
+import { authenticateUser } from '@/lib/auth';
+
 // PUT (Update)
 export async function PUT(request, { params }) {
     try {
+        const user = await authenticateUser(request);
+        const UserId = user ? user.id : 1;
+
         const { id } = await params;
         const body = await request.json();
         const {
-            Date: date, ShiftId, ShiftInchargeId, RelayId,
+            Date: date, ShiftId, ShiftInchargeId, MidScaleInchargeId, RelayId,
             ActivityId, EquipmentId, OperatorId,
             OHMR, CHMR, NetHMR, OKMR, CKMR, NetKMR,
             DevelopmentHrMining, FaceMarchingHr, DevelopmentHrNonMining, BlastingMarchingHr,
             RunningBDMaintenanceHr, TotalWorkingHr, BDHr, MaintenanceHr, IdleHr,
             SectorId, PatchId, MethodId, Remarks,
-            UserId = 1
         } = body;
 
         // Update Main Table
@@ -77,8 +73,10 @@ export async function PUT(request, { params }) {
         const query = `
             UPDATE [Trans].[TblEquipmentReading]
             SET 
-                [Date] = @date, ShiftId = @ShiftId, RelayId = @RelayId,
-                ActivityId = @ActivityId, EquipmentId = @EquipmentId,
+                [Date] = @date, ShiftId = @ShiftId, 
+                ShiftInchargeId = @ShiftInchargeId, MidScaleInchargeId = @MidScaleInchargeId,
+                RelayId = @RelayId,
+                ActivityId = @ActivityId, EquipmentId = @EquipmentId, OperatorId = @OperatorId,
                 OHMR = @OHMR, CHMR = @CHMR, NetHMR = @NetHMR,
                 OKMR = @OKMR, CKMR = @CKMR, NetKMR = @NetKMR,
                 DevelopmentHrMining = @DevelopmentHrMining,
@@ -102,9 +100,12 @@ export async function PUT(request, { params }) {
         await executeQuery(query, [
             { name: 'date', type: sql.Date, value: date },
             { name: 'ShiftId', type: sql.Int, value: ShiftId },
+            { name: 'ShiftInchargeId', type: sql.Int, value: ShiftInchargeId },
+            { name: 'MidScaleInchargeId', type: sql.Int, value: MidScaleInchargeId },
             { name: 'RelayId', type: sql.Int, value: RelayId },
             { name: 'ActivityId', type: sql.Int, value: ActivityId },
             { name: 'EquipmentId', type: sql.Int, value: EquipmentId },
+            { name: 'OperatorId', type: sql.Int, value: OperatorId },
 
             { name: 'OHMR', type: sql.Decimal(18, 2), value: OHMR || null },
             { name: 'CHMR', type: sql.Decimal(18, 2), value: CHMR || null },
@@ -134,24 +135,7 @@ export async function PUT(request, { params }) {
             { name: 'id', type: sql.Int, value: id }
         ]);
 
-        // Update Children (Delete & Re-insert)
-        await executeQuery(`DELETE FROM [Trans].[TblEquipmentReadingShiftIncharge] WHERE EquipmentReadingId = @id`, [{ name: 'id', value: id }]);
-        if (ShiftInchargeId && ShiftInchargeId.length > 0) {
-            for (const opId of ShiftInchargeId) {
-                await executeQuery(`INSERT INTO [Trans].[TblEquipmentReadingShiftIncharge] (EquipmentReadingId, OperatorId) VALUES (@lid, @oid)`, [
-                    { name: 'lid', value: id }, { name: 'oid', value: opId }
-                ]);
-            }
-        }
-
-        await executeQuery(`DELETE FROM [Trans].[TblEquipmentReadingOperator] WHERE EquipmentReadingId = @id`, [{ name: 'id', value: id }]);
-        if (OperatorId && OperatorId.length > 0) {
-            for (const opId of OperatorId) {
-                await executeQuery(`INSERT INTO [Trans].[TblEquipmentReadingOperator] (EquipmentReadingId, OperatorId) VALUES (@lid, @oid)`, [
-                    { name: 'lid', value: id }, { name: 'oid', value: opId }
-                ]);
-            }
-        }
+        // Child Table Update Logic Removed (Single Column Now)
 
         return NextResponse.json({ success: true, message: 'Updated Successfully' });
 

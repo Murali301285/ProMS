@@ -15,7 +15,6 @@ export async function GET(request) {
             SELECT 
                 B.SlNo,
                 B.Date,
-                B.ShiftId,
                 B.BlastingPatchId,
                 B.SMESupplierId,
                 B.SMEQty,
@@ -31,15 +30,13 @@ export async function GET(request) {
                 B.UpdatedBy,
                 B.UpdatedDate,
                 B.IsDelete,
-                Sh.ShiftName,
                 SS.Name as SMESupplierName,
-                U1.UserName as CreatedByName,
-                U2.UserName as UpdatedByName
+                U1.EmpName as CreatedByName,
+                U2.EmpName as UpdatedByName
             FROM [Trans].[TblBlasting] B
-            LEFT JOIN [Master].[TblShift] Sh ON B.ShiftId = Sh.SlNo
             LEFT JOIN [Master].[TblSMESupplier] SS ON B.SMESupplierId = SS.SlNo
-            LEFT JOIN [Master].[TblUser] U1 ON B.CreatedBy = U1.SlNo
-            LEFT JOIN [Master].[TblUser] U2 ON B.UpdatedBy = U2.SlNo
+            LEFT JOIN [Master].[TblUser_New] U1 ON B.CreatedBy = U1.SlNo
+            LEFT JOIN [Master].[TblUser_New] U2 ON B.UpdatedBy = U2.SlNo
             WHERE B.IsDelete = 0
         `;
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDbConnection, sql } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,9 @@ export async function PUT(request, { params }) {
     const { id } = await params;
     try {
         const body = await request.json();
+        const user = await authenticateUser(request);
+        const userId = user ? user.id : 1;
+
         const pool = await getDbConnection();
         const transaction = new sql.Transaction(pool);
 
@@ -41,7 +45,8 @@ export async function PUT(request, { params }) {
             req.input('id', sql.Int, id);
             req.input('Date', sql.Date, body.Date);
             req.input('ShiftId', sql.Int, body.ShiftId);
-            req.input('ShiftInChargeId', sql.VarChar, body.ShiftInChargeId);
+            req.input('ShiftInChargeId', sql.Int, (body.ShiftInChargeId && body.ShiftInChargeId != '0') ? body.ShiftInChargeId : null);
+            req.input('MidScaleInchargeId', sql.Int, (body.MidScaleInchargeId && body.MidScaleInchargeId != '0') ? body.MidScaleInchargeId : null);
             req.input('ManPowerInShift', sql.Decimal(18, 2), body.ManPowerInShift || 0);
             req.input('PlantId', sql.Int, body.PlantId);
             req.input('BeltScaleOHMR', sql.Decimal(18, 2), body.BeltScaleOHMR || 0);
@@ -49,44 +54,43 @@ export async function PUT(request, { params }) {
             req.input('ProductionUnitId', sql.Int, body.ProductionUnitId);
             req.input('ProductionQty', sql.Decimal(18, 2), body.ProductionQty || 0);
 
-            req.input('EquipmentId', sql.Int, body.EquipmentId);
+            req.input('EquipmentId', sql.Int, (body.EquipmentId && body.EquipmentId != '0') ? body.EquipmentId : null);
             req.input('NoofTrip', sql.Int, body.NoofTrip || 0);
             req.input('QtyTrip', sql.Decimal(18, 2), body.QtyTrip || 0);
-            req.input('TripQtyUnitId', sql.Int, body.TripQtyUnitId);
+            req.input('TripQtyUnitId', sql.Int, (body.TripQtyUnitId && body.TripQtyUnitId != '0') ? body.TripQtyUnitId : null);
 
             req.input('TotalQty', sql.Decimal(18, 2), body.TotalQty || 0);
             req.input('OHMR', sql.Decimal(18, 2), body.OHMR || 0);
             req.input('CHMR', sql.Decimal(18, 2), body.CHMR || 0);
-            req.input('KWH', sql.Decimal(18, 3), body.KWH || null);
             req.input('RunningHr', sql.Decimal(18, 2), body.RunningHr || 0);
             req.input('TotalStoppageHours', sql.Decimal(18, 2), body.TotalStoppageHours || 0);
 
             req.input('Remarks', sql.NVarChar, body.Remarks);
-            req.input('UserName', sql.VarChar(50), body.UserName || 'Admin');
+            req.input('UpdatedBy', sql.Int, userId);
 
             await req.query(`
 UPDATE [Trans].[TblCrusher] SET
 [Date] = @Date,
     ShiftId = @ShiftId,
     ShiftInChargeId = @ShiftInChargeId,
+    MidScaleInchargeId = @MidScaleInchargeId,
     ManPowerInShift = @ManPowerInShift,
     PlantId = @PlantId,
     BeltScaleOHMR = @BeltScaleOHMR,
     BeltScaleCHMR = @BeltScaleCHMR,
     ProductionUnitId = @ProductionUnitId,
     ProductionQty = @ProductionQty,
-    HaulerId = @EquipmentId,
+    HaulerEquipmentId = @EquipmentId,
     NoofTrip = @NoofTrip,
     QtyTrip = @QtyTrip,
     TripQtyUnitId = @TripQtyUnitId,
     TotalQty = @TotalQty,
     OHMR = @OHMR,
     CHMR = @CHMR,
-    KWH = @KWH,
     RunningHr = @RunningHr,
     TotalStoppageHours = @TotalStoppageHours,
     Remarks = @Remarks,
-    UpdatedBy = @UserName,
+    UpdatedBy = @UpdatedBy,
     UpdatedDate = GETDATE()
                 WHERE SlNo = @id
     `);
@@ -118,13 +122,19 @@ VALUES(@CrusherId, @FromTime, @ToTime, @StoppageId, @StoppageHours, @Remarks)
             return NextResponse.json({ success: true, message: 'Record updated successfully' });
 
         } catch (err) {
+            console.error("Transaction Error Details:", err);
+            if (err.originalError) console.error("Original SQL Error:", err.originalError);
             await transaction.rollback();
             throw err;
         }
 
     } catch (error) {
         console.error("Update Error:", error);
-        return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+        return NextResponse.json({
+            success: false,
+            message: error.message,
+            details: error.originalError?.message || error.toString()
+        }, { status: 500 });
     }
 }
 

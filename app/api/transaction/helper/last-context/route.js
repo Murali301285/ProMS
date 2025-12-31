@@ -7,10 +7,17 @@ export async function POST(req) {
         const { date, ShiftId, moduleType, UserId } = await req.json();
 
         let table = '';
+        let dateCol = '';
+        let mpCol = '';
+
         if (moduleType === 'loading-from-mines') {
-            table = '[Trans].[TblLoadingFromMines]';
+            table = '[Trans].[TblLoading]';
+            dateCol = 'LoadingDate';
+            mpCol = 'ManPowerInShift';
         } else if (moduleType === 'material-rehandling') {
             table = '[Trans].[TblMaterialRehandling]';
+            dateCol = 'RehandlingDate'; // Assuming this is correct for Rehandling
+            mpCol = 'ManPowerInShift'; // Or ManPower? Usually standardizes.
         } else {
             return NextResponse.json({ success: false, message: 'Invalid Module Type' }, { status: 400 });
         }
@@ -25,7 +32,7 @@ export async function POST(req) {
             { name: 'UserId', type: sql.Int, value: UserId || 0 }
         ];
 
-        let baseWhere = "RehandlingDate = @date AND IsDelete = 0";
+        let baseWhere = `${dateCol} = @date AND IsDelete = 0`;
         if (ShiftId) {
             baseWhere += " AND ShiftId = @ShiftId";
             queryParams.push({ name: 'ShiftId', type: sql.Int, value: ShiftId });
@@ -40,9 +47,9 @@ export async function POST(req) {
 
             const q = `
                 SELECT TOP 1 
-                    SlNo, ShiftId, ManPowerInShift as ManPower, RelayId, 
+                    SlNo, ShiftId, ${mpCol} as ManPower, RelayId, 
                     SourceId, DestinationId, MaterialId, HaulerEquipmentId, LoadingMachineEquipmentId, UnitId as Unit,
-                    CreatedDate
+                    CreatedDate, ShiftInchargeId, MidScaleInchargeId
                 FROM ${table}
                 WHERE ${where}
                 ORDER BY CreatedDate DESC
@@ -60,50 +67,84 @@ export async function POST(req) {
 
         if (res.length > 0) {
             const data = res[0];
-            // Fetch Incharges
-            const incQuery = `SELECT OperatorId FROM [Trans].[TblMaterialRehandlingShiftIncharge] WHERE MaterialRehandlingId = @id`;
-            const incRes = await executeQuery(incQuery, [{ name: 'id', type: sql.Int, value: data.SlNo }]);
-            data.ShiftInchargeIds = incRes.map(x => x.OperatorId);
+
+            // Logic for Incharges: Support New Columns (Priority) -> Fallback to Link Table (Legacy)
+            if (data.ShiftInchargeId || data.MidScaleInchargeId) {
+                // New logic: already in data
+            } else {
+                // Legacy: Check Link Table
+                // Only if table is Loading? (Rehandling might use link table still? Rehandling logic is separate? Rehandling uses TblMaterialRehandlingShiftIncharge)
+                // Wait, if table is TblLoading, we check legacy link. 
+                // If table is Rehandling, we check rehandling link.
+
+                if (moduleType === 'loading-from-mines') {
+                    const incQuery = `SELECT OperatorId FROM [Trans].[TblLoadingShiftIncharge] WHERE LoadingId = @id`;
+                    const incRes = await executeQuery(incQuery, [{ name: 'id', type: sql.Int, value: data.SlNo }]);
+                    // Map legacy array to ShiftInchargeId (First)? Or logic in Frontend handles it?
+                    // Frontend expects scalar ShiftInchargeId. 
+                    if (incRes.length > 0) data.ShiftInchargeId = incRes[0].OperatorId;
+                    // Ignore others? Legacy usually implies multiple? If multiple, we just take first for "Large Scale".
+                } else if (moduleType === 'material-rehandling') {
+                    const incQuery = `SELECT OperatorId FROM [Trans].[TblMaterialRehandlingShiftIncharge] WHERE MaterialRehandlingId = @id`;
+                    const incRes = await executeQuery(incQuery, [{ name: 'id', type: sql.Int, value: data.SlNo }]);
+                    data.ShiftInchargeIds = incRes.map(x => x.OperatorId);
+                }
+            }
 
             return NextResponse.json({ success: true, data, source: 'Rehandling' });
         }
 
         // --- Priority 3: Loading Fallback ---
-        // Only if Shift is provided (as per requirements for P3 logic? Or generic?)
-        // Requirement: "Priority 3-> get Shift,Incharge,Man Power, Relay from [Trans].[TblLoading] from that particular date"
+        // Enhanced Logic for Loading From Mines (User Step 1531)
 
-        // If ShiftId IS provided: check for that specific shift in Loading
-        // If ShiftId IS NOT provided: maybe get the latest shift? 
-        // The prompt says: "If Only Date Selected... Priority 3 -> get Shift... from TblLoading... load only data to mention controls"
+        let loadingWhere = "LoadingDate = @date AND IsDelete = 0";
+        if (ShiftId) {
+            // If Shift IS provided, filter by it
+            loadingWhere += " AND ShiftId = @ShiftId";
+        }
 
         const loadingQuery = `
-            SELECT TOP 1 ShiftId, ManPowerInShift as ManPower, RelayId, SlNo
+            SELECT TOP 1 ShiftId, ManPowerInShift as ManPower, RelayId, SlNo, ShiftInchargeId, MidScaleInchargeId, SourceId
             FROM [Trans].[TblLoading]
-            WHERE LoadingDate = @date ${ShiftId ? "AND ShiftId = @ShiftId" : ""} AND IsDelete = 0
-            ORDER BY CreatedDate DESC
+            WHERE ${loadingWhere}
+            ORDER BY SlNo DESC
         `;
 
+        // Note: loadingQuery automatically handles "Date -> Shift" case AND "Date + Shift -> Context" case.
+        // If ShiftId passed: it finds latest entry for that Shift (Context).
+        // If ShiftId NOT passed: it finds latest entry for that Date (Auto-fill Shift).
+
         // We reuse queryParams, but need to ensure ShiftId is there if used
-        const loadingRes = await executeQuery(loadingQuery, queryParams);
+        let loadingRes;
+        try {
+            loadingRes = await executeQuery(loadingQuery, queryParams);
+        } catch (err) {
+            console.error("Loading Query Failed:", err);
+            return NextResponse.json({ success: false, message: "Loading Qry: " + err.message }, { status: 500 });
+        }
 
         if (loadingRes.length > 0) {
             const data = loadingRes[0];
 
-            // Fetch Incharges from Loading Table
-            const incQuery = `SELECT OperatorId FROM [Trans].[TblLoadingShiftIncharge] WHERE LoadingId = @id`;
-            const incRes = await executeQuery(incQuery, [{ name: 'id', type: sql.Int, value: data.SlNo }]);
-            data.ShiftInchargeIds = incRes.map(x => x.OperatorId);
+            if (!data.ShiftInchargeId && !data.MidScaleInchargeId) {
+                // Limit legacy lookup to just grabbing one for ShiftInchargeId
+                try {
+                    const incQuery = `SELECT OperatorId FROM [Trans].[TblLoadingShiftIncharge] WHERE LoadingId = @id`;
+                    const incRes = await executeQuery(incQuery, [{ name: 'id', type: sql.Int, value: data.SlNo }]);
+                    if (incRes.length > 0) data.ShiftInchargeId = incRes[0].OperatorId;
+                } catch (e) { console.error("Legacy Inc Fail", e); }
+            }
 
             // Clean up unrelated fields (SlNo is from Loading, not Rehandling)
             delete data.SlNo;
 
             return NextResponse.json({ success: true, data, source: 'LoadingFallback' });
+        } else {
+            return NextResponse.json({ success: true, data: null, debug: "No Loading Data Found" });
         }
 
-        return NextResponse.json({ success: true, data: null });
-
     } catch (error) {
-        console.error("Last Context Error:", error);
-        return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+        console.error("Last Context Error Global:", error);
+        return NextResponse.json({ success: false, message: "Global: " + error.message }, { status: 500 });
     }
 }

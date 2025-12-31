@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx-js-style';
 
 export default function TransactionTable({
     config,
+    title = "Recent Transactions", // Added custom title support
     data = [], // Contains ALL data now
     isLoading, // Initial loading state
     onDelete,
@@ -181,6 +182,12 @@ export default function TransactionTable({
 
     return (
         <div className={styles.wrapper}>
+            {/* Header Title */}
+            <div className="px-4 pt-3 pb-1 border-b border-gray-200">
+                <h3 className="font-semibold text-gray-700 text-xs flex items-center gap-2">
+                    {title}
+                </h3>
+            </div>
             {/* Toolbar */}
             <div className={styles.toolbar}>
                 <div className={styles.leftTools}>

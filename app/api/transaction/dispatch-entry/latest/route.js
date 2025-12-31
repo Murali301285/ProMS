@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server';
 import { executeQuery } from '@/lib/db';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
         const query = `
-            SELECT TOP 1 t.Date, t.CreatedBy 
-            FROM [Trans].[TblDispatchEntry] t
-            WHERE t.isDelete = 0
-            ORDER BY t.CreatedDate DESC
+            SELECT TOP 1 
+                T.Date, 
+                T.CreatedBy,
+                ISNULL(U.EmpName, 'Unknown') as CreatedByName, 
+                T.CreatedDate
+            FROM [Trans].[TblDispatchEntry] T
+            LEFT JOIN [Master].[TblUser_New] U ON T.CreatedBy = U.SlNo
+            WHERE T.IsDelete = 0
+            ORDER BY T.CreatedDate DESC
         `;
         const data = await executeQuery(query);
         const result = data.length > 0 ? data[0] : null;

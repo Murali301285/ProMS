@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import styles from './EquipmentReadingForm.module.css';
+import styles from './TransactionForm.module.css';
 import SearchableSelect from './SearchableSelect';
 import TransactionTable from './TransactionTable';
 import { TRANSACTION_CONFIG } from '@/lib/transactionConfig';
@@ -17,6 +17,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
 
     // --- State ---
     const [loading, setLoading] = useState(false);
+    const [user, setUser] = useState(null); // Added User State
     const [options, setOptions] = useState({
         shifts: [],
         relays: [],
@@ -34,7 +35,8 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
     const [formData, setFormData] = useState({
         Date: today,
         ShiftId: '',
-        ShiftInchargeId: [], // Array
+        ShiftInchargeId: '', // Single Value
+        MidScaleInchargeId: '', // Single Value
         RelayId: '',
 
         ActivityId: '',
@@ -93,6 +95,86 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
     }, [formData.ActivityId, options.equipments]);
 
 
+    // --- SMART CONTEXT LOGIC ---
+    // Ref to track previous date for change detection
+    const prevDateRef = useRef(formData.Date);
+
+    useEffect(() => {
+        const fetchContext = async () => {
+            // Only if Date Changed or Initial Load (Empty Date case handled by default today)
+            // User provided logic: "if No details found for the date -> get top 1 ... from tblLoading ... focus to Activity"
+
+            if (isEdit) return;
+
+            // Only run if Date actually changed or is initial mount check
+            // Note: formData.Date is init to today.
+
+            try {
+                // Get User ID (localStorage)
+                let currentUserId = 0;
+                const userStr = localStorage.getItem('user');
+                if (userStr) currentUserId = JSON.parse(userStr).id;
+
+                const res = await fetch('/api/transaction/equipment-reading/helper/last-context', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ date: formData.Date, ShiftId: formData.ShiftId })
+                }).then(r => r.json());
+
+                if (res.success && res.data) {
+                    const ctx = res.data;
+                    const newDate = ctx.Date ? new Date(ctx.Date).toISOString().split('T')[0] : '';
+                    const isDefaultDate = formData.Date === new Date().toISOString().split('T')[0];
+
+                    toast.info(`Auto-filled from ${ctx.SourceOfContext || 'History'}`, { id: 'ctx-load-er' });
+
+                    setFormData(prev => ({
+                        ...prev,
+                        Date: (isDefaultDate && newDate) ? newDate : (prev.Date || newDate),
+                        ShiftId: ctx.ShiftId || prev.ShiftId,
+                        ShiftInchargeId: ctx.ShiftInchargeId || '',
+                        MidScaleInchargeId: ctx.MidScaleInchargeId || '',
+                        RelayId: ctx.RelayId || '',
+
+                        // Map Operator
+                        OperatorId: '', // Reset Operator on initial load (User Request)
+                        EquipmentId: '', // Reset Equipment on initial load
+                    }));
+
+                    // Focus Activity
+                    setTimeout(() => {
+                        const actInput = document.querySelector('select[name="ActivityId"]');
+                        if (actInput) actInput.focus();
+                    }, 100);
+
+                } else {
+                    // Reset if Date Changed and No Data
+                    if (prevDateRef.current !== formData.Date) {
+                        toast.info("No history. Resetting.");
+                        setFormData(prev => ({
+                            ...prev,
+                            ShiftId: '', ShiftInchargeId: '', MidScaleInchargeId: '', RelayId: '', ManPower: '',
+                            ActivityId: '', EquipmentId: '', OperatorId: [],
+                            OHMR: '', CHMR: '', NetHMR: '', OKMR: '', CKMR: '', NetKMR: '',
+                            DevelopmentHrMining: '', FaceMarchingHr: '', DevelopmentHrNonMining: '', BlastingMarchingHr: '', RunningBDMaintenanceHr: '',
+                            TotalWorkingHr: '', Remarks: ''
+                        }));
+                        // Focus Shift
+                        setTimeout(() => {
+                            const shiftInput = document.querySelector('select[name="ShiftId"]');
+                            if (shiftInput) shiftInput.focus();
+                        }, 100);
+                    }
+                }
+            } catch (e) { console.error(e); }
+        };
+
+        fetchContext();
+        prevDateRef.current = formData.Date;
+
+    }, [formData.Date]);
+    // Note: Dependencies need to be careful. If I add isEdit, make sure it doesn't loop.
+
     // Ref for focus management
     const activityRef = useRef(null);
     const equipmentRef = useRef(null);
@@ -103,10 +185,10 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
             setLoading(true);
             try {
                 // Fetch User
-                // Fetch User
                 const userRes = await fetch('/api/auth/me').then(r => r.json());
                 setUserId(userRes.user?.id || 1);
                 setUserRole(userRes.user?.role || '');
+                if (userRes.user) setUser(userRes.user);
 
                 // Fetch Masters
                 // V18.1: Enable includeInactive to ensure old records map correctly
@@ -152,6 +234,9 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
 
                 // V18.3: Show Name (Code) e.g., "Murali (JHE40)"
                 const formattedIncharge = uniqueBy(opIncharge, 'id').map(s => ({ id: s.id, name: `${s.name} (${s.OperatorId || s.id})` }));
+                // Reuse same pool for both if relevant, or fetch separately if they are distinct categories. 
+                // Assuming same 'Incharge' pool for both Large and Mid scale for now.
+
                 const formattedDriver = uniqueBy(opDriver, 'id').map(s => ({ id: s.id, name: `${s.name} (${s.OperatorId || s.id})` }));
 
                 setOptions({
@@ -202,12 +287,12 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                 return [];
             };
 
-            const parsedShiftIncharge = parseMultiSelect(safeData.ShiftInchargeId);
             const parsedOperator = parseMultiSelect(safeData.OperatorId);
 
             setFormData({
                 ...safeData,
-                ShiftInchargeId: parsedShiftIncharge,
+                ShiftInchargeId: safeData.ShiftInchargeId || '',
+                MidScaleInchargeId: safeData.MidScaleInchargeId || '',
                 OperatorId: parsedOperator
             });
         }
@@ -239,6 +324,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                         ShiftId: res.data.ShiftId || prev.ShiftId,
                         RelayId: res.data.RelayId || prev.RelayId,
                         ShiftInchargeId: res.data.ShiftInchargeId || prev.ShiftInchargeId,
+                        MidScaleInchargeId: res.data.MidScaleInchargeId || prev.MidScaleInchargeId,
                         // V19.2: Apply Context Fields if returned (Priorities 1 & 2)
                         ActivityId: res.data.ActivityId || '', // Reset if empty/null in P3
                         EquipmentId: res.data.EquipmentId || '',
@@ -371,7 +457,8 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
         // 1. Header (Mandatory)
         if (!formData.Date) errs.Date = REQ_MSG;
         if (!formData.ShiftId) errs.ShiftId = REQ_MSG;
-        if (!formData.ShiftInchargeId?.length) errs.ShiftInchargeId = REQ_MSG;
+        if (!formData.ShiftInchargeId) errs.ShiftInchargeId = REQ_MSG;
+        if (!formData.MidScaleInchargeId) errs.MidScaleInchargeId = REQ_MSG;
         if (!formData.RelayId) errs.RelayId = REQ_MSG;
 
         // 2. Context (Mandatory)
@@ -414,6 +501,11 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
         if (parseFloat(formData.IdleHr) < 0) {
             errs.IdleHr = "Idle Hr cannot be negative! (Check inputs)";
             toast.error("Check Calculation: Idle Hr < 0");
+        }
+
+        if (Object.keys(errs).length > 0) {
+            console.log("Validation Errors:", errs);
+            console.log("FormData at Validation:", formData);
         }
 
         setErrors(errs);
@@ -474,10 +566,12 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                     router.refresh();
                 } else {
                     // Reset Logic (Add Mode) - Keep Header & Context
-                    // "Date, Shift,Shift Incharge, Realy,Activity and Operator -> data/selected should remain"
+                    // "Date, Shift,Shift Incharge, Relay, Activity -> data/selected should remain"
                     setFormData(prev => ({
                         ...prev,
-                        EquipmentId: '', // Reset Equipment
+                        EquipmentId: '',
+                        OperatorId: '', // Reset Operator
+
                         // Reset Meters
                         OHMR: '', CHMR: '', NetHMR: '',
                         OKMR: '', CKMR: '', NetKMR: '',
@@ -485,15 +579,15 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                         // Reset Detail Hours
                         DevelopmentHrMining: '', FaceMarchingHr: '', DevelopmentHrNonMining: '', BlastingMarchingHr: '',
 
-                        // Reset Common Hours (Optional Now)
+                        // Reset Common Hours
                         RunningBDMaintenanceHr: '', TotalWorkingHr: '', BDHr: '', MaintenanceHr: '', IdleHr: '',
 
                         // Reset Others
                         SectorId: '', PatchId: '', MethodId: '', Remarks: ''
                     }));
 
-                    // Focus Equipment (since Activity remains)
-                    if (equipmentRef.current) setTimeout(() => equipmentRef.current.focus(), 100);
+                    // Focus Activity
+                    if (activityRef.current) setTimeout(() => activityRef.current.focus(), 100);
                 }
             } else {
                 toast.error(json.message || "Failed to save");
@@ -563,59 +657,60 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
         <div className={styles.container} onKeyDown={handleContainerKeyDown}>
             {/* Header */}
             <div className={styles.header}>
-                {/* Left: Back */}
-                <button className={styles.backBtn} onClick={() => router.back()}>
-                    <ArrowLeft size={16} /> Back
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    <button className={styles.backBtn} onClick={() => router.push('/dashboard/transaction/equipment-reading')}>
+                        <ArrowLeft size={18} /> Back
+                    </button>
+                </div>
 
-                {/* Center: Title */}
-                <h1 className={styles.title}>{isEdit ? 'Update' : 'Create'} Equipment Reading</h1>
+                <h1 className={styles.headerTitle}>{isEdit ? 'Update' : 'Create'} Equipment Reading</h1>
 
-                {/* Right: Actions */}
-                <div className={styles.headerActions}>
-                    <button className={styles.resetBtn} onClick={() => {
-                        setFormData({
-                            ...formData,
-                            OHMR: '', CHMR: '', NetHMR: '', OKMR: '', CKMR: '', NetKMR: '',
-                            DevelopmentHrMining: '', FaceMarchingHr: '', DevelopmentHrNonMining: '', BlastingMarchingHr: '',
-                            RunningBDMaintenanceHr: '', TotalWorkingHr: '', BDHr: '', MaintenanceHr: '', IdleHr: '',
-                            SectorId: '', PatchId: '', MethodId: '', Remarks: ''
-                        });
-                        if (equipmentRef.current) equipmentRef.current.focus();
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className={styles.refreshBtn} onClick={() => {
+                        if (confirm('Reset Form?')) {
+                            setFormData({
+                                ...formData,
+                                OHMR: '', CHMR: '', NetHMR: '', OKMR: '', CKMR: '', NetKMR: '',
+                                DevelopmentHrMining: '', FaceMarchingHr: '', DevelopmentHrNonMining: '', BlastingMarchingHr: '',
+                                RunningBDMaintenanceHr: '', TotalWorkingHr: '', BDHr: '', MaintenanceHr: '', IdleHr: '',
+                                SectorId: '', PatchId: '', MethodId: '', Remarks: ''
+                            });
+                            if (equipmentRef.current) equipmentRef.current.focus();
+                        }
                     }} title="Reset Fields">
-                        <RotateCcw size={16} />
+                        <RotateCcw size={18} />
                     </button>
 
                     <button className={styles.saveBtn} onClick={handleSubmit} disabled={loading}>
-                        {loading && <Loader2 className="animate-spin" size={16} />}
+                        {loading ? <Loader2 className="animate-spin" /> : <Save size={18} />}
                         {isEdit ? 'Update (F2)' : 'Save (F2)'}
                     </button>
                 </div>
             </div>
 
-            {/* Form */}
-            <div className={styles.formContainer}>
+            {/* Form - 8 Column Grid */}
+            <form className={styles.card} onSubmit={(e) => e.preventDefault()}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '5px' }}>
 
-                {/* Merged Row 1 & 2: Context + Equipment */}
-                {/* User Req: "strech the design to match the screnn size... reduce Date, Shift, Relay... increase Shift Incharge" */}
-                {/* CSS update will handle the Grid. JSX just needs to be cleaner. */}
-                <div className={`${styles.row} ${styles.rowContext}`}>
-                    <div className={styles.fieldGroup}>
-                        <label className={styles.label}>Date <span className={styles.required}>*</span></label>
+                    {/* --- Row 1 --- */}
+                    {/* Date: C1 */}
+                    <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                        <label>Date <span style={{ color: 'red' }}>*</span></label>
                         <input type="date"
-                            className={`${styles.input} ${errors.Date ? styles.errorInput : ''}`}
+                            className={`${styles.input} ${errors.Date ? styles.errorBorder : ''}`}
                             value={formData.Date ? formData.Date.split('T')[0] : ''}
                             max={today}
                             onChange={e => setFormData({ ...formData, Date: e.target.value })}
                             disabled={isEdit}
                         />
-                        {errors.Date && <span className={styles.errorText}>{errors.Date}</span>}
+                        {errors.Date && <div className={styles.errorMsg}>{errors.Date}</div>}
                     </div>
 
-                    <div className={styles.fieldGroup}>
-                        <label className={styles.label}>Shift <span className={styles.required}>*</span></label>
+                    {/* Shift: C2 */}
+                    <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                        <label>Shift <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
-                            className={styles.smallSelect} // V10: Unified Style
+                            className={styles.select}
                             options={options.shifts}
                             value={formData.ShiftId}
                             onChange={(e) => setFormData({ ...formData, ShiftId: e.target.value })}
@@ -623,45 +718,68 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                             error={errors.ShiftId}
                             disabled={isEdit}
                         />
-                        {errors.ShiftId && <span className={styles.errorText}>{errors.ShiftId}</span>}
+                        {errors.ShiftId && <div className={styles.errorMsg}>{errors.ShiftId}</div>}
                     </div>
 
-                    <div className={styles.fieldGroup}>
-                        {/* Multi-Select ShiftIncharge */}
-                        <label className={styles.label}>Shift Incharge <span className={styles.required}>*</span></label>
+                    {/* Incharge Large: C3-C4 */}
+                    <div className={styles.group} style={{ gridColumn: 'span 2' }}>
+                        <label>Incharge (Large-Scale) <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
-                            className={styles.smallSelect} // V10: Unified Style
+                            className={styles.select}
                             options={options.operatorsIncharge}
-                            name="ShiftInchargeId" // V17.2: Prop for debug
+                            name="ShiftInchargeId"
                             value={formData.ShiftInchargeId}
-                            onChange={(e) => setFormData({ ...formData, ShiftInchargeId: e.target.value })}
-                            placeholder="Select Incharges"
-                            multiple={true} // V10: Multi-Select
+                            onChange={(e) => {
+                                setFormData(prev => ({ ...prev, ShiftInchargeId: e.target.value }));
+                                if (errors.ShiftInchargeId) setErrors(prev => ({ ...prev, ShiftInchargeId: '' }));
+                            }}
+                            placeholder="Large Scale"
                             error={errors.ShiftInchargeId}
                         />
-                        {errors.ShiftInchargeId && <span className={styles.errorText}>{errors.ShiftInchargeId}</span>}
+                        {errors.ShiftInchargeId && <div className={styles.errorMsg}>{errors.ShiftInchargeId}</div>}
                     </div>
 
-                    <div className={styles.fieldGroup}>
-                        <label className={styles.label}>Relay <span className={styles.required}>*</span></label>
+                    {/* Incharge Mid: C5-C6 */}
+                    <div className={styles.group} style={{ gridColumn: 'span 2' }}>
+                        <label>Incharge (Mid-Scale) <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
-                            className={styles.smallSelect} // V10: Unified Style
+                            className={styles.select}
+                            options={options.operatorsIncharge}
+                            name="MidScaleInchargeId"
+                            value={formData.MidScaleInchargeId}
+                            onChange={(e) => {
+                                setFormData(prev => ({ ...prev, MidScaleInchargeId: e.target.value }));
+                                if (errors.MidScaleInchargeId) setErrors(prev => ({ ...prev, MidScaleInchargeId: '' }));
+                            }}
+                            placeholder="Mid Scale"
+                            error={errors.MidScaleInchargeId}
+                        />
+                        {errors.MidScaleInchargeId && <div className={styles.errorMsg}>{errors.MidScaleInchargeId}</div>}
+                    </div>
+
+                    {/* Relay: C7 */}
+                    <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                        <label>Relay <span style={{ color: 'red' }}>*</span></label>
+                        <SearchableSelect
+                            className={styles.select}
                             options={options.relays}
                             value={formData.RelayId}
                             onChange={(e) => setFormData({ ...formData, RelayId: e.target.value })}
                             placeholder="Select"
                             error={errors.RelayId}
                         />
-                        {errors.RelayId && <span className={styles.errorText}>{errors.RelayId}</span>}
+                        {errors.RelayId && <div className={styles.errorMsg}>{errors.RelayId}</div>}
                     </div>
-                </div>
 
-                {/* Row 2: Equipment Context (Activity, Equip, Operator) */}
-                <div className={styles.rowEquipment}>
-                    <div className={styles.fieldGroup}>
-                        <label className={styles.label}>Activity <span className={styles.required}>*</span></label>
+                    <div style={{ gridColumn: '1 / -1', height: '0', margin: '0' }}></div>
+
+
+                    {/* --- Row 2 --- */}
+                    {/* Activity: C1 */}
+                    <div className={styles.group} style={{ gridColumn: '1 / span 1' }}>
+                        <label>Activity <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
-                            className={styles.smallSelect}
+                            className={styles.select}
                             ref={activityRef}
                             options={options.activities}
                             value={formData.ActivityId}
@@ -669,13 +787,14 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                             placeholder="Select"
                             error={errors.ActivityId}
                         />
-                        {errors.ActivityId && <span className={styles.errorText}>{errors.ActivityId}</span>}
+                        {errors.ActivityId && <div className={styles.errorMsg}>{errors.ActivityId}</div>}
                     </div>
 
-                    <div className={styles.fieldGroup}>
-                        <label className={styles.label}>Equipment <span className={styles.required}>*</span></label>
+                    {/* Equipment: C2-C3 (Span 2) */}
+                    <div className={styles.group} style={{ gridColumn: 'span 2' }}>
+                        <label>Equipment <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
-                            className={styles.smallSelect}
+                            className={styles.select}
                             ref={equipmentRef}
                             options={filteredEquipments}
                             value={formData.EquipmentId}
@@ -683,165 +802,176 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                             placeholder="Select"
                             error={errors.EquipmentId}
                         />
-                        {errors.EquipmentId && <span className={styles.errorText}>{errors.EquipmentId}</span>}
+                        {errors.EquipmentId && <div className={styles.errorMsg}>{errors.EquipmentId}</div>}
                     </div>
 
-                    <div className={styles.fieldGroup}>
-                        <label className={styles.label}>Operator/Driver <span className={styles.required}>*</span></label>
+                    {/* Operator: C4-C5 (Span 2) */}
+                    <div className={styles.group} style={{ gridColumn: 'span 2' }}>
+                        <label>Operator <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
-                            className={styles.smallSelect}
+                            className={styles.select}
                             options={options.operatorsDriver}
-                            name="OperatorId" // V17.2: Prop for debug
                             value={formData.OperatorId}
                             onChange={(e) => setFormData({ ...formData, OperatorId: e.target.value })}
-                            placeholder="Select Operators"
-                            multiple={true} // V10: Multi-Select
+                            placeholder="Select Driver(s)"
+                            multiple={true}
                             error={errors.OperatorId}
                         />
-                        {errors.OperatorId && <span className={styles.errorText}>{errors.OperatorId}</span>}
+                        {errors.OperatorId && <div className={styles.errorMsg}>{errors.OperatorId}</div>}
                     </div>
-                    {/* Empty Div for Spacing */}
-                    <div></div>
-                </div>
 
-                <div className={styles.divider} />
 
-                {/* Meters (6 Columns if IsDetail, otherwise just HMR) */}
-                <div className={styles.rowMeter}>
-                    <div className={styles.fieldGroup}>
-                        <label className={styles.label}>OHMR</label>
-                        <input type="number" step="0.01" className={`${styles.input} ${errors.OHMR ? styles.errorInput : ''}`}
+                    {/* --- Row 3 (HMR/KMR) --- */}
+                    {/* OHMR: C1 */}
+                    <div className={styles.group} style={{ gridColumn: '1 / span 1' }}>
+                        <label>OHMR</label>
+                        <input type="number" step="0.01" className={`${styles.input} ${errors.OHMR ? styles.errorBorder : ''}`}
                             value={formData.OHMR} onChange={e => setFormData({ ...formData, OHMR: e.target.value })}
                             placeholder="Prev"
                         />
-                        {errors.OHMR && <span className={styles.errorText}>{errors.OHMR}</span>}
+                        {errors.OHMR && <div className={styles.errorMsg}>{errors.OHMR}</div>}
                     </div>
-                    <div className={styles.fieldGroup}>
-                        <label className={styles.label}>CHMR</label>
-                        <input type="number" step="0.01" className={`${styles.input} ${errors.CHMR ? styles.errorInput : ''}`}
+
+                    {/* CHMR: C2 */}
+                    <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                        <label>CHMR</label>
+                        <input type="number" step="0.01" className={`${styles.input} ${errors.CHMR ? styles.errorBorder : ''}`}
                             value={formData.CHMR} onChange={e => setFormData({ ...formData, CHMR: e.target.value })}
                         />
-                        {errors.CHMR && <span className={styles.errorText}>{errors.CHMR}</span>}
-                    </div>
-                    <div className={styles.fieldGroup}>
-                        <label className={styles.label}>Net HMR</label>
-                        <input type="number" readOnly className={`${styles.input} ${errors.NetHMR ? styles.errorInput : ''}`} value={formData.NetHMR} />
-                        {errors.NetHMR && <span className={styles.errorText}>{errors.NetHMR}</span>}
+                        {errors.CHMR && <div className={styles.errorMsg}>{errors.CHMR}</div>}
                     </div>
 
-                    {/* KMR (Only if IsDetail) */}
-                    {isDetailActivity ? (
+                    {/* Net HMR: C3 */}
+                    <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                        <label>Net HMR</label>
+                        <input type="number" readOnly className={`${styles.input} ${styles.readOnly} ${errors.NetHMR ? styles.errorBorder : ''}`} value={formData.NetHMR} />
+                        {errors.NetHMR && <div className={styles.errorMsg}>{errors.NetHMR}</div>}
+                    </div>
+
+                    {/* KMR (Conditional) */}
+                    {isDetailActivity && (
                         <>
-                            <div className={styles.fieldGroup}>
-                                <label className={styles.label}>OKMR <span className={styles.required}>*</span></label>
-                                <input type="number" step="0.01" className={`${styles.input} ${errors.OKMR ? styles.errorInput : ''}`}
+                            {/* OKMR: C4 */}
+                            {/* OKMR: C4 */}
+                            <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                                <label>OKMR <span style={{ color: 'red' }}>*</span></label>
+                                <input type="number" step="0.01" className={`${styles.input} ${errors.OKMR ? styles.errorBorder : ''}`}
                                     value={formData.OKMR} onChange={e => setFormData({ ...formData, OKMR: e.target.value })}
                                 />
-                                {errors.OKMR && <span className={styles.errorText}>{errors.OKMR}</span>}
+                                {errors.OKMR && <div className={styles.errorMsg}>{errors.OKMR}</div>}
                             </div>
-                            <div className={styles.fieldGroup}>
-                                <label className={styles.label}>CKMR <span className={styles.required}>*</span></label>
-                                <input type="number" step="0.01" className={`${styles.input} ${errors.CKMR ? styles.errorInput : ''}`}
+
+                            {/* CKMR: C5 */}
+                            <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                                <label>CKMR <span style={{ color: 'red' }}>*</span></label>
+                                <input type="number" step="0.01" className={`${styles.input} ${errors.CKMR ? styles.errorBorder : ''}`}
                                     value={formData.CKMR} onChange={e => setFormData({ ...formData, CKMR: e.target.value })}
                                 />
-                                {errors.CKMR && <span className={styles.errorText}>{errors.CKMR}</span>}
+                                {errors.CKMR && <div className={styles.errorMsg}>{errors.CKMR}</div>}
                             </div>
-                            <div className={styles.fieldGroup}>
-                                <label className={styles.label}>Net KMR</label>
-                                <input type="number" readOnly className={`${styles.input} ${errors.NetKMR ? styles.errorInput : ''}`} value={formData.NetKMR} />
-                                {errors.NetKMR && <span className={styles.errorText}>{errors.NetKMR}</span>}
+
+                            {/* Net KMR: C6 */}
+                            <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                                <label>Net KMR</label>
+                                <input type="number" readOnly className={`${styles.input} ${styles.readOnly} ${errors.NetKMR ? styles.errorBorder : ''}`} value={formData.NetKMR} />
+                                {errors.NetKMR && <div className={styles.errorMsg}>{errors.NetKMR}</div>}
                             </div>
                         </>
-                    ) : (
-                        // Spacer if not Detail (keep grid alignment?) Or just empty
-                        <> <div /><div /><div /> </>
                     )}
-                </div>
 
-                <div className={styles.divider} />
+                    {/* Row Break */}
+                    <div style={{ gridColumn: '1 / -1', height: '0', margin: '0' }}></div>
 
-                {/* Specific Hours Row (6 Columns) */}
-                {/* "Dev. Hr (Mining),Face Mrch,Dev. Hr (Non),Blast Mrch,Run BD/Maint,Total Work" */}
-                {/* Specific Hours Row (6 Columns) - V12: Always Visible */}
-                <div className={styles.rowSix}>
-                    {/* Mining Inputs 1-4: Only if !isDetailActivity */}
+
+                    {/* --- Row 4 (Hours) --- */}
+                    {/* Mining Inputs: C1-C4 (Only if !isDetailActivity) */}
                     {!isDetailActivity && (
                         <>
-                            <div className={styles.fieldGroup}>
-                                <label className={styles.label}>Dev. Hr(Mining)</label>
-                                <input type="number" className={`${styles.input} ${errors.DevelopmentHrMining ? styles.errorInput : ''}`}
+                            <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                                <label>Dev. Hr(Mining)</label>
+                                <input type="number" className={`${styles.input} ${errors.DevelopmentHrMining ? styles.errorBorder : ''}`}
                                     value={formData.DevelopmentHrMining} onChange={e => setFormData({ ...formData, DevelopmentHrMining: e.target.value })}
                                 />
                             </div>
-                            <div className={styles.fieldGroup}>
-                                <label className={styles.label}>Face Marching Hr</label>
-                                <input type="number" className={`${styles.input} ${errors.FaceMarchingHr ? styles.errorInput : ''}`}
+                            <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                                <label>Face Marching Hr</label>
+                                <input type="number" className={`${styles.input} ${errors.FaceMarchingHr ? styles.errorBorder : ''}`}
                                     value={formData.FaceMarchingHr} onChange={e => setFormData({ ...formData, FaceMarchingHr: e.target.value })}
                                 />
                             </div>
-                            <div className={styles.fieldGroup}>
-                                <label className={styles.label}>Dev. Hr(Non Mining)</label>
-                                <input type="number" className={`${styles.input} ${errors.DevelopmentHrNonMining ? styles.errorInput : ''}`}
+                            <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                                <label>Dev. Hr(Non)</label>
+                                <input type="number" className={`${styles.input} ${errors.DevelopmentHrNonMining ? styles.errorBorder : ''}`}
                                     value={formData.DevelopmentHrNonMining} onChange={e => setFormData({ ...formData, DevelopmentHrNonMining: e.target.value })}
                                 />
                             </div>
-                            <div className={styles.fieldGroup}>
-                                <label className={styles.label}>Blasting Marching Hr</label>
-                                <input type="number" className={`${styles.input} ${errors.BlastingMarchingHr ? styles.errorInput : ''}`}
+                            <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                                <label>Blast Marching Hr</label>
+                                <input type="number" className={`${styles.input} ${errors.BlastingMarchingHr ? styles.errorBorder : ''}`}
                                     value={formData.BlastingMarchingHr} onChange={e => setFormData({ ...formData, BlastingMarchingHr: e.target.value })}
                                 />
                             </div>
                         </>
                     )}
 
-                    {/* Common Inputs 5-6: Always Visible */}
-                    <div className={styles.fieldGroup}>
-                        <label className={styles.label}>Running BD/Maintenance Hr</label>
-                        <input type="number" className={`${styles.input} ${errors.RunningBDMaintenanceHr ? styles.errorInput : ''}`}
+                    {/* Run BD/Maint: Next Col */}
+                    <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                        <label>Run BD/Maint Hr</label>
+                        <input type="number" className={`${styles.input} ${errors.RunningBDMaintenanceHr ? styles.errorBorder : ''}`}
                             value={formData.RunningBDMaintenanceHr} onChange={e => setFormData({ ...formData, RunningBDMaintenanceHr: e.target.value })}
                         />
                     </div>
-                    <div className={styles.fieldGroup}>
-                        <label className={styles.label}>Total Working Hr</label>
-                        <input type="number" readOnly className={`${styles.input} ${errors.TotalWorkingHr ? styles.errorInput : ''}`}
+
+                    {/* Total Work: Next Col */}
+                    <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                        <label>Total Working Hr</label>
+                        <input type="number" readOnly className={`${styles.input} ${styles.readOnly} ${errors.TotalWorkingHr ? styles.errorBorder : ''}`}
                             value={formData.TotalWorkingHr} style={{ fontWeight: 'bold' }}
                         />
+                        {errors.TotalWorkingHr && <div className={styles.errorMsg}>{errors.TotalWorkingHr}</div>}
                     </div>
-                </div>
+
+                    {/* Row Break */}
+                    <div style={{ gridColumn: '1 / -1', height: '0', margin: '0' }}></div>
 
 
-                {/* BD / Maint / Idle Row (3 Cols) */}
-                {/* "BD Hrs, Maintenance Hr and Idle hrs in one row" */}
-                <div className={styles.rowThree}>
-                    <div className={styles.fieldGroup}>
-                        <label className={styles.label}>BD Hr</label>
-                        <input type="number" className={`${styles.input} ${errors.BDHr ? styles.errorInput : ''}`}
+                    {/* --- Row 5 (Status) --- */}
+                    {/* BD Hr: C1 */}
+                    <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                        <label>BD Hr</label>
+                        <input type="number" className={`${styles.input} ${errors.BDHr ? styles.errorBorder : ''}`}
                             value={formData.BDHr} onChange={e => setFormData({ ...formData, BDHr: e.target.value })}
                         />
                     </div>
-                    <div className={styles.fieldGroup}>
-                        <label className={styles.label}>Maint Hr</label>
-                        <input type="number" className={`${styles.input} ${errors.MaintenanceHr ? styles.errorInput : ''}`}
+
+                    {/* Maint Hr: C2 */}
+                    <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                        <label>Maint Hr</label>
+                        <input type="number" className={`${styles.input} ${errors.MaintenanceHr ? styles.errorBorder : ''}`}
                             value={formData.MaintenanceHr} onChange={e => setFormData({ ...formData, MaintenanceHr: e.target.value })}
                         />
                     </div>
-                    <div className={styles.fieldGroup}>
-                        <label className={styles.label}>Idle Hr</label>
-                        <input type="number" readOnly className={`${styles.input} ${errors.IdleHr ? styles.errorInput : ''}`}
+
+                    {/* Idle Hr: C3 */}
+                    <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                        <label>Idle Hr</label>
+                        <input type="number" readOnly className={`${styles.input} ${styles.readOnly} ${errors.IdleHr ? styles.errorBorder : ''}`}
                             value={formData.IdleHr}
                         />
+                        {errors.IdleHr && <div className={styles.errorMsg}>{errors.IdleHr}</div>}
                     </div>
-                </div>
 
-                <div className={styles.divider} />
+                    {/* Row Break */}
+                    <div style={{ gridColumn: '1 / -1', height: '0', margin: '0' }}></div>
 
-                {/* Additional Details (Sector/Patch/Method) */}
-                <div className={styles.row}>
-                    {isDetailActivity && (
-                        <div className={styles.fieldGroup}>
-                            <label className={styles.label}>Sector</label>
+
+                    {/* --- Row 6 (Details) --- */}
+                    {/* Patch/Sector: C1 */}
+                    {isDetailActivity ? (
+                        <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                            <label>Sector</label>
                             <SearchableSelect
-                                className={styles.smallSelect} // V12: Uniform
+                                className={styles.select}
                                 options={options.sectors}
                                 value={formData.SectorId}
                                 onChange={(e) => setFormData({ ...formData, SectorId: e.target.value })}
@@ -849,52 +979,55 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                                 error={errors.SectorId}
                             />
                         </div>
+                    ) : (
+                        <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                            <label>Patch</label>
+                            <SearchableSelect
+                                className={styles.select}
+                                options={options.patches}
+                                value={formData.PatchId}
+                                onChange={(e) => setFormData({ ...formData, PatchId: e.target.value })}
+                                placeholder="Select"
+                            // error={errors.PatchId} // Removed Mandatory
+                            />
+                        </div>
                     )}
 
+                    {/* Method: C2 (Only if !isDetail) */}
                     {!isDetailActivity && (
-                        <>
-                            <div className={styles.fieldGroup}>
-                                <label className={styles.label}>Patch</label>
-                                <SearchableSelect
-                                    className={styles.smallSelect} // V12: Uniform
-                                    options={options.patches}
-                                    value={formData.PatchId}
-                                    onChange={(e) => setFormData({ ...formData, PatchId: e.target.value })}
-                                    placeholder="Select"
-                                // error={errors.PatchId} // Removed Mandatory
-                                />
-                            </div>
-                            <div className={styles.fieldGroup}>
-                                <label className={styles.label}>Method</label>
-                                <SearchableSelect
-                                    className={styles.smallSelect} // V12: Uniform
-                                    options={options.methods}
-                                    value={formData.MethodId}
-                                    onChange={(e) => setFormData({ ...formData, MethodId: e.target.value })}
-                                    placeholder="Select"
-                                // error={errors.MethodId} // Removed Mandatory
-                                />
-                            </div>
-                        </>
+                        <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                            <label>Method</label>
+                            <SearchableSelect
+                                className={styles.select}
+                                options={options.methods}
+                                value={formData.MethodId}
+                                onChange={(e) => setFormData({ ...formData, MethodId: e.target.value })}
+                                placeholder="Select"
+                            // error={errors.MethodId} // Removed Mandatory
+                            />
+                        </div>
                     )}
 
-                    <div className={styles.fieldGroup} style={{ gridColumn: isDetailActivity ? 'span 3' : 'span 2' }}>
-                        <label className={styles.label}>Remarks</label>
+                    {/* Remarks: C3-C6 (Span 4) */}
+                    <div className={styles.group} style={{ gridColumn: 'span 4' }}>
+                        <label>Remarks</label>
                         <input type="text" className={styles.input}
                             value={formData.Remarks} onChange={e => setFormData({ ...formData, Remarks: e.target.value })}
+                            placeholder="Remarks..."
                         />
                     </div>
+
                 </div>
-            </div>
+            </form>
 
             {/* History Table (Visible in Add & Edit now) */}
-            <div className={styles.historySection}>
-                <h3 className={styles.historyTitle}>Recent Entries</h3>
+            <div className={styles.tableSection}>
                 <RecentHistory
                     config={TRANSACTION_CONFIG['equipment-reading']}
                     date={formData.Date}
                     shiftId={formData.ShiftId}
                     userRole={userRole}
+                    title={`Recent Transactions - By ${user?.username || user?.UserName || user?.name || 'User'}`}
                 />
             </div>
         </div>
@@ -902,31 +1035,33 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
 }
 
 // Sub-component for auto-fetching history based on context
-function RecentHistory({ config, date, shiftId, userRole }) {
+function RecentHistory({ config, date, shiftId, userRole, title }) {
     const [data, setData] = useState([]);
     const router = useRouter();
 
     useEffect(() => {
         if (!date) return;
         const fetchHistory = async () => {
-            const params = new URLSearchParams({
-                fromDate: date,
-                toDate: date,
-                limit: '10' // Last 10
-            });
             try {
-                const res = await fetch(`${config.apiEndpoint}?${params}`).then(r => r.json());
-                if (res.data) setData(res.data);
+                // Use new POST API
+                const res = await fetch('/api/transaction/equipment-reading/helper/recent-list', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ Date: date })
+                }).then(r => r.json());
+
+                if (res.success) setData(res.data);
             } catch (e) { console.error(e); }
         };
         fetchHistory();
-    }, [date, shiftId, config.apiEndpoint]);
+    }, [date, shiftId]); // Removed config dependency
 
     return (
         <TransactionTable
             config={config}
             data={data}
             isLoading={false}
+            title={title}
             userRole={userRole}
             onEdit={(item) => router.push(`/dashboard/transaction/equipment-reading/${item.SlNo}`)}
             onDelete={async (item) => {

@@ -1,17 +1,21 @@
 /* 🔒 LOCKED MODULE: DO NOT EDIT WITHOUT CONFIRMATION */
 import { NextResponse } from 'next/server';
-import { executeQuery, sql } from '@/lib/db';
+
+import { authenticateUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
     try {
+        const user = await authenticateUser(request);
+        const UserId = user ? user.id : 1; // Default to Admin
+
         const body = await request.json();
         const {
-            Date: date, ShiftId, ShiftInchargeId, ManPower, RelayId,
+            Date: date, ShiftId, ShiftInchargeId, MidScaleInchargeId, ManPower, RelayId,
             SourceId, DestinationId, MaterialId, HaulerId, LoadingMachineId,
             NoOfTrips, MangQtyTrip, NTPCQtyTrip, Unit, MangTotalQty, NTPCTotalQty,
-            UserId, Remarks
+            Remarks
         } = body;
 
         // 1. Duplicate Check
@@ -44,12 +48,12 @@ export async function POST(request) {
         // 2. Insert
         const query = `
             INSERT INTO [Trans].[TblMaterialRehandling] (
-                RehandlingDate, ShiftId, ManPower, RelayId, -- ManPower vs ManPowerInShift? Using ManPower as per config
+                RehandlingDate, ShiftId, ShiftInchargeId, MidScaleInchargeId, ManPowerInShift, RelayId,
                 SourceId, DestinationId, MaterialId, HaulerEquipmentId, LoadingMachineEquipmentId,
                 NoofTrip, QtyTrip, NtpcQtyTrip, UnitId, TotalQty, TotalNtpcQty,
-                CreatedDate, IsDelete, UserId, Remarks -- UserId instead of CreatedBy for consistency
+                CreatedDate, IsDelete, UserId, Remarks
             ) OUTPUT INSERTED.SlNo VALUES (
-                @date, @ShiftId, @ManPower, @RelayId,
+                @date, @ShiftId, @ShiftInchargeId, @MidScaleInchargeId, @ManPower, @RelayId,
                 @SourceId, @DestinationId, @MaterialId, @HaulerId, @LoadingMachineId,
                 @NoOfTrips, @MangQtyTrip, @NTPCQtyTrip, ISNULL(@Unit, 1), @MangTotalQty, @NTPCTotalQty,
                 GETDATE(), 0, @UserId, @Remarks
@@ -59,6 +63,8 @@ export async function POST(request) {
         const result = await executeQuery(query, [
             { name: 'date', type: sql.Date, value: date },
             { name: 'ShiftId', type: sql.Int, value: ShiftId },
+            { name: 'ShiftInchargeId', type: sql.Int, value: ShiftInchargeId || null },
+            { name: 'MidScaleInchargeId', type: sql.Int, value: MidScaleInchargeId || null },
             { name: 'ManPower', type: sql.Int, value: ManPower },
             { name: 'RelayId', type: sql.Int, value: RelayId },
             { name: 'SourceId', type: sql.Int, value: SourceId },
@@ -72,7 +78,6 @@ export async function POST(request) {
             { name: 'Unit', type: sql.Int, value: Unit ? Number(Unit) : 1 },
             { name: 'MangTotalQty', type: sql.Decimal(18, 2), value: MangTotalQty },
             { name: 'NTPCTotalQty', type: sql.Decimal(18, 2), value: NTPCTotalQty },
-
             // Default to 2 (Admin) if no user provided
             { name: 'UserId', type: sql.Int, value: UserId || 2 },
             { name: 'Remarks', type: sql.NVarChar, value: Remarks }
@@ -80,16 +85,7 @@ export async function POST(request) {
 
         const newId = result[0]?.SlNo;
 
-        if (newId) {
-            // Insert Shift Incharges
-            const incharges = Array.isArray(ShiftInchargeId) ? ShiftInchargeId : (ShiftInchargeId ? [ShiftInchargeId] : []);
-            for (const opId of incharges) {
-                await executeQuery(`INSERT INTO [Trans].[TblMaterialRehandlingShiftIncharge] (MaterialRehandlingId, OperatorId) VALUES (@lid, @oid)`, [
-                    { name: 'lid', type: sql.Int, value: newId },
-                    { name: 'oid', type: sql.Int, value: opId }
-                ]);
-            }
-        }
+        // Legacy Loop Removed
 
         return NextResponse.json({ success: true, message: 'Saved Successfully', id: newId });
 

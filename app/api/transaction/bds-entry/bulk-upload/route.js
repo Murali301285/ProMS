@@ -9,18 +9,18 @@ export async function POST(req) {
         // const session = await getSession();
         const createdBy = 'Admin'; // session?.user?.name || 'Admin';
 
-        const { Date, PartyId, VehicleNo, Weighment, CounterReading, LoadingSheet, StandardDeduction, AcceptedQuantity, ChallanNo, Remarks } = data;
+        const { Date, SMECategoryId, VehicleNo, Weighment, CounterReading, LoadingSheet, StandardDeduction, AcceptedQuantity, ChallanNo, Remarks } = data;
 
         const query = `
             INSERT INTO [Trans].[TblBDSEntry] 
-            (Date, PartyId, VehicleNo, Weighment, CounterReading, LoadingSheet, StandardDeduction, AcceptedQuantity, ChallanNo, Remarks, CreatedBy, CreatedDate, isDelete)
+            (Date, SMECategoryId, VehicleNo, Weighment, CounterReading, LoadingSheet, StandardDeduction, AcceptedQuantity, ChallanNo, Remarks, CreatedBy, CreatedDate, isDelete)
             VALUES 
-            (@Date, @PartyId, @VehicleNo, @Weighment, @CounterReading, @LoadingSheet, @StandardDeduction, @AcceptedQuantity, @ChallanNo, @Remarks, @CreatedBy, GETDATE(), 0)
+            (@Date, @SMECategoryId, @VehicleNo, @Weighment, @CounterReading, @LoadingSheet, @StandardDeduction, @AcceptedQuantity, @ChallanNo, @Remarks, @CreatedBy, GETDATE(), 0)
         `;
 
         const params = [
             { name: 'Date', value: Date },
-            { name: 'PartyId', value: PartyId },
+            { name: 'SMECategoryId', value: SMECategoryId },
             { name: 'VehicleNo', value: VehicleNo },
             { name: 'Weighment', value: Weighment },
             { name: 'CounterReading', value: CounterReading },

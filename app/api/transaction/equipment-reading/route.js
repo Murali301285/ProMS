@@ -52,8 +52,9 @@ export async function GET(request) {
         // Shift Logic: Name + (From - To)
         query += "(S.ShiftName + ' (' + LEFT(CAST(S.FromTime AS VARCHAR), 5) + ' to ' + LEFT(CAST(S.ToTime AS VARCHAR), 5) + ')') as ShiftDisplay, ";
 
-        // Complex Multi-Select: Shift Incharge
-        query += "(SELECT STUFF((SELECT ', ' + O.OperatorName + ' (' + CAST(O.OperatorId AS VARCHAR) + ')' FROM [Trans].[TblEquipmentReadingShiftIncharge] SI JOIN [Master].[TblOperator] O ON SI.OperatorId = O.SlNo WHERE SI.EquipmentReadingId = T.SlNo FOR XML PATH('')), 1, 2, '')) AS ShiftInCharge, ";
+        // Join TblOperator twice for Incharges
+        query += "SI1.OperatorName + ' (' + CAST(SI1.OperatorId AS VARCHAR) + ')' AS ShiftInchargeName, ";
+        query += "SI2.OperatorName + ' (' + CAST(SI2.OperatorId AS VARCHAR) + ')' AS MidScaleInchargeName, "; // Added MidScale Column
 
         query += "R.Name AS RelayName, ";
         query += "Act.Name AS ActivityName, ";
@@ -75,13 +76,16 @@ export async function GET(request) {
         query += "M.Name AS MethodName, ";
 
         // Metadata
+        // Metadata
         query += "T.Remarks, T.CreatedDate, T.UpdatedDate, ";
-        query += "CU.UserName AS CreatedByName, UU.UserName AS UpdatedByName ";
+        query += "CU.EmpName AS CreatedByName, UU.EmpName AS UpdatedByName ";
 
         query += "FROM [Trans].[TblEquipmentReading] T ";
 
         // Joins
         query += "LEFT JOIN [Master].[TblShift] S ON T.ShiftId = S.SlNo ";
+        query += "LEFT JOIN [Master].[TblOperator] SI1 ON T.ShiftInchargeId = SI1.SlNo "; // Join 1
+        query += "LEFT JOIN [Master].[TblOperator] SI2 ON T.MidScaleInchargeId = SI2.SlNo "; // Join 2
         query += "LEFT JOIN [Master].[TblRelay] R ON T.RelayId = R.SlNo ";
         query += "LEFT JOIN [Master].[TblActivity] Act ON T.ActivityId = Act.SlNo ";
         query += "LEFT JOIN [Master].[TblEquipment] Eq ON T.EquipmentId = Eq.SlNo ";
@@ -91,8 +95,8 @@ export async function GET(request) {
         query += "LEFT JOIN [Master].[TblPatch] P ON T.PatchId = P.SlNo ";
         query += "LEFT JOIN [Master].[TblMethod] M ON T.MethodId = M.SlNo ";
 
-        query += "LEFT JOIN [Master].[TblUser] CU ON T.CreatedBy = CU.SlNo ";
-        query += "LEFT JOIN [Master].[TblUser] UU ON T.UpdatedBy = UU.SlNo ";
+        query += "LEFT JOIN [Master].[TblUser_New] CU ON T.CreatedBy = CU.SlNo ";
+        query += "LEFT JOIN [Master].[TblUser_New] UU ON T.UpdatedBy = UU.SlNo ";
 
         query += whereClause;
         query += " ORDER BY T.[Date] DESC OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY";
@@ -110,23 +114,27 @@ export async function GET(request) {
     }
 }
 
+import { authenticateUser } from '@/lib/auth';
+
 export async function POST(request) {
     try {
+        const user = await authenticateUser(request);
+        const UserId = user ? user.id : 1;
+
         const body = await request.json();
         const {
-            Date: date, ShiftId, ShiftInchargeId, RelayId,
+            Date: date, ShiftId, ShiftInchargeId, MidScaleInchargeId, RelayId,
             ActivityId, EquipmentId, OperatorId,
             OHMR, CHMR, NetHMR, OKMR, CKMR, NetKMR,
             DevelopmentHrMining, FaceMarchingHr, DevelopmentHrNonMining, BlastingMarchingHr,
             RunningBDMaintenanceHr, TotalWorkingHr, BDHr, MaintenanceHr, IdleHr,
             SectorId, PatchId, MethodId, Remarks,
-            UserId = 1
         } = body;
 
         // Insert Query
         const query = `
             INSERT INTO [Trans].[TblEquipmentReading] (
-                [Date], ShiftId, RelayId, ActivityId, EquipmentId,
+                [Date], ShiftId, ShiftInchargeId, MidScaleInchargeId, RelayId, ActivityId, EquipmentId, OperatorId,
                 OHMR, CHMR, NetHMR, OKMR, CKMR, NetKMR,
                 DevelopmentHrMining, FaceMarchingHr, DevelopmentHrNonMining, BlastingMarchingHr,
                 RunningBDMaintenanceHr, TotalWorkingHr, BDHr, MaintenanceHr, IdleHr,
@@ -135,7 +143,7 @@ export async function POST(request) {
             )
             OUTPUT INSERTED.SlNo
             VALUES (
-                @date, @ShiftId, @RelayId, @ActivityId, @EquipmentId,
+                @date, @ShiftId, @ShiftInchargeId, @MidScaleInchargeId, @RelayId, @ActivityId, @EquipmentId, @OperatorId,
                 @OHMR, @CHMR, @NetHMR, @OKMR, @CKMR, @NetKMR,
                 @DevelopmentHrMining, @FaceMarchingHr, @DevelopmentHrNonMining, @BlastingMarchingHr,
                 @RunningBDMaintenanceHr, @TotalWorkingHr, @BDHr, @MaintenanceHr, @IdleHr,
@@ -149,9 +157,12 @@ export async function POST(request) {
         // Bind all inputs
         req.input('date', sql.Date, date);
         req.input('ShiftId', sql.Int, ShiftId);
+        req.input('ShiftInchargeId', sql.Int, ShiftInchargeId);
+        req.input('MidScaleInchargeId', sql.Int, MidScaleInchargeId);
         req.input('RelayId', sql.Int, RelayId);
         req.input('ActivityId', sql.Int, ActivityId);
         req.input('EquipmentId', sql.Int, EquipmentId);
+        req.input('OperatorId', sql.Int, OperatorId);
 
         req.input('OHMR', sql.Decimal(18, 2), OHMR || null);
         req.input('CHMR', sql.Decimal(18, 2), CHMR || null);
@@ -181,21 +192,7 @@ export async function POST(request) {
         const result = await req.query(query);
         const newId = result.recordset[0].SlNo;
 
-        // Insert Children
-        if (ShiftInchargeId && ShiftInchargeId.length > 0) {
-            for (const opId of ShiftInchargeId) {
-                await executeQuery(`INSERT INTO [Trans].[TblEquipmentReadingShiftIncharge] (EquipmentReadingId, OperatorId) VALUES (@lid, @oid)`, [
-                    { name: 'lid', value: newId, type: sql.Int }, { name: 'oid', value: opId, type: sql.Int }
-                ]);
-            }
-        }
-        if (OperatorId && OperatorId.length > 0) {
-            for (const opId of OperatorId) {
-                await executeQuery(`INSERT INTO [Trans].[TblEquipmentReadingOperator] (EquipmentReadingId, OperatorId) VALUES (@lid, @oid)`, [
-                    { name: 'lid', value: newId, type: sql.Int }, { name: 'oid', value: opId, type: sql.Int }
-                ]);
-            }
-        }
+        // Child Table Insert Logic Removed (Now Single Column)
 
         return NextResponse.json({ success: true, message: 'Saved Successfully', id: newId });
 

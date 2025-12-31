@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { getDbConnection, sql } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 
 export async function DELETE(request, { params }) {
     try {
@@ -49,6 +50,9 @@ export async function PUT(request, { params }) {
     const { id } = await params;
     try {
         const body = await request.json();
+        const user = await authenticateUser(request);
+        const userId = user ? user.id : 1;
+
         const pool = await getDbConnection();
         const transaction = new sql.Transaction(pool);
 
@@ -69,7 +73,7 @@ export async function PUT(request, { params }) {
                     AirPressure = ${body.AirPressure || 0},
                     TotalExplosiveUsed = ${body.TotalExplosiveUsed || 0},
                     Remarks = '${body.Remarks || ''}',
-                    UpdatedBy = '${body.UserName || 'Admin'}',
+                    UpdatedBy = ${userId},
                     UpdatedDate = GETDATE()
                 WHERE SlNo = ${id}
             `);
@@ -99,7 +103,8 @@ export async function PUT(request, { params }) {
                             ${acc.TotalNonelMeters || 0}, 
                             ${acc.TotalTLDMeters || 0}, 
                             GETDATE(), 
-                            '${body.UserName || 'Admin'}', 
+                            GETDATE(), 
+                            ${userId}, 
                             0
                         )
                     `);

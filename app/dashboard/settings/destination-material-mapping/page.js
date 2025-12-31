@@ -120,7 +120,7 @@ export default function DestinationMaterialMappingPage() {
                 <h1 className={styles.title}>Destination Material Mappings</h1>
             </div>
 
-            <div className={styles.tableContainer}>
+            <div className={styles.tableContainer} style={{ height: '642px' }}>
                 <table className={styles.table}>
                     <thead>
                         <tr>

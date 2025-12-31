@@ -131,7 +131,7 @@ export default function BlastingPage() {
 
     return (
         <div className={styles.page}>
-            {loading && <LoadingOverlay message="Loading Blasting Data..." />}
+            {/* {loading && <LoadingOverlay message="Loading Blasting Data..." />} */}
 
             <div className={styles.header}>
                 <div>
@@ -148,7 +148,7 @@ export default function BlastingPage() {
                             fontWeight: 500,
                             alignSelf: 'center'
                         }}>
-                            Last data entered on -&gt; Date: {new Date(lastEntry.Date).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedBy || 'Admin'}
+                            Last data entered on -&gt; Date: {new Date(lastEntry.Date).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedByName || 'Unknown'}
                         </span>
                     )}
                     <button className={styles.addNew} onClick={() => router.push('/dashboard/transaction/blasting/add')}>
@@ -178,7 +178,7 @@ export default function BlastingPage() {
             <TransactionTable
                 config={config}
                 data={data}
-                isLoading={false}
+                isLoading={loading}
                 onDelete={handleDelete}
                 onEdit={handleEdit}
                 userRole={userRole}

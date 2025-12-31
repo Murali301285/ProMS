@@ -102,6 +102,9 @@ body {
   margin-left: 0.25rem;
 }
 
+input,
+textarea,
+select,
 .input {
   padding: 0.75rem;
   border-radius: var(--radius);
@@ -110,12 +113,22 @@ body {
   color: var(--foreground);
   width: 100%;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+input:focus,
+textarea:focus,
+select:focus,
 .input:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+  border-color: #f97316 !important;
+  /* Orange-500 */
+  background-color: #fef9c3 !important;
+  /* Yellow-100 */
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.15) !important;
+  transform: scale(1.02);
+  /* Zoom Effect */
+  z-index: 10;
+  /* Ensure it floats above nearby elements */
 }
 
 /* Primary Button with Pulse Animation */
@@ -123,7 +136,7 @@ body {
   padding: 0.75rem 1.5rem;
   background: var(--primary);
   color: var(--primary-foreground);
-  border: none;
+  border: 1px solid transparent;
   border-radius: var(--radius);
   cursor: pointer;
   font-weight: 600;
@@ -132,14 +145,18 @@ body {
   overflow: hidden;
 }
 
-.btn-primary:hover {
+.btn-primary:hover,
+.btn-primary:focus {
   opacity: 0.95;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+  transform: scale(1.05) translateY(-2px);
+  /* Zoom + Lift */
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);
+  border-color: #f97316;
+  /* Orange Border on hover */
 }
 
 .btn-primary:active {
-  transform: translateY(0);
+  transform: scale(0.98);
 }
 
 /* New Animation Class for Add Buttons */
@@ -192,6 +209,15 @@ body {
   border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--secondary);
+/* Transaction Scaling Classes */
+.scale-normal {
+  zoom: 1;
+}
+
+.scale-large {
+  zoom: 1.1;
+}
+
+.scale-largest {
+  zoom: 1.25;
 }

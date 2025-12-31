@@ -85,10 +85,10 @@ export async function GET(request) {
                 DR.DrillingRemarks,
                 T.Remarks,
                 T.CreatedBy,
-                CU.UserName AS CreatedByName,
+                CU.EmpName AS CreatedByName,
                 T.CreatedDate,
                 T.UpdatedBy,
-                UU.UserName AS UpdatedByName,
+                UU.EmpName AS UpdatedByName,
                 T.UpdatedDate,
                 COUNT(*) OVER() as TotalCount
             FROM [Trans].[TblDrilling] T
@@ -102,8 +102,8 @@ export async function GET(request) {
             LEFT JOIN [Master].[TblDepthSlab] DS ON T.DepthSlabId = DS.SlNo
             LEFT JOIN [Master].[TblUnit] U ON T.UnitId = U.SlNo
             LEFT JOIN [Master].[TblDrillingRemarks] DR ON T.RemarkId = DR.SlNo
-            LEFT JOIN [Master].[TblUser] CU ON T.CreatedBy = CU.SlNo
-            LEFT JOIN [Master].[TblUser] UU ON T.UpdatedBy = UU.SlNo
+            LEFT JOIN [Master].[TblUser_New] CU ON T.CreatedBy = CU.SlNo
+            LEFT JOIN [Master].[TblUser_New] UU ON T.UpdatedBy = UU.SlNo
             ${whereClause}
             ORDER BY T.Date DESC
             OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY

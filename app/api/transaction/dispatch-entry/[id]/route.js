@@ -5,7 +5,7 @@ import { getSession } from '@/lib/session';
 export async function GET(req, { params }) {
     try {
         const { id } = params;
-        const query = `SELECT * FROM [Trans].[TblBDSEntry] WHERE SlNo = @id AND isDelete = 0`;
+        const query = `SELECT * FROM [Trans].[TblDispatchEntry] WHERE SlNo = @id AND isDelete = 0`;
         const data = await executeQuery(query, { id });
 
         if (data.length === 0) {
@@ -22,26 +22,21 @@ export async function PUT(req, { params }) {
     try {
         const { id } = params;
         const session = await getSession();
-        const updatedBy = session?.user?.name || 'Admin';
+        const updatedBy = session?.user?.id || 1;
 
         const body = await req.json();
         const {
-            Date, PartyId, VehicleNo, Weighment, CounterReading, LoadingSheet,
-            StandardDeduction, AcceptedQuantity, ChallanNo, Remarks
+            Date, DispatchLocationId, Trip, TotalQty, UOMId, Remarks
         } = body;
 
         const query = `
-            UPDATE [Trans].[TblBDSEntry]
+            UPDATE [Trans].[TblDispatchEntry]
             SET 
                 Date = @Date,
-                PartyId = @PartyId,
-                VehicleNo = @VehicleNo,
-                Weighment = @Weighment,
-                CounterReading = @CounterReading,
-                LoadingSheet = @LoadingSheet,
-                StandardDeduction = @StandardDeduction,
-                AcceptedQuantity = @AcceptedQuantity,
-                ChallanNo = @ChallanNo,
+                DispatchLocationId = @DispatchLocationId,
+                Trip = @Trip,
+                TotalQty = @TotalQty,
+                UOMId = @UOMId,
                 Remarks = @Remarks,
                 UpdatedBy = @UpdatedBy,
                 UpdatedDate = GETDATE()
@@ -49,8 +44,7 @@ export async function PUT(req, { params }) {
         `;
 
         await executeQuery(query, {
-            Date, PartyId, VehicleNo, Weighment, CounterReading, LoadingSheet,
-            StandardDeduction, AcceptedQuantity, ChallanNo, Remarks, UpdatedBy: updatedBy, id
+            Date, DispatchLocationId, Trip, TotalQty, UOMId, Remarks, UpdatedBy: updatedBy, id
         });
 
         return NextResponse.json({ success: true, message: 'Entry Updated Successfully' });
@@ -62,7 +56,7 @@ export async function PUT(req, { params }) {
 export async function DELETE(req, { params }) {
     try {
         const { id } = params;
-        const query = `UPDATE [Trans].[TblBDSEntry] SET isDelete = 1 WHERE SlNo = @id`;
+        const query = `UPDATE [Trans].[TblDispatchEntry] SET isDelete = 1 WHERE SlNo = @id`;
         await executeQuery(query, { id });
         return NextResponse.json({ success: true, message: 'Entry Deleted Successfully' });
     } catch (error) {

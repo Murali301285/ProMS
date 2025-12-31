@@ -1,0 +1,19 @@
+# --- COPY THIS CONTENT TO YOUR .env FILE ---
+
+# Database Config (Pointing to Remote Server)
+DB_USER=sa
+DB_PASSWORD="Tsmpl@258#"
+DB_SERVER=184.168.127.253\SQLEXPRESS
+
+# Critical: This solved the connection issue!
+DB_PORT=1433
+
+# Database Name (Updated)
+DB_DATABASE=ProMS2_test
+
+# App Config
+JWT_SECRET=supersecretkey123
+PORT=3000
+
+# Keep this as development locally
+NODE_ENV=development

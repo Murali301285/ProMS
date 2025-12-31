@@ -21,10 +21,10 @@ export async function GET(request) {
             SELECT TOP 1 
                 T.Date, 
                 T.CreatedBy,
-                ISNULL(U.Name, T.CreatedBy) as CreatedByName, 
+                ISNULL(U.EmpName, 'Unknown') as CreatedByName, 
                 T.CreatedDate
             FROM [Trans].[TblElectricalEntry] T
-            LEFT JOIN [Master].[TblUser] U ON T.CreatedBy = U.UserName
+            LEFT JOIN [Master].[TblUser_New] U ON T.CreatedBy = U.SlNo
             WHERE T.IsDelete = 0
             ORDER BY T.SlNo DESC
         `);

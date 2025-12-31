@@ -45,10 +45,13 @@ export default function WaterTankerEntryList() {
                     setUserRole(meData.user.role);
                 }
                 // Fetch Last Entry
-                const lastRes = await fetch('/api/transaction/helper/water-tanker-last-entry');
+                const lastRes = await fetch('/api/transaction/water-tanker-entry/latest');
                 const lastData = await lastRes.json();
+                console.log("LAST ENTRY DATA DEBUG:", lastData);
                 if (lastData.success && lastData.data) {
                     setLastEntry(lastData.data);
+                } else {
+                    console.warn("Last Entry Fetch Failed or Empty", lastData);
                 }
             } catch (e) { console.error('Init Error', e); }
         }
@@ -78,7 +81,7 @@ export default function WaterTankerEntryList() {
             }
 
             // Refresh Last Entry Info
-            const lastRes = await fetch('/api/transaction/helper/water-tanker-last-entry');
+            const lastRes = await fetch('/api/transaction/water-tanker-entry/latest');
             const lastData = await lastRes.json();
             if (lastData.success && lastData.data) setLastEntry(lastData.data);
 
@@ -166,12 +169,13 @@ export default function WaterTankerEntryList() {
 
     return (
         <div className={styles.page} style={{ position: 'relative' }}>
-            {loading && <LoadingOverlay message="Loading Data..." />}
+            {/* {loading && <LoadingOverlay message="Loading Data..." />} */}
 
             {/* Header */}
             <div className={styles.header}>
                 <h1 className={styles.title}>Water Tanker Entry</h1>
                 <div className={styles.headerActions}>
+                    {console.log("RENDERING LAST ENTRY:", lastEntry)}
                     {lastEntry && (
                         <span style={{
                             color: '#2563eb',
@@ -180,7 +184,7 @@ export default function WaterTankerEntryList() {
                             marginRight: '16px',
                             fontWeight: 500
                         }}>
-                            Last data entered on -&gt; Date: {new Date(lastEntry.EntryDate).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedBy || 'Unknown'}
+                            Last data entered on -&gt; Date: {lastEntry.EntryDate ? new Date(lastEntry.EntryDate).toLocaleDateString('en-GB') : 'NA'} | Entered by : {lastEntry.CreatedByName || lastEntry.CreatedBy || 'Unknown'}
                         </span>
                     )}
                     <button className={styles.addNew} onClick={() => router.push('/dashboard/transaction/water-tanker-entry/add')}>
@@ -222,7 +226,7 @@ export default function WaterTankerEntryList() {
             <TransactionTable
                 config={config}
                 data={data}
-                isLoading={false} // Handled by overlay
+                isLoading={loading} // passed to table
                 onDelete={handleDelete}
                 onEdit={handleEdit}
                 userRole={userRole}

@@ -22,6 +22,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
             { accessor: 'Date', label: 'Date', type: 'date', width: 120, frozen: true },
             { accessor: 'ShiftName', label: 'Shift', width: 100, frozen: true },
             { accessor: 'RelayName', label: 'Relay', width: 150, frozen: true },
+            { accessor: 'Type', label: 'Type', width: 100 },
             { accessor: 'EquipmentName', label: 'Equipment/Plant', width: 180 },
             { accessor: 'OMR', label: 'OMR', type: 'number', width: 100 },
             { accessor: 'CMR', label: 'CMR', type: 'number', width: 100 },
@@ -51,45 +52,191 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
     const [recentData, setRecentData] = useState([]);
     const [loadingRecent, setLoadingRecent] = useState(false);
     const [userRole, setUserRole] = useState(null); // Added for TransactionTable
+    const [displayUser, setDisplayUser] = useState(null);
 
+    const [entryType, setEntryType] = useState('Equipment'); // 'Equipment' or 'Plant'
+    const [formKey, setFormKey] = useState(0); // Force-remount key
     const [masters, setMasters] = useState({
         shift: [],
         relay: [],
         equipment: [],
+        plant: [],
         unit: []
     });
 
     const formRef = useRef(null);
 
+    // Fetch User Role & Last Entry
     // Fetch User Role
     useEffect(() => {
         fetch('/api/auth/me').then(res => res.json()).then(json => {
             if (json.user) setUserRole(json.user.role);
         }).catch(console.error);
-
-        fetchLastEntry();
     }, []);
 
-    const [lastEntry, setLastEntry] = useState(null);
+    // Get LocalStorage User for Title Display
+    useEffect(() => {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+            try {
+                const parsed = JSON.parse(userStr);
+                setDisplayUser(parsed.EmpName || parsed.UserName || parsed.username || parsed.name || 'User');
+            } catch (e) {
+                console.error("User Parse Error", e);
+            }
+        }
+    }, []);
 
-    const fetchLastEntry = async () => {
+    // 4. Trigger Table Refresh (Smart Filter: Date or Shift)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchTableData();
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [formData.Date, formData.ShiftId]);
+
+
+    // --- Dynamic Table & Smart Context Logic ---
+
+    // 1. Fetch data for the Table (Dynamic Filter)
+    const fetchTableData = async () => {
         try {
-            const res = await fetch('/api/transaction/electrical-entry/latest');
-            const json = await res.json();
-            if (json.success) setLastEntry(json.data);
+            const payload = {
+                Date: formData.Date,
+                ShiftId: formData.ShiftId // Optional Filter
+            };
+            const res = await fetch('/api/transaction/electrical-entry/helper/recent-list', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+            if (result.data) {
+                setRecentData(result.data);
+            } else {
+                setRecentData([]);
+            }
         } catch (err) {
-            console.error("Failed to fetch last entry", err);
+            console.error("Failed to fetch recent data:", err);
         }
     };
+
+    // 2. Converged Smart Context Logic
+    const isInitialMount = useRef(true);
+    const lastFetchDate = useRef(null); // Track last fetched date to prevent loop
+
+    useEffect(() => {
+        if (mode !== 'create' || initialData) return;
+
+        const loadContext = async () => {
+            try {
+                // Scenario A: First Load (Fetch Absolute Last to get Date & Shift)
+                if (isInitialMount.current) {
+                    isInitialMount.current = false;
+                    const res = await fetch('/api/transaction/electrical-entry/helper/last-context', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({}) // Empty = Absolute Last
+                    });
+                    const result = await res.json();
+                    if (result.data) {
+                        const ctx = result.data;
+                        const ctxDate = ctx.Date ? new Date(ctx.Date).toISOString().split('T')[0] : formData.Date; // Use formData.Date if ctx.Date is null
+                        lastFetchDate.current = ctxDate; // Sync ref
+
+                        const isPlant = ctx.Type === 'Plant' || (ctx.PlantId && !ctx.EquipmentId);
+
+                        setEntryType(ctx.Type || (isPlant ? 'Plant' : 'Equipment'));
+                        setFormData(prev => ({
+                            ...prev,
+                            // PRELOAD: Date, Shift, Relay
+                            Date: ctxDate,
+                            ShiftId: ctx.ShiftId || '',
+                            RelayId: ctx.RelayId || '',
+                            UnitId: ctx.UnitId || prev.UnitId,
+
+                            // RESET: Everything else
+                            PlantId: '', EquipmentId: '',
+                            OMR: '', CMR: '', TotalUnit: '', Remarks: ''
+                        }));
+                    } else {
+                        lastFetchDate.current = formData.Date; // Sync even if no data
+                    }
+                }
+                // Scenario B: User Changed Date (Fetch Context for specific date)
+                else if (formData.Date !== lastFetchDate.current) {
+                    lastFetchDate.current = formData.Date; // Update ref immediately
+
+                    const res = await fetch('/api/transaction/electrical-entry/helper/last-context', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ Date: formData.Date })
+                    });
+                    const result = await res.json();
+                    if (result.data) {
+                        const ctx = result.data;
+                        // Avoid overriding EntryType if user manually changed it?
+
+                        setFormData(prev => ({
+                            ...prev,
+                            ShiftId: ctx.ShiftId || '',
+                            RelayId: ctx.RelayId || '',
+                            UnitId: ctx.UnitId || prev.UnitId,
+
+                            // RESET
+                            PlantId: '', EquipmentId: '',
+                            OMR: '', CMR: '', TotalUnit: '', Remarks: ''
+                        }));
+                    } else {
+                        // No context for this date
+                        setFormData(prev => ({
+                            ...prev,
+                            PlantId: '', EquipmentId: '',
+                            OMR: '', CMR: '', TotalUnit: '', Remarks: ''
+                        }));
+                    }
+                }
+
+                // Common Actions: Focus & Table Refresh (Run only if we actually did something or initial load)
+                // But wait, if Date didn't change, we skip the block.
+                // So this Focus logic runs only on actual Date changes or initial load.
+                // This is desired. resetForNextEntry handles the Save case.
+
+                setTimeout(() => {
+                    fetchTableData(); // explicit call
+
+                    let targetId = null;
+                    if (entryType === 'Equipment') targetId = 'equipment-select';
+                    else if (entryType === 'Plant') targetId = 'plant-select';
+
+                    if (targetId) {
+                        const el = document.getElementById(targetId);
+                        if (el) el.focus();
+                    }
+                }, 150);
+
+            } catch (err) {
+                console.error("Context Load Error:", err);
+            }
+        };
+
+        loadContext();
+    }, [formData.Date, mode, initialData]); // Dependencies 
+
+    // Remove separate fetchTableData trigger to avoid double calls
+    // useEffect(() => { ... fetchTableData ... }, [formData.Date]) -> Removed/Merged above
+
+
 
     // Fetch Masters and Initial Data
     useEffect(() => {
         const fetchMasters = async () => {
             try {
-                const [shiftRes, relayRes, eqRes, unitRes] = await Promise.all([
+                const [shiftRes, relayRes, eqRes, plantRes, unitRes] = await Promise.all([
                     fetch('/api/master/shift').then(r => r.json()),
                     fetch('/api/master/relay').then(r => r.json()),
                     fetch('/api/master/equipment').then(r => r.json()),
+                    fetch('/api/master/plant').then(r => r.json()),
                     fetch('/api/master/unit').then(r => r.json())
                 ]);
 
@@ -106,16 +253,150 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                     shift: parseRes(shiftRes).map(s => ({ id: String(s.SlNo), name: s.ShiftName })),
                     relay: parseRes(relayRes).map(r => ({ id: String(r.SlNo), name: r.Name })),
                     equipment: parseRes(eqRes).map(e => ({ id: String(e.SlNo), name: e.EquipmentName })),
+                    plant: parseRes(plantRes).map(p => ({ id: String(p.SlNo), name: p.Name })),
+                    unit: units.map(u => ({ id: String(u.SlNo), name: u.Name }))
+                });
+
+                // Edit Logic removed from here - moved to dedicated effect
+            } catch (err) {
+                console.error(err);
+                toast.error("Failed to load master data");
+            }
+        };
+        fetchMasters();
+    }, [mode, initialData]); // Dependencies for Masters. Note: Edit logic moved out.
+
+    // 2. Edit Mode: Populate Initial Data (Isolated Effect)
+    useEffect(() => {
+        if (mode === 'edit' && initialData) {
+            console.log("[ElectricalEntryForm] Edit Initial Data:", initialData);
+
+            const isPlant = !!initialData.PlantId;
+            setEntryType(isPlant ? 'Plant' : 'Equipment');
+
+            // Helper for robust value retrieval (checks for null/undefined, allows 0)
+            const getVal = (keys) => {
+                for (let k of keys) {
+                    if (initialData[k] !== undefined && initialData[k] !== null) return initialData[k];
+                }
+                return '';
+            };
+
+            setFormData(prev => ({
+                ...prev, // Keep prev (though we usually overwrite)
+                ...initialData,
+                Date: initialData.Date ? new Date(initialData.Date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                ShiftId: initialData.ShiftId ? String(initialData.ShiftId) : '',
+                RelayId: initialData.RelayId ? String(initialData.RelayId) : '',
+                EquipmentId: initialData.EquipmentId ? String(initialData.EquipmentId) : '',
+                PlantId: initialData.PlantId ? String(initialData.PlantId) : '',
+                UnitId: initialData.UnitId ? String(initialData.UnitId) : '',
+
+                // Transactional Fields - Robust Mapping
+                OMR: getVal(['OMR', 'Omr', 'omr']),
+                CMR: getVal(['CMR', 'Cmr', 'cmr']),
+                TotalUnit: getVal(['TotalUnit', 'Totalunit', 'totalUnit', 'totalunit']),
+                Remarks: getVal(['Remarks', 'remarks'])
+            }));
+        }
+    }, [mode, initialData]); // Only re-run if these change
+
+    // 3. Date Change: Get Date-Specific Context (Backtracking)
+    useEffect(() => {
+        if (mode === 'create' && formData.Date && !initialData) {
+            const fetchDateContext = async () => {
+                try {
+                    const res = await fetch('/api/transaction/electrical-entry/helper/last-context', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ Date: formData.Date })
+                    });
+                    const result = await res.json();
+
+                    if (result.data) {
+                        const ctx = result.data;
+                        const isPlant = ctx.Type === 'Plant' || (ctx.PlantId && !ctx.EquipmentId);
+                        setEntryType(ctx.Type || (isPlant ? 'Plant' : 'Equipment'));
+
+                        setFormData(prev => ({
+                            ...prev,
+                            ShiftId: ctx.ShiftId || '',
+                            RelayId: ctx.RelayId || '',
+                            PlantId: ctx.PlantId || '',
+                            EquipmentId: ctx.EquipmentId || '',
+                            UnitId: ctx.UnitId || prev.UnitId,
+
+                            // Map Transactional from Last Context
+                            OMR: ctx.OMR || '',
+                            CMR: ctx.CMR || '',
+                            TotalUnit: ctx.TotalUnit || '',
+                            Remarks: ctx.Remarks || ''
+                        }));
+                    } else {
+                        // Reset if no data for date
+                        setFormData(prev => ({
+                            ...prev,
+                            ShiftId: '', RelayId: '', PlantId: '', EquipmentId: '',
+                            OMR: '', CMR: '', TotalUnit: '', Remarks: ''
+                        }));
+                        // Keep current Entry Type or reset? Let's keep it.
+                    }
+                } catch (err) {
+                    console.error("Date Context Error:", err);
+                }
+            };
+            fetchDateContext();
+        }
+    }, [formData.Date, mode, initialData]);
+
+    // 4. Trigger Table Refresh
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchTableData();
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [formData.Date]);
+
+
+    // Fetch Masters and Initial Data
+    useEffect(() => {
+        const fetchMasters = async () => {
+            try {
+                const [shiftRes, relayRes, eqRes, plantRes, unitRes] = await Promise.all([
+                    fetch('/api/master/shift').then(r => r.json()),
+                    fetch('/api/master/relay').then(r => r.json()),
+                    fetch('/api/master/equipment').then(r => r.json()),
+                    fetch('/api/master/plant').then(r => r.json()),
+                    fetch('/api/master/unit').then(r => r.json())
+                ]);
+
+                const parseRes = (res) => Array.isArray(res) ? res : (res.data || []);
+                const units = parseRes(unitRes);
+
+                // Set Default Unit (KWH)
+                const defaultUnit = units.find(u => u.Name.toUpperCase() === 'KWH');
+                if (defaultUnit && mode === 'create') {
+                    setFormData(prev => ({ ...prev, UnitId: defaultUnit.SlNo }));
+                }
+
+                setMasters({
+                    shift: parseRes(shiftRes).map(s => ({ id: String(s.SlNo), name: s.ShiftName })),
+                    relay: parseRes(relayRes).map(r => ({ id: String(r.SlNo), name: r.Name })),
+                    equipment: parseRes(eqRes).map(e => ({ id: String(e.SlNo), name: e.EquipmentName })),
+                    plant: parseRes(plantRes).map(p => ({ id: String(p.SlNo), name: p.Name })),
                     unit: units.map(u => ({ id: String(u.SlNo), name: u.Name }))
                 });
 
                 if (mode === 'edit' && initialData) {
+                    const isPlant = !!initialData.PlantId;
+                    setEntryType(isPlant ? 'Plant' : 'Equipment');
                     setFormData({
                         ...initialData,
                         Date: initialData.Date ? new Date(initialData.Date).toISOString().split('T')[0] : today,
                         ShiftId: initialData.ShiftId ? String(initialData.ShiftId) : '',
                         RelayId: initialData.RelayId ? String(initialData.RelayId) : '',
                         EquipmentId: initialData.EquipmentId ? String(initialData.EquipmentId) : '',
+                        PlantId: initialData.PlantId ? String(initialData.PlantId) : '',
                         UnitId: initialData.UnitId ? String(initialData.UnitId) : '',
                         OMR: initialData.OMR,
                         CMR: initialData.CMR,
@@ -130,48 +411,6 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
         };
         fetchMasters();
     }, [mode, initialData]);
-
-    const fetchRecentData = useCallback(async () => {
-        // Fetch recent data for both create and edit modes
-
-        setLoadingRecent(true);
-        try {
-            const res = await fetch('/api/transaction/electrical-entry/recent', {
-                method: 'POST',
-                // Fetch recent for the selected date only? Or general recent?
-                // Typically 'recent' implies "last few entered by user".
-                // But user might want "recent for this date".
-                // The API supports date filtering.
-                body: JSON.stringify({ date: formData.Date })
-            });
-            const result = await res.json();
-            if (result.success) {
-                setRecentData(result.data);
-            }
-        } catch (err) {
-            console.error("Recent Data Load Failed", err);
-        } finally {
-            setLoadingRecent(false);
-        }
-    }, [formData.Date, mode]);
-
-    // Smart Load Effect
-    useEffect(() => {
-        fetchRecentData();
-    }, [fetchRecentData]);
-
-    // Calculations
-    // Key Listener for F2 (Save)
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            if (e.key === 'F2') {
-                e.preventDefault();
-                handleSave(mode === 'edit');
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [formData, mode]); // Dependencies for closure data
 
     // Calculations
     useEffect(() => {
@@ -194,17 +433,39 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
         if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
     };
 
-    const handleReset = () => {
+    // Helper for resetting transactional fields while keeping context
+    const resetForNextEntry = () => {
+        // Functional Update to guarantee latest state
         setFormData(prev => ({
             ...prev,
-            ShiftId: '',
-            RelayId: '',
+            // Keep: Date, ShiftId, RelayId, UnitId
+            // Reset:
             EquipmentId: '',
+            PlantId: '',
             OMR: '',
             CMR: '',
             TotalUnit: '',
             Remarks: ''
         }));
+
+        setFormKey(prev => prev + 1); // Force Remount of Inputs
+
+        // Focus
+        setTimeout(() => {
+            let targetId = null;
+            if (entryType === 'Equipment') targetId = 'equipment-select';
+            else if (entryType === 'Plant') targetId = 'plant-select';
+
+            if (targetId) {
+                const el = document.getElementById(targetId);
+                if (el) el.focus();
+            }
+        }, 150);
+        toast.info("Ready for next entry (v2.0)");
+    };
+
+    const handleReset = () => {
+        resetForNextEntry();
     };
 
     const validate = () => {
@@ -212,7 +473,11 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
         if (!formData.Date) newErrors.Date = 'Required';
         if (!formData.ShiftId) newErrors.ShiftId = 'Required';
         if (!formData.RelayId) newErrors.RelayId = 'Required';
-        if (!formData.EquipmentId) newErrors.EquipmentId = 'Required';
+
+        // Conditional Validation
+        if (entryType === 'Equipment' && !formData.EquipmentId) newErrors.EquipmentId = 'Required';
+        if (entryType === 'Plant' && !formData.PlantId) newErrors.PlantId = 'Required';
+
         if (!formData.UnitId) newErrors.UnitId = 'Required';
 
         // Strict check for empty strings
@@ -251,7 +516,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
 
             const res = await fetch(url, {
                 method,
-                body: JSON.stringify(formData)
+                body: JSON.stringify({ ...formData, entryType })
             });
             const result = await res.json();
 
@@ -261,8 +526,9 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                     router.push('/dashboard/transaction/electrical-entry');
                     router.refresh(); // Ensure list update
                 } else {
-                    handleReset();
-                    fetchRecentData(); // Function from useCallback
+                    // Reset Logic (User Request)
+                    resetForNextEntry();
+                    fetchTableData();
                 }
             } else {
                 toast.error(result.message);
@@ -290,20 +556,49 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
         } catch (e) { toast.error("Delete failed"); }
     };
 
+    // Keyboard Shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'F2') {
+                e.preventDefault();
+                handleSave(mode === 'edit');
+            } else if (e.key === 'F5') {
+                e.preventDefault();
+                handleReset();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }); // No dependency array intended to ensure fresh closures for handleSave/handleReset
+
+    // Last Entry State
+    const [lastEntry, setLastEntry] = useState(null);
+    useEffect(() => {
+        fetch('/api/transaction/electrical-entry/latest')
+            .then(res => res.json())
+            .then(json => {
+                if (json.success && json.data) setLastEntry(json.data);
+            })
+            .catch(console.error);
+    }, []);
+
     return (
         <div className={css.container}>
             {/* Header */}
             <div className={css.header}>
-                <button onClick={() => router.back()} className={css.backBtn}>
+                <button onClick={() => router.push('/dashboard/transaction/electrical-entry')} className={css.backBtn}>
                     <ArrowLeft size={16} /> Back
                 </button>
-                <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, marginLeft: '10px' }}>
-                    <h1 className={css.headerTitle} style={{ fontSize: '15px', marginBottom: '0' }}>{mode === 'edit' ? 'Update' : 'Create'} Electrical Entry</h1>
-                    {lastEntry && (
-                        <div className="text-xs text-gray-500 mt-1" style={{ fontSize: '11px' }}>
-                            Last data entered on -&gt; Date: <span className="font-semibold">{new Date(lastEntry.Date).toLocaleDateString('en-GB')}</span> | Entered by : <span className="font-semibold text-blue-600">{lastEntry.CreatedByName || lastEntry.CreatedBy || 'Admin'}</span>
-                        </div>
-                    )}
+                <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, alignItems: 'center' }}>
+                    <h1 className={css.headerTitle} style={{ fontSize: '15px', marginBottom: '0', textAlign: 'center' }}>
+                        {mode === 'edit' ? 'Update' : 'Create'} Electrical Entry <span style={{ fontSize: '10px', color: 'gray' }}>(v2.0)</span>
+                    </h1>
+                    {/* Last Entry Display - Hidden per User Request */}
+                    {/* {lastEntry && (
+                        <span style={{ color: '#2563eb', fontStyle: 'italic', fontSize: '0.85rem', fontWeight: 500 }}>
+                            Last data entered on -&gt; Date: {lastEntry.Date ? new Date(lastEntry.Date).toLocaleDateString('en-GB') : ''} | Entered by : {lastEntry.CreatedByName || lastEntry.CreatedBy || 'Unknown'}
+                        </span>
+                    )} */}
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                     <button onClick={handleReset} className={css.backBtn} style={{ justifyContent: 'center', width: '36px' }} title="(F5) Reset">
@@ -317,9 +612,12 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
             </div>
 
             <div className={css.card} ref={formRef}>
-                {/* Form Fields - Row 1 */}
-                <div className={css.row} style={{ display: 'grid', gridTemplateColumns: '20% 30% 25% auto', gap: '15px' }}>
-                    <div className={css.group}>
+                <div key={formKey} style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '15px' }}>
+
+                    {/* --- Row 1 --- */}
+
+                    {/* Date: R1 C1 */}
+                    <div className={css.group} style={{ gridColumn: '1 / span 1' }}>
                         <label className={css.label}>Date <span className="text-red-500">*</span></label>
                         <input
                             type="date"
@@ -331,7 +629,9 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                             autoFocus
                         />
                     </div>
-                    <div className={css.group}>
+
+                    {/* Shift: R1 C2 */}
+                    <div className={css.group} style={{ gridColumn: '2 / span 1' }}>
                         <label className={css.label}>Shift <span className="text-red-500">*</span></label>
                         <SearchableSelect
                             id="shift-input"
@@ -343,7 +643,9 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                             className={css.input}
                         />
                     </div>
-                    <div className={css.group}>
+
+                    {/* Relay: R1 C3 */}
+                    <div className={css.group} style={{ gridColumn: '3 / span 1' }}>
                         <label className={css.label}>Relay <span className="text-red-500">*</span></label>
                         <SearchableSelect
                             options={masters.relay}
@@ -354,27 +656,98 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                             className={css.input}
                         />
                     </div>
-                </div>
 
-                <div className={css.divider}></div>
+                    {/* --- Row 2 --- */}
 
-                {/* Form Fields - Row 2 */}
-                <div className={css.row} style={{ display: 'grid', gridTemplateColumns: '30% 15% 15% 15% 10% auto', gap: '15px' }}>
-                    <div className={css.group}>
-                        <label className={css.label}>Equipment/Plant <span className="text-red-500">*</span></label>
-                        <SearchableSelect
-                            options={masters.equipment}
-                            value={formData.EquipmentId}
-                            onChange={(e) => {
-                                handleSelectChange('EquipmentId', e.target.value);
-                                document.getElementById('omr-input')?.focus();
-                            }}
-                            placeholder="Select Equipment"
-                            error={errors.EquipmentId}
-                            className={css.input}
-                        />
+                    {/* Equipment/Plant: R2 C1-C2 (Span 2) */}
+                    <div className={css.group} style={{ gridColumn: '1 / span 2' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label className={css.label}>
+                                {entryType} <span className="text-red-500">*</span>
+                            </label>
+
+                            {/* Toggle Switch UI */}
+                            <div style={{ display: 'flex', background: '#e2e8f0', borderRadius: '4px', padding: '2px', marginBottom: '4px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEntryType('Equipment');
+                                        setFormData(prev => ({ ...prev, PlantId: '', EquipmentId: '' })); // Reset values on switch
+                                        setErrors(prev => ({ ...prev, PlantId: null, EquipmentId: null }));
+                                    }}
+                                    style={{
+                                        fontSize: '10px',
+                                        padding: '2px 8px',
+                                        borderRadius: '3px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        background: entryType === 'Equipment' ? '#3b82f6' : 'transparent',
+                                        color: entryType === 'Equipment' ? 'white' : 'inherit',
+                                        boxShadow: entryType === 'Equipment' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                                        fontWeight: entryType === 'Equipment' ? '600' : 'normal',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    Equipment
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEntryType('Plant');
+                                        setFormData(prev => ({ ...prev, EquipmentId: '', PlantId: '' })); // Reset values on switch
+                                        setErrors(prev => ({ ...prev, PlantId: null, EquipmentId: null }));
+                                    }}
+                                    style={{
+                                        fontSize: '10px',
+                                        padding: '2px 8px',
+                                        borderRadius: '3px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        background: entryType === 'Plant' ? '#3b82f6' : 'transparent',
+                                        color: entryType === 'Plant' ? 'white' : 'inherit',
+                                        boxShadow: entryType === 'Plant' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                                        fontWeight: entryType === 'Plant' ? '600' : 'normal',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    Plant
+                                </button>
+                            </div>
+                        </div>
+
+                        {entryType === 'Equipment' ? (
+                            <SearchableSelect
+                                id="equipment-select"
+                                autoFocus={true} // Auto-focus on mount (worked by formKey)
+                                options={masters.equipment}
+                                value={formData.EquipmentId}
+                                onChange={(e) => {
+                                    handleSelectChange('EquipmentId', e.target.value);
+                                    document.getElementById('omr-input')?.focus();
+                                }}
+                                placeholder="Select Equipment"
+                                error={errors.EquipmentId}
+                                className={css.input}
+                            />
+                        ) : (
+                            <SearchableSelect
+                                id="plant-select"
+                                autoFocus={true} // Auto-focus on mount (worked by formKey)
+                                options={masters.plant}
+                                value={formData.PlantId}
+                                onChange={(e) => {
+                                    handleSelectChange('PlantId', e.target.value);
+                                    document.getElementById('omr-input')?.focus();
+                                }}
+                                placeholder="Select Plant"
+                                error={errors.PlantId}
+                                className={css.input}
+                            />
+                        )}
                     </div>
-                    <div className={css.group}>
+
+                    {/* OMR: R2 C3 */}
+                    <div className={css.group} style={{ gridColumn: '3 / span 1' }}>
                         <label className={css.label}>OMR <span className="text-red-500">*</span></label>
                         <input
                             id="omr-input"
@@ -387,7 +760,9 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                             step="0.001"
                         />
                     </div>
-                    <div className={css.group}>
+
+                    {/* CMR: R2 C4 */}
+                    <div className={css.group} style={{ gridColumn: '4 / span 1' }}>
                         <label className={css.label}>CMR <span className="text-red-500">*</span></label>
                         <input
                             id="cmr-input"
@@ -400,7 +775,9 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                             step="0.001"
                         />
                     </div>
-                    <div className={css.group}>
+
+                    {/* Total Unit: R2 C5 */}
+                    <div className={css.group} style={{ gridColumn: '5 / span 1' }}>
                         <label className={css.label}>Total Unit</label>
                         <input
                             type="text"
@@ -409,7 +786,9 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                             className={`${css.input} ${css.readOnly}`}
                         />
                     </div>
-                    <div className={css.group}>
+
+                    {/* Unit: R2 C6 */}
+                    <div className={css.group} style={{ gridColumn: '6 / span 1' }}>
                         <label className={css.label}>Unit <span className="text-red-500">*</span></label>
                         <SearchableSelect
                             options={masters.unit}
@@ -420,13 +799,11 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                             className={css.input}
                         />
                     </div>
-                </div>
 
-                <div className={css.divider}></div>
+                    {/* --- Row 3 --- */}
 
-                {/* Form Fields - Row 3 */}
-                <div className={css.row}>
-                    <div className={css.group} style={{ width: '100%' }}>
+                    {/* Remarks: R3 C1-C6 (Span 6) */}
+                    <div className={css.group} style={{ gridColumn: '1 / span 6' }}>
                         <label className={css.label}>Remarks</label>
                         <input
                             type="text"
@@ -441,11 +818,11 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
 
             {/* Recent Transactions - Updated to TransactionTable */}
             <div className={css.dataTableSection}>
-                <div className={css.tableTitle}>Recent Entries (Today)</div>
                 <div style={{ padding: '0' }}> {/* Clean padding for sticky headers */}
                     <div style={{ height: '400px', width: '100%' }}>
                         <TransactionTable
                             config={config}
+                            title={`Recent Transactions - By ${displayUser || 'User'}`}
                             data={recentData}
                             isLoading={loadingRecent}
                             onEdit={handleEditRecent}

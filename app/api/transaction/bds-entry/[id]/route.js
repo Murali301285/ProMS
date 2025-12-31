@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { executeQuery } from '@/lib/db';
-// import { getSession } from '@/lib/session';
+import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
 
 export async function GET(req, { params }) {
     try {
@@ -21,13 +22,18 @@ export async function GET(req, { params }) {
 export async function PUT(req, { params }) {
     try {
         const { id } = await params;
-        // const session = await getSession();
-        // const updatedBy = session?.user?.name || 'Admin';
-        const updatedBy = 'Admin';
+        const cookieStore = await cookies();
+        const authToken = cookieStore.get('auth_token')?.value;
+        let updatedBy = 1; // Default Admin
+
+        if (authToken) {
+            const decoded = jwt.decode(authToken);
+            if (decoded?.id) updatedBy = decoded.id;
+        }
 
         const body = await req.json();
         const {
-            Date, PartyId, VehicleNo, Weighment, CounterReading, LoadingSheet,
+            Date, SMECategoryId, VehicleNo, Weighment, CounterReading, LoadingSheet,
             StandardDeduction, AcceptedQuantity, ChallanNo, Remarks
         } = body;
 
@@ -35,7 +41,7 @@ export async function PUT(req, { params }) {
             UPDATE [Trans].[TblBDSEntry]
             SET 
                 Date = @Date,
-                PartyId = @PartyId,
+                SMECategoryId = @SMECategoryId,
                 VehicleNo = @VehicleNo,
                 Weighment = @Weighment,
                 CounterReading = @CounterReading,
@@ -51,7 +57,7 @@ export async function PUT(req, { params }) {
 
         const sqlParams = [
             { name: 'Date', value: Date },
-            { name: 'PartyId', value: PartyId },
+            { name: 'SMECategoryId', value: SMECategoryId },
             { name: 'VehicleNo', value: VehicleNo },
             { name: 'Weighment', value: Weighment },
             { name: 'CounterReading', value: CounterReading },

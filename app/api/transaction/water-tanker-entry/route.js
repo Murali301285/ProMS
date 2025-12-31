@@ -10,6 +10,9 @@ export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
         const date = searchParams.get('date');
+        const fromDate = searchParams.get('fromDate');
+        const toDate = searchParams.get('toDate');
+        const shift = searchParams.get('shift');
 
         let query = `
             SELECT 
@@ -23,22 +26,23 @@ export async function GET(request) {
                 E.EquipmentName as HaulerName,
                 WT.FillingPointId,
                 FP_Fill.FillingPoint as FillingPointName,
-                WT.FillingPumpId,
-                pump.FillingPump as FillingPumpName,
                 WT.NoOfTrip,
                 WT.Capacity,
                 WT.TotalQty,
                 WT.Remarks,
                 WT.CreatedBy,
+                ISNULL(U1.EmpName, 'Unknown') as CreatedByName,
                 WT.CreatedDate,
                 WT.UpdatedBy,
+                ISNULL(U2.EmpName, 'Unknown') as UpdatedByName,
                 WT.UpdatedDate
             FROM [Transaction].[TblWaterTankerEntry] WT
             LEFT JOIN [Master].[TblShift] S ON WT.ShiftId = S.SlNo
             LEFT JOIN [Master].[tblFillingPoint] FP_Dest ON WT.DestinationId = FP_Dest.SlNo
             LEFT JOIN [Master].[TblEquipment] E ON WT.HaulerId = E.SlNo
             LEFT JOIN [Master].[tblFillingPoint] FP_Fill ON WT.FillingPointId = FP_Fill.SlNo
-            LEFT JOIN [Master].[tblFillingPump] pump ON WT.FillingPumpId = pump.SlNo
+            LEFT JOIN [Master].[TblUser_New] U1 ON WT.CreatedBy = U1.SlNo
+            LEFT JOIN [Master].[TblUser_New] U2 ON WT.UpdatedBy = U2.SlNo
             WHERE WT.IsDelete = 0
         `;
 
@@ -46,9 +50,23 @@ export async function GET(request) {
         if (date) {
             query += ` AND CAST(WT.EntryDate AS DATE) = @date`;
             params.push({ name: 'date', value: date });
+        } else {
+            if (fromDate) {
+                query += ` AND CAST(WT.EntryDate AS DATE) >= @fromDate`;
+                params.push({ name: 'fromDate', value: fromDate });
+            }
+            if (toDate) {
+                query += ` AND CAST(WT.EntryDate AS DATE) <= @toDate`;
+                params.push({ name: 'toDate', value: toDate });
+            }
         }
 
-        query += ` ORDER BY WT.CreatedDate DESC`; // Recent first
+        if (shift) {
+            query += ` AND WT.ShiftId = @shift`;
+            params.push({ name: 'shift', value: shift });
+        }
+
+        query += ` ORDER BY WT.CreatedDate DESC`;
 
         const data = await executeQuery(query, params);
         return NextResponse.json({ success: true, data });
@@ -64,11 +82,11 @@ export async function POST(request) {
         const body = await request.json();
         const cookieStore = await cookies();
         const authToken = cookieStore.get('auth_token')?.value;
-        let createdBy = 'Admin'; // Default
+        let userId = 1; // Default Admin
 
         if (authToken) {
             const decoded = jwt.decode(authToken);
-            if (decoded?.name) createdBy = decoded.name; // Or user name logic
+            if (decoded?.id) userId = decoded.id;
         }
 
         const {
@@ -76,7 +94,6 @@ export async function POST(request) {
             DestinationId,
             HaulerId,
             FillingPointId,
-            FillingPumpId,
             NoOfTrip,
             Capacity,
             TotalQty,
@@ -85,15 +102,15 @@ export async function POST(request) {
         } = body;
 
         // Validation (Basic)
-        if (!ShiftId || !DestinationId || !HaulerId || !FillingPointId || !FillingPumpId || !NoOfTrip || !TotalQty || !EntryDate) {
+        if (!ShiftId || !DestinationId || !HaulerId || !FillingPointId || !NoOfTrip || !TotalQty || !EntryDate) {
             return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
         }
 
         const query = `
             INSERT INTO [Transaction].[TblWaterTankerEntry] 
-            (ShiftId, DestinationId, HaulerId, FillingPointId, FillingPumpId, NoOfTrip, Capacity, TotalQty, Remarks, EntryDate, CreatedBy, CreatedDate)
+            (ShiftId, DestinationId, HaulerId, FillingPointId, NoOfTrip, Capacity, TotalQty, Remarks, EntryDate, CreatedBy, CreatedDate)
             VALUES 
-            (@shift, @dest, @hauler, @fillpt, @fillpump, @trips, @cap, @qty, @remarks, @date, @user, GETDATE())
+            (@shift, @dest, @hauler, @fillpt, @trips, @cap, @qty, @remarks, @date, @user, GETDATE())
         `;
 
         await executeQuery(query, [
@@ -101,13 +118,12 @@ export async function POST(request) {
             { name: 'dest', value: DestinationId },
             { name: 'hauler', value: HaulerId },
             { name: 'fillpt', value: FillingPointId },
-            { name: 'fillpump', value: FillingPumpId },
             { name: 'trips', value: NoOfTrip },
             { name: 'cap', value: Capacity || 0 },
             { name: 'qty', value: TotalQty },
             { name: 'remarks', value: Remarks || null },
             { name: 'date', value: EntryDate },
-            { name: 'user', value: createdBy }
+            { name: 'user', value: userId }
         ]);
 
         return NextResponse.json({ message: 'Saved successfully' });

@@ -1,4 +1,3 @@
-
 const sql = require('mssql');
 
 const config = {
@@ -14,20 +13,28 @@ const config = {
     },
 };
 
-async function checkLoadingSchema() {
+async function check() {
     try {
-        const pool = await new sql.ConnectionPool(config).connect();
-        const res = await pool.request().query(`
+        await sql.connect(config);
+
+        console.log("Checking [Trans].[TblLoading]...");
+        const cols = await sql.query(`
             SELECT COLUMN_NAME, DATA_TYPE 
             FROM INFORMATION_SCHEMA.COLUMNS 
-            WHERE TABLE_SCHEMA = 'Trans' AND TABLE_NAME = 'TblLoading'
+            WHERE TABLE_NAME = 'TblLoading' 
+            AND TABLE_SCHEMA = 'Trans'
+            AND COLUMN_NAME IN ('CreatedBy', 'UpdatedBy')
         `);
-        console.table(res.recordset);
+        console.table(cols.recordset);
+
+        const data = await sql.query(`SELECT TOP 5 CreatedBy FROM [Trans].[TblLoading] ORDER BY SlNo DESC`);
+        console.table(data.recordset);
+
     } catch (err) {
-        console.error("Error:", err);
+        console.error(err);
     } finally {
-        process.exit();
+        await sql.close();
     }
 }
 
-checkLoadingSchema();
+check();

@@ -5,7 +5,7 @@ const config = {
     password: 'Chennai@42',
     server: 'localhost',
     port: 1433,
-    database: 'ProdMS_live', // Assuming this is the default DB
+    database: 'ProdMS_live',
     options: {
         encrypt: false,
         trustServerCertificate: true,
@@ -13,32 +13,41 @@ const config = {
     },
 };
 
-async function checkSchema() {
+async function check() {
     try {
         await sql.connect(config);
-        console.log("Connected to DB.");
 
-        console.log("Checking [Trans].[TblMaterialRehandling] columns...");
-        const result1 = await sql.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'TblMaterialRehandling' AND TABLE_SCHEMA = 'Trans'");
-        if (result1.recordset.length === 0) {
-            console.log("❌ Table [Trans].[TblMaterialRehandling] NOT FOUND!");
-        } else {
-            console.log("Columns found:", result1.recordset.map(row => row.COLUMN_NAME).join(', '));
-        }
+        // Find correct table name
+        const tables = await sql.query(`
+            SELECT TABLE_SCHEMA, TABLE_NAME 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_NAME LIKE '%Rehandling%'
+        `);
+        console.table(tables.recordset);
 
-        console.log("\nChecking [Trans].[TblMaterialRehandlingShiftIncharge] columns...");
-        const result2 = await sql.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'TblMaterialRehandlingShiftIncharge' AND TABLE_SCHEMA = 'Trans'");
-        if (result2.recordset.length === 0) {
-            console.log("❌ Table [Trans].[TblMaterialRehandlingShiftIncharge] NOT FOUND!");
-        } else {
-            console.log("Columns found:", result2.recordset.map(row => row.COLUMN_NAME).join(', '));
+        if (tables.recordset.length > 0) {
+            const tableName = tables.recordset[0].TABLE_NAME;
+            const schema = tables.recordset[0].TABLE_SCHEMA;
+            console.log(`Checking [${schema}].[${tableName}]...`);
+
+            const cols = await sql.query(`
+                SELECT COLUMN_NAME, DATA_TYPE 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_NAME = '${tableName}' 
+                AND TABLE_SCHEMA = '${schema}'
+                AND COLUMN_NAME IN ('CreatedBy', 'UpdatedBy')
+            `);
+            console.table(cols.recordset);
+
+            const data = await sql.query(`SELECT TOP 1 CreatedBy FROM [${schema}].[${tableName}] ORDER BY SlNo DESC`);
+            console.table(data.recordset);
         }
 
     } catch (err) {
-        console.error("Error:", err);
+        console.error(err);
     } finally {
         await sql.close();
     }
 }
 
-checkSchema();
+check();

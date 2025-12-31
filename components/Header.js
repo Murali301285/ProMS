@@ -9,14 +9,22 @@ import { getCookie } from 'cookies-next';
 
 // ... imports
 // ... imports
+// // ... imports
+import { usePathname } from 'next/navigation';
+import { useUI } from '@/contexts/UIContext';
+
 // import ProfileModal from './ProfileModal'; // Removed
 
 export default function Header({ toggleSidebar, isSidebarOpen }) {
     // ... (Keep existing setup)
     const { theme, toggleTheme } = useTheme();
+    const { txnScale, updateScale } = useUI();
+    const pathname = usePathname();
+    const isTransactionPage = pathname?.startsWith('/dashboard/transaction');
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     // const [profileModalOpen, setProfileModalOpen] = useState(false); // Removed
     const [dbInfo, setDbInfo] = useState(null);
+    const [userInfo, setUserInfo] = useState(null);
 
     // ... (Keep existing search logic)
     const [searchData, setSearchData] = useState([]);
@@ -58,6 +66,30 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
         }
         fetchDbEnv();
 
+        // Fetch User Profile
+        const fetchUser = async () => {
+            try {
+                const res = await fetch('/api/user/profile');
+                const data = await res.json();
+                if (data.success) {
+                    // console.log("Header User Data:", data.user);
+                    setUserInfo(data.user);
+                }
+            } catch (e) {
+                console.error("User fetch failed", e);
+            }
+        };
+
+        fetchUser();
+
+        // Listen for profile updates
+        const handleProfileUpdate = () => {
+            fetchUser();
+        };
+
+        window.addEventListener('profile-updated', handleProfileUpdate);
+
+
         // Click Outside to Close
         function handleClickOutside(event) {
             if (searchRef.current && !searchRef.current.contains(event.target)) {
@@ -65,7 +97,10 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
             }
         }
         document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            window.removeEventListener('profile-updated', handleProfileUpdate);
+        };
     }, []);
 
     const handleSearch = (val) => {
@@ -108,6 +143,17 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
             }
         } else if (e.key === 'Escape') {
             setShowDropdown(false);
+        }
+    }
+
+
+    const handleLogout = async () => {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/';
+        } catch (error) {
+            console.error('Logout failed', error);
+            window.location.href = '/';
         }
     };
 
@@ -164,6 +210,31 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
             </div>
 
             <div className={styles.right}>
+                {/* Font Scaling Controls - Global */}
+                <div className={styles.fontControls}>
+                    <button
+                        onClick={() => updateScale(1)}
+                        className={`${styles.fontBtn} ${txnScale === 1 ? styles.activeFontBtn : ''}`}
+                        title="Normal Size"
+                    >
+                        A
+                    </button>
+                    <button
+                        onClick={() => updateScale(1.1)}
+                        className={`${styles.fontBtn} ${txnScale === 1.1 ? styles.activeFontBtn : ''}`}
+                        title="Large Size (110%)"
+                    >
+                        A+
+                    </button>
+                    <button
+                        onClick={() => updateScale(1.25)}
+                        className={`${styles.fontBtn} ${txnScale === 1.25 ? styles.activeFontBtn : ''}`}
+                        title="Largest Size (125%)"
+                    >
+                        A++
+                    </button>
+                </div>
+
                 <button className={styles.iconBtn} onClick={toggleTheme}>
                     {theme === 'light' ? '🌙' : '☀️'}
                 </button>
@@ -175,9 +246,15 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
 
                 <div className={styles.profile} onClick={() => setUserMenuOpen(!userMenuOpen)}>
                     <div className={styles.avatar}>
-                        <User size={20} />
+                        {userInfo?.ProfileImage ? (
+                            <img src={userInfo.ProfileImage} alt="Profile" className={styles.profileImg} />
+                        ) : (
+                            <User size={20} />
+                        )}
                     </div>
-                    <span className={styles.username}>Login as [Admin]</span>
+                    <span className={styles.username}>
+                        {userInfo?.EmpName || userInfo?.UserName || 'User'}
+                    </span>
 
                     {userMenuOpen && (
                         <div className={`${styles.dropdown} glass`}>
@@ -190,6 +267,16 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
                                 }}
                             >
                                 Profile
+                            </div>
+                            <div
+                                className={styles.dropdownItem}
+                                style={{ color: '#ef4444', borderTop: '1px solid var(--border-color)', marginTop: '4px', paddingTop: '8px' }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleLogout();
+                                }}
+                            >
+                                Logout
                             </div>
                         </div>
                     )}

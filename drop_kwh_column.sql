@@ -1,0 +1,1 @@
+ALTER TABLE [Trans].[TblCrusher] DROP COLUMN KWH;

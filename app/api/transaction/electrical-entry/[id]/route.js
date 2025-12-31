@@ -30,20 +30,43 @@ export async function PUT(request, { params }) {
     try {
         const { id } = await params;
         const body = await request.json();
-        const { Date: entryDate, ShiftId, RelayId, EquipmentId, OMR, CMR, TotalUnit, UnitId, Remarks } = body;
+        console.log("Update Payload:", body);
+        const { Date: entryDate, ShiftId, RelayId, EquipmentId, PlantId, OMR, CMR, TotalUnit, UnitId, Remarks, entryType } = body;
 
         const cookieStore = await cookies();
         const token = cookieStore.get('token');
-        let updatedBy = 'System';
+        let updatedBy = 1; // Default
         if (token) {
             const decoded = decode(token.value);
-            updatedBy = decoded?.username || 'System';
+            if (decoded?.id) updatedBy = decoded.id;
         }
 
         const pool = await getDbConnection();
 
-        // Unique Check (Excluding current ID)
-        const checkQuery = `
+        // Helper to safely convert to int or null
+        const safeInt = (val) => (val && val !== '' && !isNaN(val)) ? parseInt(val) : null;
+        const type = entryType ? entryType.trim() : '';
+
+        // Mutual Exclusivity Logic based on Explicit Type
+        let finalEquipmentId = null;
+        let finalPlantId = null;
+
+        if (type === 'Equipment') {
+            finalEquipmentId = safeInt(EquipmentId);
+            finalPlantId = null;
+        } else if (type === 'Plant') {
+            finalEquipmentId = null;
+            finalPlantId = safeInt(PlantId);
+        } else {
+            // Fallback
+            finalEquipmentId = safeInt(EquipmentId);
+            finalPlantId = safeInt(EquipmentId) ? null : safeInt(PlantId);
+        }
+
+        console.log("Resolved IDs for Update:", { finalEquipmentId, finalPlantId, entryType });
+
+        // 1. Unique Check (Exclude Self)
+        let checkQuery = `
             SELECT COUNT(*) as count 
             FROM [Trans].[TblElectricalEntry] 
             WHERE IsDelete = 0 
@@ -51,21 +74,29 @@ export async function PUT(request, { params }) {
             AND CAST(Date AS DATE) = @date 
             AND ShiftId = @shiftId 
             AND RelayId = @relayId 
-            AND EquipmentId = @equipmentId
         `;
+
+        // Use Final IDs for Check
+        if (finalEquipmentId) {
+            checkQuery += ` AND EquipmentId = @equipmentId`;
+        } else {
+            checkQuery += ` AND PlantId = @plantId`;
+        }
+
         const checkReq = pool.request();
-        checkReq.input('id', sql.BigInt, id);
+        checkReq.input('id', sql.Int, id);
         checkReq.input('date', sql.Date, entryDate);
         checkReq.input('shiftId', sql.Int, ShiftId);
         checkReq.input('relayId', sql.Int, RelayId);
-        checkReq.input('equipmentId', sql.Int, EquipmentId);
+        if (finalEquipmentId) checkReq.input('equipmentId', sql.Int, finalEquipmentId);
+        if (finalPlantId) checkReq.input('plantId', sql.Int, finalPlantId);
 
         const checkResult = await checkReq.query(checkQuery);
         if (checkResult.recordset[0].count > 0) {
-            return NextResponse.json({ success: false, message: "Duplicate Entry: Record already exists for this combination." }, { status: 409 });
+            return NextResponse.json({ success: false, message: "Duplicate: Record exists for this combination." }, { status: 409 });
         }
 
-        // Update
+        // 2. Update
         const updateQuery = `
             UPDATE [Trans].[TblElectricalEntry]
             SET 
@@ -73,28 +104,34 @@ export async function PUT(request, { params }) {
                 ShiftId = @shiftId,
                 RelayId = @relayId,
                 EquipmentId = @equipmentId,
+                PlantId = @plantId,
                 OMR = @omr,
                 CMR = @cmr,
                 TotalUnit = @totalUnit,
                 UnitId = @unitId,
                 Remarks = @remarks,
                 UpdatedBy = @updatedBy,
-                UpdatedDate = GETDATE()
+                UpdatedDate = GETDATE(),
+                Type = @type
             WHERE SlNo = @id
         `;
 
         const updateReq = pool.request();
-        updateReq.input('id', sql.BigInt, id);
+        updateReq.input('id', sql.Int, id);
         updateReq.input('date', sql.Date, entryDate);
         updateReq.input('shiftId', sql.Int, ShiftId);
         updateReq.input('relayId', sql.Int, RelayId);
-        updateReq.input('equipmentId', sql.Int, EquipmentId);
+
+        // Pass Final IDs
+        updateReq.input('equipmentId', sql.Int, finalEquipmentId);
+        updateReq.input('plantId', sql.Int, finalPlantId);
         updateReq.input('omr', sql.Decimal(18, 3), OMR);
         updateReq.input('cmr', sql.Decimal(18, 3), CMR);
         updateReq.input('totalUnit', sql.Decimal(18, 3), TotalUnit);
         updateReq.input('unitId', sql.Int, UnitId);
         updateReq.input('remarks', sql.VarChar, Remarks);
-        updateReq.input('updatedBy', sql.VarChar, updatedBy);
+        updateReq.input('updatedBy', sql.Int, updatedBy);
+        updateReq.input('type', sql.VarChar, type);
 
         await updateReq.query(updateQuery);
 

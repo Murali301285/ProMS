@@ -19,16 +19,16 @@ export async function GET(request) {
         // Get Current User
         const cookieStore = await cookies();
         const authToken = cookieStore.get('auth_token')?.value;
-        let currentUser = 'Admin';
+        let userId = 1; // Default
         if (authToken) {
             const decoded = jwt.decode(authToken);
-            if (decoded?.name) currentUser = decoded.name;
+            if (decoded?.id) userId = decoded.id;
         }
 
         let query = '';
         let params = [
             { name: 'date', value: date },
-            { name: 'user', value: currentUser }
+            { name: 'user', value: userId }
         ];
 
         // Base Filter

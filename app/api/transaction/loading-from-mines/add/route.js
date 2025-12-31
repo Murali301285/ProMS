@@ -1,15 +1,22 @@
 /* 🔒 LOCKED MODULE: DO NOT EDIT WITHOUT CONFIRMATION */
 import { NextResponse } from 'next/server';
 import { executeQuery, sql } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 
 export async function POST(request) {
     try {
+        const user = await authenticateUser(request);
+        if (!user) {
+            return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+        }
+        const UserId = user.id; // Use authenticated User ID
+
         const body = await request.json();
         const {
-            Date: date, ShiftId, ShiftInchargeId, ManPower, RelayId,
+            Date: date, ShiftId, ShiftInchargeId, MidScaleInchargeId, ManPower, RelayId,
             SourceId, DestinationId, MaterialId, HaulerId, LoadingMachineId,
             NoOfTrips, MangQtyTrip, NTPCQtyTrip, Unit, MangTotalQty, NTPCTotalQty,
-            UserId, Remarks // Assuming we get this from somewhere, or use default
+            Remarks // UserId removed from body destructuring
         } = body;
 
         if (!date || !ShiftId || !HaulerId || !LoadingMachineId) {
@@ -49,12 +56,12 @@ export async function POST(request) {
         // Columns adjusted to match GET API: LoadingDate, ShiftId, ManPowerInShift, RelayId...
         const query = `
             INSERT INTO [Trans].[TblLoading] (
-                LoadingDate, ShiftId, ManPowerInShift, RelayId,
+                LoadingDate, ShiftId, ShiftInchargeId, MidScaleInchargeId, ManPowerInShift, RelayId,
                 SourceId, DestinationId, MaterialId, HaulerEquipmentId, LoadingMachineEquipmentId,
                 NoofTrip, QtyTrip, NtpcQtyTrip, UnitId, TotalQty, TotalNtpcQty,
                 CreatedDate, IsDelete, CreatedBy, Remarks
             ) OUTPUT INSERTED.SlNo VALUES (
-                @date, @ShiftId, @ManPower, @RelayId,
+                @date, @ShiftId, @ShiftInchargeId, @MidScaleInchargeId, @ManPower, @RelayId,
                 @SourceId, @DestinationId, @MaterialId, @HaulerId, @LoadingMachineId,
                 @NoOfTrips, @MangQtyTrip, @NTPCQtyTrip, ISNULL(@Unit, 1), @MangTotalQty, @NTPCTotalQty,
                 GETDATE(), 0, @UserId, @Remarks
@@ -64,6 +71,8 @@ export async function POST(request) {
         const result = await executeQuery(query, [
             { name: 'date', type: sql.Date, value: date },
             { name: 'ShiftId', type: sql.Int, value: ShiftId },
+            { name: 'ShiftInchargeId', type: sql.Int, value: ShiftInchargeId || null },
+            { name: 'MidScaleInchargeId', type: sql.Int, value: MidScaleInchargeId || null },
             { name: 'ManPower', type: sql.Int, value: ManPower },
             { name: 'RelayId', type: sql.Int, value: RelayId },
             { name: 'SourceId', type: sql.Int, value: SourceId },
@@ -78,14 +87,15 @@ export async function POST(request) {
             { name: 'MangTotalQty', type: sql.Decimal(18, 2), value: MangTotalQty },
             { name: 'NTPCTotalQty', type: sql.Decimal(18, 2), value: NTPCTotalQty },
 
-            // Default to 2 (Admin) if no user provided, as 1 doesn't exist
-            { name: 'UserId', type: sql.Int, value: UserId || 2 },
+            { name: 'UserId', type: sql.Int, value: UserId },
             { name: 'Remarks', type: sql.NVarChar, value: Remarks }
         ]);
 
         const newId = result[0]?.SlNo;
 
         if (newId) {
+            // Deprecated: Multi-select table insert removed as per new Single Select requirement.
+            /*
             // Insert Shift Incharge (Multi-select support)
             // ShiftInchargeId can be array or single value (if older client?)
             const incharges = Array.isArray(ShiftInchargeId) ? ShiftInchargeId : (ShiftInchargeId ? [ShiftInchargeId] : []);
@@ -95,6 +105,7 @@ export async function POST(request) {
                     { name: 'oid', type: sql.Int, value: opId }
                 ]);
             }
+            */
         }
         // REDO STRATEGY: 
         // 1. Modify Main Insert to use OUTPUT INSERTED.SlNo.

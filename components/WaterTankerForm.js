@@ -26,7 +26,6 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
         DestinationId: '',
         HaulerId: '',
         FillingPointId: '',
-        FillingPumpId: '',
         NoOfTrip: '',
         Capacity: '',
         TotalQty: '',
@@ -45,17 +44,31 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
     const destRef = useRef(null);
     const haulerRef = useRef(null);
     const fillPtRef = useRef(null);
-    const fillPumpRef = useRef(null);
     const tripsRef = useRef(null);
     const remarksRef = useRef(null);
 
-    // Auto Focus Shift on Load
+    // Auto Focus Shift on Load & Smart Context
     useEffect(() => {
-        if (shiftRef.current) setTimeout(() => shiftRef.current.focus(), 100);
-    }, []);
+        setTimeout(() => {
+            shiftRef.current?.focus();
+        }, 100);
 
-    // Last Entry Context Logic - REMOVED AS PER REQUEST
-    // useEffect(() => { ... }, []);
+        if (!initialData) {
+            // Smart Context: Pre-load Date & Shift from Last Entry
+            fetch('/api/transaction/helper/water-tanker-last-context', { method: 'POST' })
+                .then(res => res.json())
+                .then(json => {
+                    if (json.success && json.data) {
+                        setFormData(prev => ({
+                            ...prev,
+                            EntryDate: json.data.EntryDate ? json.data.EntryDate.split('T')[0] : prev.EntryDate,
+                            ShiftId: json.data.ShiftId ? String(json.data.ShiftId) : ''
+                        }));
+                    }
+                })
+                .catch(console.error);
+        }
+    }, [initialData]);
 
     // Fetch Table Data
     const fetchTableData = async () => {
@@ -64,8 +77,8 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
         try {
             const config = TRANSACTION_CONFIG['water-tanker-entry'];
             const params = new URLSearchParams({
-                fromDate: formData.EntryDate,
-                toDate: formData.EntryDate
+                date: formData.EntryDate, // Changed from fromDate to date to match API
+                shift: formData.ShiftId || ''
             });
             const res = await fetch(`${config.apiEndpoint}?${params}`);
             const result = await res.json();
@@ -83,7 +96,7 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
 
     useEffect(() => {
         fetchTableData();
-    }, [formData.EntryDate]);
+    }, [formData.EntryDate, formData.ShiftId]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -116,20 +129,19 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
             setErrors(prev => ({ ...prev, [name]: false }));
         }
 
-        if (['ShiftId', 'DestinationId', 'HaulerId', 'FillingPointId', 'FillingPumpId'].includes(name)) {
+        if (['ShiftId', 'DestinationId', 'HaulerId', 'FillingPointId'].includes(name)) {
             setTimeout(() => {
                 if (name === 'ShiftId') destRef.current?.focus();
                 if (name === 'DestinationId') haulerRef.current?.focus();
                 if (name === 'HaulerId') fillPtRef.current?.focus();
-                if (name === 'FillingPointId') fillPumpRef.current?.focus();
-                if (name === 'FillingPumpId') tripsRef.current?.focus();
+                if (name === 'FillingPointId') tripsRef.current?.focus();
             }, 100);
         }
     };
 
     const handleSave = async () => {
         const newErrors = {};
-        ['EntryDate', 'ShiftId', 'DestinationId', 'HaulerId', 'FillingPointId', 'FillingPumpId', 'NoOfTrip', 'Capacity', 'TotalQty'].forEach(f => {
+        ['EntryDate', 'ShiftId', 'DestinationId', 'HaulerId', 'FillingPointId', 'NoOfTrip', 'Capacity', 'TotalQty'].forEach(f => {
             if (!formData[f]) newErrors[f] = true;
         });
 
@@ -165,7 +177,6 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
                         DestinationId: '',
                         HaulerId: '',
                         FillingPointId: '',
-                        FillingPumpId: '',
                         NoOfTrip: '',
                         Capacity: '',
                         TotalQty: '',
@@ -224,7 +235,17 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
     const shiftOpts = helpers.shifts?.map(s => ({ id: s.SlNo, name: s.ShiftName })) || [];
     const destOpts = helpers.fillingPoints?.map(f => ({ id: f.SlNo, name: f.FillingPoint })) || [];
     const haulerOpts = helpers.haulers?.map(h => ({ id: h.SlNo, name: h.EquipmentName })) || [];
-    const pumpOpts = helpers.fillingPumps?.map(p => ({ id: p.SlNo, name: p.FillingPump })) || [];
+
+    const [lastEntry, setLastEntry] = useState(null);
+
+    useEffect(() => {
+        fetch('/api/transaction/water-tanker-entry/latest')
+            .then(res => res.json())
+            .then(json => {
+                if (json.success && json.data) setLastEntry(json.data);
+            })
+            .catch(console.error);
+    }, []);
 
     return (
         <div className={styles.container}>
@@ -234,7 +255,15 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
                     <ArrowLeft size={16} /> Back
                 </button>
 
-                <h1 className={styles.title}>{initialData ? 'Update' : 'Create'} Water Tanker Entry</h1>
+                <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, marginLeft: '10px', alignItems: 'center' }}>
+                    <h1 className={styles.title} style={{ marginBottom: 0 }}>{initialData ? 'Update' : 'Create'} Water Tanker Entry</h1>
+                    {/* Last Entry Display - Hidden per User Request */}
+                    {/* {lastEntry && (
+                        <span style={{ color: '#2563eb', fontStyle: 'italic', fontSize: '0.85rem', fontWeight: 500 }}>
+                            Last data entered on -&gt; Date: {lastEntry.EntryDate ? new Date(lastEntry.EntryDate).toLocaleDateString('en-GB') : ''} | Entered by : {lastEntry.CreatedByName || lastEntry.CreatedBy || 'Unknown'}
+                        </span>
+                    )} */}
+                </div>
 
                 <div className={styles.headerActions}>
                     <button className={styles.refreshBtn} onClick={() => window.location.reload()}>
@@ -252,9 +281,12 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
             </div>
 
             <div className={styles.card}>
-                {/* ROW 1: Date & Shift */}
-                <div className={styles.row1}>
-                    <div className={styles.group}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '15px' }}>
+
+                    {/* --- Row 1 --- */}
+
+                    {/* Date: R1 C1 */}
+                    <div className={styles.group} style={{ gridColumn: '1 / span 1' }}>
                         <label>Date <span className={styles.required}>*</span> {errors.EntryDate && <span className={styles.errorMsg}>Required</span>}</label>
                         <input
                             type="date"
@@ -264,7 +296,9 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
                             className={`${styles.input} ${errors.EntryDate ? styles.errorBorder : ''}`}
                         />
                     </div>
-                    <div className={styles.group}>
+
+                    {/* Shift: R1 C2 */}
+                    <div className={styles.group} style={{ gridColumn: '2 / span 1' }}>
                         <label>Shift <span className={styles.required}>*</span> {errors.ShiftId && <span className={styles.errorMsg}>Required</span>}</label>
                         <SearchableSelect
                             ref={shiftRef}
@@ -276,11 +310,9 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
                             className={styles.select}
                         />
                     </div>
-                </div>
 
-                {/* ROW 2: Destination, Hauler, Filling Point, Filling Pump */}
-                <div className={styles.row2}>
-                    <div className={styles.group}>
+                    {/* Destination (Filling Pt): R1 C3-C4 (Span 2) */}
+                    <div className={styles.group} style={{ gridColumn: '3 / span 2' }}>
                         <label>Destination (Filling Pt) <span className={styles.required}>*</span> {errors.DestinationId && <span className={styles.errorMsg}>Required</span>}</label>
                         <SearchableSelect
                             ref={destRef}
@@ -292,7 +324,11 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
                             className={styles.select}
                         />
                     </div>
-                    <div className={styles.group}>
+
+                    {/* --- Row 2 --- */}
+
+                    {/* Hauler: R2 C1-C2 (Span 2) */}
+                    <div className={styles.group} style={{ gridColumn: '1 / span 2' }}>
                         <label>Hauler <span className={styles.required}>*</span> {errors.HaulerId && <span className={styles.errorMsg}>Required</span>}</label>
                         <SearchableSelect
                             ref={haulerRef}
@@ -304,35 +340,27 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
                             className={styles.select}
                         />
                     </div>
-                    <div className={styles.group}>
+
+                    {/* Filling Point: R2 C3-C4 (Span 2) */}
+                    <div className={styles.group} style={{ gridColumn: '3 / span 2' }}>
                         <label>Filling Point <span className={styles.required}>*</span> {errors.FillingPointId && <span className={styles.errorMsg}>Required</span>}</label>
                         <SearchableSelect
                             ref={fillPtRef}
                             name="FillingPointId"
-                            options={destOpts} // Reuse Filling Point opts as per previous logic (or if separate list needed, use correct opts)
+                            options={destOpts}
                             value={formData.FillingPointId}
                             onChange={handleChange}
                             error={errors.FillingPointId}
                             className={styles.select}
                         />
                     </div>
-                    <div className={styles.group}>
-                        <label>Filling Pump <span className={styles.required}>*</span> {errors.FillingPumpId && <span className={styles.errorMsg}>Required</span>}</label>
-                        <SearchableSelect
-                            ref={fillPumpRef}
-                            name="FillingPumpId"
-                            options={pumpOpts}
-                            value={formData.FillingPumpId}
-                            onChange={handleChange}
-                            error={errors.FillingPumpId}
-                            className={styles.select}
-                        />
-                    </div>
-                </div>
 
-                {/* ROW 3: Trips -> Totals */}
-                <div className={styles.row3}>
-                    <div className={styles.group}>
+
+
+                    {/* --- Row 3 --- */}
+
+                    {/* No Of Trip: R3 C1 */}
+                    <div className={styles.group} style={{ gridColumn: '1 / span 1' }}>
                         <label>No Of Trip <span className={styles.required}>*</span> {errors.NoOfTrip && <span className={styles.errorMsg}>Required</span>}</label>
                         <input
                             ref={tripsRef}
@@ -344,7 +372,9 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
                             onKeyDown={(e) => { if (e.key === 'Enter') remarksRef.current?.focus(); }}
                         />
                     </div>
-                    <div className={styles.group}>
+
+                    {/* Capacity: R3 C2 */}
+                    <div className={styles.group} style={{ gridColumn: '2 / span 1' }}>
                         <label>Capacity <span className={styles.required}>*</span> {errors.Capacity && <span className={styles.errorMsg}>Required</span>}</label>
                         <input
                             type="number"
@@ -353,7 +383,9 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
                             className={`${styles.input} ${styles.readOnly} ${errors.Capacity ? styles.errorBorder : ''}`}
                         />
                     </div>
-                    <div className={styles.group}>
+
+                    {/* Total Qty: R3 C3 */}
+                    <div className={styles.group} style={{ gridColumn: '3 / span 1' }}>
                         <label>Total Qty <span className={styles.required}>*</span> {errors.TotalQty && <span className={styles.errorMsg}>Required</span>}</label>
                         <input
                             type="number"
@@ -362,25 +394,27 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
                             className={`${styles.input} ${styles.readOnly} ${errors.TotalQty ? styles.errorBorder : ''}`}
                         />
                     </div>
-                </div>
 
-                {/* ROW 5: Remarks */}
-                <div className={styles.group}>
-                    <label>Remarks</label>
-                    <input
-                        ref={remarksRef}
-                        type="text"
-                        name="Remarks"
-                        value={formData.Remarks}
-                        onChange={handleChange}
-                        className={styles.input}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
-                    />
+                    {/* --- Row 4 --- */}
+
+                    {/* Remarks: R4 C1-C6 (Span 6) */}
+                    <div className={styles.group} style={{ gridColumn: '1 / span 6' }}>
+                        <label>Remarks</label>
+                        <input
+                            ref={remarksRef}
+                            type="text"
+                            name="Remarks"
+                            value={formData.Remarks}
+                            onChange={handleChange}
+                            className={styles.input}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+                        />
+                    </div>
                 </div>
             </div>
 
             <div className={styles.dataTableSection}>
-                <h3 className={styles.tableTitle}>Recent Entries</h3>
+                {/* <h3 className={styles.tableTitle}>Recent Entries</h3> */}
                 <TransactionTable
                     config={TRANSACTION_CONFIG['water-tanker-entry']}
                     data={tableData}

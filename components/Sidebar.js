@@ -7,9 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import styles from './Sidebar.module.css';
 
-const bottomItems = [
-    { name: 'Logout', icon: Icons.LogOut, path: '#' },
-];
+const bottomItems = [];
 
 // Helper for strict path matching
 const checkIsActive = (currentPath, menuPath, isLeaf = false) => {
@@ -180,15 +178,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         setExpandedMenus(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
-    const handleLogout = async () => {
-        try {
-            await fetch('/api/auth/logout', { method: 'POST' });
-            window.location.href = '/';
-        } catch (error) {
-            console.error('Logout failed', error);
-            window.location.href = '/';
-        }
-    };
+
 
     if (loading) return <aside className={`${styles.sidebar} ${isCollapsed ? styles.mini : ''}`}><div style={{ padding: '20px' }}>Loading...</div></aside>;
 
@@ -228,29 +218,14 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 ))}
 
                 {bottomItems.map((item) => (
-                    item.name === 'Logout' ? (
-                        <div key={item.name} className={styles.navGroup}>
-                            <div
-                                className={`${styles.navItem} ${styles.logoutItem}`}
-                                onClick={handleLogout}
-                                title={isCollapsed ? item.name : ''}
-                            >
-                                <div className={styles.link}>
-                                    <item.icon size={20} />
-                                    <span className={styles.label}>{item.name}</span>
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <NavItem
-                            key={item.name}
-                            item={item}
-                            pathname={pathname}
-                            expandedMenus={expandedMenus}
-                            toggleSubMenu={toggleSubMenu}
-                            isCollapsed={isCollapsed}
-                        />
-                    )
+                    <NavItem
+                        key={item.name}
+                        item={item}
+                        pathname={pathname}
+                        expandedMenus={expandedMenus}
+                        toggleSubMenu={toggleSubMenu}
+                        isCollapsed={isCollapsed}
+                    />
                 ))}
             </div>
         </aside>

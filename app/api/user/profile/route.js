@@ -96,7 +96,7 @@ export async function PUT(req) {
 
         if (updates.length > 0) {
             updates.push("UpdatedDate = GETDATE()");
-            updates.push("UpdatedBy = @UserId"); // Self-update
+
             const query = `UPDATE [Master].[TblUser_New] SET ${updates.join(', ')} WHERE SlNo = @UserId`;
             await request.query(query);
         }

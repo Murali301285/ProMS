@@ -12,6 +12,7 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
+    const [user, setUser] = useState(null); // Added User State
 
     // Explicit Module Type
     const moduleType = 'material-rehandling';
@@ -21,6 +22,7 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
     const inchargeRef = useRef(null);
     const sourceRef = useRef(null);
     const destinationRef = useRef(null);
+    const haulerRef = useRef(null); // Added Hauler Ref
     const prevDateRef = useRef(new Date().toISOString().split('T')[0]);
 
     // Initial Form State
@@ -30,7 +32,8 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
         RehandlingId: 0,
         Date: today,
         ShiftId: '',
-        ShiftInchargeId: [],
+        ShiftInchargeId: '', // Changed to single value
+        MidScaleInchargeId: '', // Added Mid Scale
         RelayId: '',
         SourceId: '',
         DestinationId: '',
@@ -107,6 +110,14 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
     useEffect(() => {
         const loadInit = async () => {
             try {
+                // Get User Info
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                    try {
+                        setUser(JSON.parse(userStr));
+                    } catch (e) { console.error(e); }
+                }
+
                 // Fetch Dropdowns
                 const fetchDDL = async (table, filter = null, extra = []) => {
                     try {
@@ -164,14 +175,19 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                         ...initialData,
                         // Fix Date Mapping
                         Date: initialData.RehandlingDate ? new Date(initialData.RehandlingDate).toISOString().split('T')[0] : today,
-                        MangQtyTrip: initialData.QtyTrip,
+
+                        // Map Incharges
+                        ShiftInchargeId: initialData.ShiftInchargeId || '',
+                        MidScaleInchargeId: initialData.MidScaleInchargeId || '',
+
+                        MangQtyTrip: initialData.QtyTrip || '',
 
                         // Ensure Unit is string for Select
                         Unit: initialData.UnitId ? String(initialData.UnitId) : '',
 
-                        NTPCQtyTrip: initialData.NtpcQtyTrip,
-                        MangTotalQty: initialData.TotalQty,
-                        NTPCTotalQty: initialData.TotalNtpcQty,
+                        NTPCQtyTrip: initialData.NtpcQtyTrip || '',
+                        MangTotalQty: initialData.TotalQty || '',
+                        NTPCTotalQty: initialData.TotalNtpcQty || '',
                         Remarks: initialData.Remarks || ''
                     });
                 }
@@ -207,7 +223,8 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
             } catch (e) { console.error("User Parse Error", e); }
 
             try {
-                const res = await fetch('/api/transaction/helper/last-context', {
+                console.log("🚀 [MaterialRehandling] Fetching Context from: /api/transaction/material-rehandling/helper/last-context");
+                const res = await fetch('/api/transaction/material-rehandling/helper/last-context', {
                     method: 'POST',
                     body: JSON.stringify({
                         date: formData.Date,
@@ -230,27 +247,35 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
 
                     const isFallback = res.source === 'LoadingFallback';
 
+                    const newDate = res.data.Date ? new Date(res.data.Date).toISOString().split('T')[0] : '';
+                    const isDefaultDate = formData.Date === new Date().toISOString().split('T')[0];
+
                     setFormData(prev => {
                         const newState = {
                             ...prev,
+                            // Smart Date Update
+                            Date: (isDefaultDate && newDate) ? newDate : (prev.Date || newDate),
+
                             ShiftId: res.data.ShiftId || prev.ShiftId,
-                            ShiftInchargeId: incharges.length > 0 ? incharges : [],
+
+                            // Map Context Incharges if available
+                            ShiftInchargeId: (res.data.ShiftInchargeId || res.data.ShiftInchargeIds?.[0]) || '',
+                            MidScaleInchargeId: (res.data.MidScaleInchargeId) || '',
+
                             RelayId: res.data.RelayId || '',
                             ManPower: res.data.ManPower || '',
-
-                            // If Fallback, CLEAR specific fields, else use data or keep prev (actually context load usually implies replace?)
-                            // Standard Context Load: Replace if valid, else empty? 
-                            // Existing logic: 
-                            // SourceId: res.data.SourceId || '', -> verified in previous code
 
                             SourceId: isFallback ? '' : (res.data.SourceId || ''),
                             DestinationId: isFallback ? '' : (res.data.DestinationId || ''),
                             MaterialId: isFallback ? '' : (res.data.MaterialId || ''),
                             HaulerId: isFallback ? '' : (res.data.HaulerEquipmentId || ''),
-                            LoadingMachineId: isFallback ? '' : (res.data.LoadingMachineId || ''),
-                            Unit: isFallback ? '' : (res.data.Unit ? String(res.data.Unit) : ''), // Ensure string for select
 
-                            // Clear others on context load?
+                            // Explicitly clear Loader as per request
+                            LoadingMachineId: '',
+
+                            Unit: isFallback ? '' : (res.data.Unit ? String(res.data.Unit) : ''),
+
+                            // Clear others on context load
                             NoOfTrips: '',
                             MangQtyTrip: '',
                             NTPCQtyTrip: '',
@@ -261,8 +286,11 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                         return newState;
                     });
 
-                    toast.info(`Context Loaded (${isFallback ? 'From Daily Loading' : 'Previous Entry'})`);
-                    if (sourceRef.current) setTimeout(() => sourceRef.current.focus(), 300);
+                    // Removed Debug Toast
+                    toast.info(`Context Loaded (${isFallback ? 'From Daily Loading' : 'Previous Entry'})`, { id: 'ctx-load-mr' });
+
+                    // Auto Focus Hauler
+                    if (haulerRef.current) setTimeout(() => haulerRef.current.focus(), 300);
 
                 } else {
                     // NO DATA FOUND -> AUTO CLEAR LOGIC
@@ -274,7 +302,12 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                             // If Date changed, and no context found, we clear everything including shift (unless manually set?)
                             // Let's stick to existing logic for resets
 
-                            ShiftInchargeId: [],
+                            // Keep Shift if manually selected? 
+                            // Legacy: ShiftInchargeId: []
+
+                            ShiftInchargeId: '',
+                            MidScaleInchargeId: '',
+
                             RelayId: '',
                             SourceId: '',
                             DestinationId: '',
@@ -314,7 +347,12 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
     // Handle Input Change
     const handleChange = (e) => {
         const { name, value } = e.target;
-        if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+        // console.log(`[Form Change] ${name} = ${value} (Type: ${typeof value})`);
+
+        // Clear error if value is valid (truthy or 0)
+        if (errors[name] && (value || value === 0)) {
+            setErrors(prev => ({ ...prev, [name]: '' }));
+        }
 
         // Strict Integer Validation
         if (['ManPower', 'NoOfTrips'].includes(name)) {
@@ -349,8 +387,8 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                         setFormData(prev => {
                             const upd = {
                                 ...prev,
-                                MangQtyTrip: res.data.ManagementQtyTrip,
-                                NTPCQtyTrip: res.data.NTPCQtyTrip
+                                MangQtyTrip: res.data.ManagementQtyTrip ?? '',
+                                NTPCQtyTrip: res.data.NTPCQtyTrip ?? ''
                             };
                             calculateTotals(upd);
                             return upd;
@@ -435,8 +473,11 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
             if (!isValid(formData[field])) newErrors[field] = 'Required';
         });
 
-        if (!formData.ShiftInchargeId || (Array.isArray(formData.ShiftInchargeId) && formData.ShiftInchargeId.length === 0)) {
+        if (!formData.ShiftInchargeId) {
             newErrors.ShiftInchargeId = 'Required';
+        }
+        if (!formData.MidScaleInchargeId) {
+            newErrors.MidScaleInchargeId = 'Required';
         }
 
         setErrors(newErrors);
@@ -466,7 +507,7 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
             if (res.success) {
                 toast.success(isEdit ? "Record updated!" : "Record saved!");
                 if (isEdit) {
-                    router.back();
+                    router.push('/dashboard/transaction/material-rehandling');
                 } else {
                     setFormData(prev => ({
                         ...prev,
@@ -520,118 +561,218 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                         <ArrowLeft size={18} /> Back
                     </button>
 
-                    <button onClick={() => {
-                        if (confirm('Reset?')) window.location.reload();
-                    }} className="p-1.5 rounded text-gray-500 hover:bg-gray-100"><RotateCcw size={16} /></button>
+
                 </div>
 
                 <h1 className={styles.headerTitle}>
                     {isEdit ? 'Update' : 'Create'} Material Rehandling
                 </h1>
 
-                <button onClick={handleSubmit} disabled={isLoading} className={styles.saveBtn}>
-                    {isLoading ? <Loader2 className="animate-spin" /> : <Save size={18} />}
-                    {isEdit ? 'Update (F2)' : 'Save (F2)'}
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => {
+                        if (confirm('Reset?')) window.location.reload();
+                    }} className={styles.refreshBtn} title="Reset Form">
+                        <RotateCcw size={18} />
+                    </button>
+                    <button onClick={handleSubmit} disabled={isLoading} className={styles.saveBtn}>
+                        {isLoading ? <Loader2 className="animate-spin" /> : <Save size={18} />}
+                        {isEdit ? 'Update (F2)' : 'Save (F2)'}
+                    </button>
+                </div>
             </div>
 
+            {/* 8-COLUMN GRID LAYOUT */}
             <form className={styles.card} onSubmit={(e) => e.preventDefault()}>
-                {/* Row 1 */}
-                <div className={styles.rowContext}>
-                    <div className={styles.group}>
-                        <label>Date <span className="text-red-500">*</span></label>
-                        <input type="date" name="Date" value={formData.Date} onChange={handleChange} className={`${styles.input} ${errors.Date ? styles.errorBorder : ''}`} />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '15px' }}>
+
+                    {/* --- Row 1 --- */}
+
+                    {/* Date: R1 C1 */}
+                    <div className={styles.group} style={{ gridColumn: 'span 1' }}>
+                        <label>Date <span style={{ color: 'red' }}>*</span></label>
+                        <input
+                            type="date" name="Date" value={formData.Date}
+                            onChange={handleChange}
+                            onClick={(e) => {
+                                try {
+                                    if (e.target.showPicker) e.target.showPicker();
+                                } catch (err) { console.log(err); }
+                            }}
+                            className={`${styles.input} ${errors.Date ? styles.errorBorder : ''}`}
+                        />
+                        {errors.Date && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
-                        <label>Shift <span className="text-red-500">*</span></label>
+
+                    {/* Shift: R1 C2 */}
+                    <div className={styles.group} style={{ gridColumn: '2 / span 1' }}>
+                        <label>Shift <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect ref={shiftRef} name="ShiftId" value={formData.ShiftId} onChange={handleChange} options={options.shifts} placeholder="Shift" className={styles.select} error={errors.ShiftId} autoFocus />
+                        {errors.ShiftId && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
-                        <label>Incharge <span className="text-red-500">*</span></label>
-                        <SearchableSelect ref={inchargeRef} name="ShiftInchargeId" value={formData.ShiftInchargeId} onChange={handleChange} options={options.incharges} placeholder="Incharge" className={styles.select} multiple error={errors.ShiftInchargeId} />
-                    </div>
-                    <div className={styles.group}>
-                        <label>Man Power <span className="text-red-500">*</span></label>
-                        <input type="text" name="ManPower" value={formData.ManPower} onChange={handleChange} className={`${styles.input} ${errors.ManPower ? styles.errorBorder : ''}`} onKeyDown={handleEnter} />
-                    </div>
-                    <div className={styles.group}>
-                        <label>Relay <span className="text-red-500">*</span></label>
-                        <SearchableSelect name="RelayId" value={formData.RelayId} onChange={handleChange} options={options.relays} placeholder="Relay" className={styles.select} error={errors.RelayId} />
-                    </div>
-                </div>
 
-                <hr className={styles.divider} />
+                    {/* Shift Incharge (Large Scale): R1 C3-C4 (Span 2) */}
+                    <div className={styles.group} style={{ gridColumn: '3 / span 2' }}>
+                        <label>Incharge (Large-Scale) <span style={{ color: 'red' }}>*</span></label>
+                        <SearchableSelect
+                            ref={inchargeRef}
+                            name="ShiftInchargeId"
+                            value={formData.ShiftInchargeId}
+                            onChange={handleChange}
+                            options={options.incharges}
+                            placeholder="Large Scale"
+                            className={styles.select}
+                            error={errors.ShiftInchargeId}
+                        />
+                        {errors.ShiftInchargeId && <div className={styles.errorMsg}>Required</div>}
+                    </div>
 
-                {/* Row 2 */}
-                <div className={styles.rowConfig}>
-                    <div className={styles.group}>
-                        <label>Source <span className="text-red-500">*</span></label>
+                    {/* Incharge (Mid Scale): R1 C5-C6 (Span 2) */}
+                    <div className={styles.group} style={{ gridColumn: '5 / span 2' }}>
+                        <label>Incharge (Mid-Scale) <span style={{ color: 'red' }}>*</span></label>
+                        <SearchableSelect
+                            name="MidScaleInchargeId"
+                            value={formData.MidScaleInchargeId}
+                            onChange={handleChange}
+                            options={options.incharges}
+                            placeholder="Mid Scale"
+                            className={styles.select}
+                            error={errors.MidScaleInchargeId}
+                        />
+                        {errors.MidScaleInchargeId && <div className={styles.errorMsg}>Required</div>}
+                    </div>
+
+                    {/* Man Power: R1 C7 */}
+                    <div className={styles.group} style={{ gridColumn: '7 / span 1' }}>
+                        <label>Man Power <span style={{ color: 'red' }}>*</span></label>
+                        <input
+                            type="text" name="ManPower" value={formData.ManPower}
+                            onChange={handleChange} className={`${styles.input} ${errors.ManPower ? styles.errorBorder : ''}`}
+                            onKeyDown={handleEnter} placeholder="Man Power"
+                        />
+                        {errors.ManPower && <div className={styles.errorMsg}>Required</div>}
+                    </div>
+
+                    {/* Relay: R1 C8 */}
+                    <div className={styles.group} style={{ gridColumn: '8 / span 1' }}>
+                        <label>Relay <span style={{ color: 'red' }}>*</span></label>
+                        <SearchableSelect
+                            name="RelayId"
+                            value={formData.RelayId}
+                            onChange={handleChange}
+                            options={options.relays}
+                            placeholder="Relay"
+                            className={styles.select}
+                            error={errors.RelayId}
+                        />
+                        {errors.RelayId && <div className={styles.errorMsg}>Required</div>}
+                    </div>
+
+
+                    {/* --- Row 2 --- */}
+
+                    {/* Source: R2 C1 */}
+                    <div className={styles.group} style={{ gridColumn: '1 / span 1' }}>
+                        <label>Source <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect ref={sourceRef} name="SourceId" value={formData.SourceId} onChange={handleChange} options={options.sources} placeholder="Source" className={styles.select} error={errors.SourceId} />
+                        {errors.SourceId && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
-                        <label>Destination <span className="text-red-500">*</span></label>
+
+                    {/* Destination: R2 C2 */}
+                    <div className={styles.group} style={{ gridColumn: '2 / span 1' }}>
+                        <label>Destination <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect ref={destinationRef} name="DestinationId" value={formData.DestinationId} onChange={handleChange} options={options.destinations} placeholder="Dest" className={styles.select} error={errors.DestinationId} />
+                        {errors.DestinationId && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
-                        <label>Material <span className="text-red-500">*</span></label>
+
+                    {/* Material: R2 C3 */}
+                    <div className={styles.group} style={{ gridColumn: '3 / span 1' }}>
+                        <label>Material <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect name="MaterialId" value={formData.MaterialId} onChange={handleChange} options={filteredMaterials} placeholder="Material" className={styles.select} error={errors.MaterialId} />
+                        {errors.MaterialId && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
-                        <label>Hauler <span className="text-red-500">*</span></label>
-                        <SearchableSelect name="HaulerId" value={formData.HaulerId} onChange={handleChange} options={options.haulers} placeholder="Hauler" className={styles.select} error={errors.HaulerId} />
+
+                    {/* Hauler: R2 C4-C5 (Span 2) */}
+                    <div className={styles.group} style={{ gridColumn: '4 / span 2' }}>
+                        <label>Hauler <span style={{ color: 'red' }}>*</span></label>
+                        <SearchableSelect ref={haulerRef} name="HaulerId" value={formData.HaulerId} onChange={handleChange} options={options.haulers} placeholder="Hauler" className={styles.select} error={errors.HaulerId} />
+                        {errors.HaulerId && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
-                        <label>Loader <span className="text-red-500">*</span></label>
+
+                    {/* Loading M/C: R2 C6-C7 (Span 2) */}
+                    <div className={styles.group} style={{ gridColumn: '6 / span 2' }}>
+                        <label>Loader <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect name="LoadingMachineId" value={formData.LoadingMachineId} onChange={handleChange} options={options.loaders} placeholder="Loader" className={styles.select} error={errors.LoadingMachineId} />
+                        {errors.LoadingMachineId && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                </div>
 
-                <hr className={styles.divider} />
 
-                {/* Row 3 */}
-                <div className={styles.rowQuantities}>
-                    <div className={styles.group}>
-                        <label>Trips <span className="text-red-500">*</span></label>
-                        <input type="text" name="NoOfTrips" value={formData.NoOfTrips} onChange={handleChange} className={`${styles.input} ${errors.NoOfTrips ? styles.errorBorder : ''}`} onKeyDown={handleEnter} />
+                    {/* --- Row 3 --- */}
+
+                    {/* No of Trips: R3 C1 */}
+                    <div className={styles.group} style={{ gridColumn: '1 / span 1' }}>
+                        <label>Trips <span style={{ color: 'red' }}>*</span></label>
+                        <input type="text" name="NoOfTrips" value={formData.NoOfTrips} onChange={handleChange} className={`${styles.input} ${errors.NoOfTrips ? styles.errorBorder : ''}`} onKeyDown={handleEnter} placeholder="Trips" />
+                        {errors.NoOfTrips && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
-                        <label>Mang. Qty/Trip</label>
-                        <input type="number" value={formData.MangQtyTrip} readOnly className={`${styles.input} ${styles.readOnly} ${errors.MangQtyTrip ? styles.errorBorder : ''}`} />
+
+                    {/* Mang Qty/Trip: R3 C2 */}
+                    <div className={styles.group} style={{ gridColumn: '2 / span 1' }}>
+                        <label>Mang. Load Factor <span style={{ color: 'red' }}>*</span></label>
+                        <input type="number" name="MangQtyTrip" value={formData.MangQtyTrip} readOnly className={`${styles.input} ${styles.readOnly} ${errors.MangQtyTrip ? styles.errorBorder : ''}`} />
+                        {errors.MangQtyTrip && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
-                        <label>NTPC Qty/Trip</label>
-                        <input type="number" value={formData.NTPCQtyTrip} readOnly className={`${styles.input} ${styles.readOnly} ${errors.NTPCQtyTrip ? styles.errorBorder : ''}`} />
+
+                    {/* NTPC Qty/Trip: R3 C3 */}
+                    <div className={styles.group} style={{ gridColumn: '3 / span 1' }}>
+                        <label>NTPC Load Factor <span style={{ color: 'red' }}>*</span></label>
+                        <input type="number" name="NTPCQtyTrip" value={formData.NTPCQtyTrip} readOnly className={`${styles.input} ${styles.readOnly} ${errors.NTPCQtyTrip ? styles.errorBorder : ''}`} />
+                        {errors.NTPCQtyTrip && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
-                        <label>Unit <span className="text-red-500">*</span></label>
+
+                    {/* Unit: R3 C4 */}
+                    <div className={styles.group} style={{ gridColumn: '4 / span 1' }}>
+                        <label>Unit <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect name="Unit" value={formData.Unit} onChange={handleChange} options={options.units} placeholder="Unit" className={styles.select} error={errors.Unit} />
+                        {errors.Unit && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
-                        <label>Total Mang. Qty</label>
-                        <input type="number" value={formData.MangTotalQty} readOnly className={`${styles.input} ${styles.readOnly} ${errors.MangTotalQty ? styles.errorBorder : ''}`} />
-                    </div>
-                    <div className={styles.group}>
-                        <label>Total NTPC Qty</label>
-                        <input type="number" value={formData.NTPCTotalQty} readOnly className={`${styles.input} ${styles.readOnly} ${errors.NTPCTotalQty ? styles.errorBorder : ''}`} />
-                    </div>
-                </div>
 
-                <div className={styles.remarksRow} style={{ marginTop: '12px' }}>
-                    <div className={styles.group}>
-                        <label>Remarks</label>
-                        <input type="text" name="Remarks" value={formData.Remarks} onChange={handleChange} className={styles.input} placeholder="Remarks..." onKeyDown={handleEnter} />
+                    {/* Mang Total Qty: R3 C5 */}
+                    <div className={styles.group} style={{ gridColumn: '5 / span 1' }}>
+                        <label>Mang Total Qty <span style={{ color: 'red' }}>*</span></label>
+                        <input type="number" name="MangTotalQty" value={formData.MangTotalQty} readOnly className={`${styles.input} ${styles.readOnly} ${errors.MangTotalQty ? styles.errorBorder : ''}`} />
                     </div>
+
+                    {/* NTPC Total Qty: R3 C6 */}
+                    <div className={styles.group} style={{ gridColumn: '6 / span 1' }}>
+                        <label>NTPC Total Qty <span style={{ color: 'red' }}>*</span></label>
+                        <input type="number" name="NTPCTotalQty" value={formData.NTPCTotalQty} readOnly className={`${styles.input} ${styles.readOnly} ${errors.NTPCTotalQty ? styles.errorBorder : ''}`} />
+                    </div>
+
+
+                    {/* --- Row 4 --- */}
+
+                    {/* Remarks: R4 C1-C6 (Span 6) */}
+                    <div className={styles.group} style={{ gridColumn: '1 / span 6' }}>
+                        <label>Remarks</label>
+                        <input
+                            type="text"
+                            name="Remarks" value={formData.Remarks} onChange={handleChange}
+                            className={styles.input} placeholder="Remarks..."
+                            onKeyDown={handleEnter}
+                        />
+                    </div>
+
                 </div>
 
                 <div className={styles.tableSection} style={{ marginTop: '20px' }}>
-                    <h3 className={styles.tableHeader}>Recent Rehandling</h3>
                     <TransactionTable
                         config={{
                             columns: [
                                 { accessor: 'SlNo', label: 'ID', width: 60 },
                                 { accessor: 'RehandlingDate', label: 'Date', width: 90, type: 'date' },
                                 { accessor: 'ShiftName', label: 'Shift', width: 80 },
-                                { accessor: 'ShiftInCharge', label: 'InCharge', width: 150 },
+                                { accessor: 'ShiftInchargeName', label: 'Incharge (Large)', width: 140 }, // Mapped from API
+                                { accessor: 'MidScaleInchargeName', label: 'Incharge (Mid)', width: 140 }, // Mapped from API
                                 { accessor: 'ManPower', label: 'Man Power', width: 80 },
                                 { accessor: 'RelayName', label: 'Relay', width: 80 },
                                 { accessor: 'SourceName', label: 'Source', width: 100 },
@@ -640,8 +781,8 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                                 { accessor: 'HaulerName', label: 'Hauler', width: 100 },
                                 { accessor: 'LoadingMachineName', label: 'Loader', width: 100 },
                                 { accessor: 'NoofTrip', label: 'Trips', width: 60 },
-                                { accessor: 'QtyTrip', label: 'Mang. Qty/Trip', width: 90 },
-                                { accessor: 'NtpcQtyTrip', label: 'NTPC Qty/Trip', width: 90 },
+                                { accessor: 'QtyTrip', label: 'Management Load Factor', width: 90 },
+                                { accessor: 'NtpcQtyTrip', label: 'NTPC Load Factor', width: 90 },
                                 { accessor: 'TotalQty', label: 'Total Mang. Qty', width: 100 },
                                 { accessor: 'TotalNtpcQty', label: 'Total NTPC Qty', width: 100 },
                                 { accessor: 'UnitName', label: 'Unit', width: 60 },
@@ -658,6 +799,7 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                                 router.push(`/dashboard/transaction/material-rehandling/${row.SlNo}`);
                             }
                         }}
+                        title={`Recent Transactions - By ${user?.username || user?.UserName || user?.name || 'User'}`}
                     />
                 </div>
             </form>

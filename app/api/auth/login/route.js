@@ -12,7 +12,7 @@ export async function POST(request) {
             return NextResponse.json({ message: 'Username and Password are required' }, { status: 400 });
         }
 
-        const user = await verifyUser(username, password);
+        const user = await verifyUser(username, password, process.env.DB_DATABASE || 'ProdMS2.0_test');
 
         if (!user) {
             return NextResponse.json({ message: 'Invalid credentials' }, { status: 401 });
@@ -23,32 +23,32 @@ export async function POST(request) {
         const token = jwt.sign(
             { id: user.id, username: user.username, role: user.role, roleId: user.roleId },
             SECRET,
-            { expiresIn: '30m' } // 30 Minutes Session
+            { expiresIn: '12h' } // 12 Hours Session (Client side handles inactivity)
         );
 
         // Set Cookie
         const cookieStore = await cookies();
         cookieStore.set('auth_token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: false, // process.env.NODE_ENV === 'production',
             sameSite: 'strict',
-            maxAge: 30 * 60, // 30 minutes in seconds
+            maxAge: 12 * 60 * 60, // 12 hours in seconds
             path: '/',
         });
 
         cookieStore.set('role_id', user.roleId, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: false, // process.env.NODE_ENV === 'production',
             sameSite: 'strict',
-            maxAge: 30 * 60,
+            maxAge: 12 * 60 * 60,
             path: '/',
         });
 
-        cookieStore.set('current_db', 'ProdMS_live', { // Default to live for now, or dynamic
+        cookieStore.set('current_db', process.env.DB_DATABASE || 'ProdMS_live', { // Use Env Variable!
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: false, // process.env.NODE_ENV === 'production',
             sameSite: 'strict',
-            maxAge: 30 * 60,
+            maxAge: 12 * 60 * 60,
             path: '/',
         });
 

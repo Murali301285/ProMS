@@ -8,11 +8,13 @@ export async function GET() {
     try {
         const query = `
             SELECT TOP 1 
-                RehandlingDate as Date, 
-                CreatedBy 
-            FROM [Trans].[TblMaterialRehandling]
-            WHERE isDelete = 0
-            ORDER BY CreatedDate DESC
+                T.RehandlingDate as Date, 
+                T.CreatedBy,
+                ISNULL(U.EmpName, 'Unknown') as CreatedByName
+            FROM [Trans].[TblMaterialRehandling] T
+            LEFT JOIN [Master].[TblUser_New] U ON T.CreatedBy = U.SlNo
+            WHERE T.isDelete = 0
+            ORDER BY T.CreatedDate DESC
         `;
         const data = await executeQuery(query);
         const result = data.length > 0 ? data[0] : null;

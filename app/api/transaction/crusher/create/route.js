@@ -1,16 +1,23 @@
 
 import { NextResponse } from 'next/server';
 import { getDbConnection, sql } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
     try {
         const body = await request.json();
+        console.log("Crusher Create Payload:", JSON.stringify(body, null, 2));
+
+        const user = await authenticateUser(request);
+        const userId = user ? user.id : 1;
+
         const {
             Date: date,
             ShiftId,
-            ShiftInChargeId, // OperatorId
+            ShiftInChargeId, // OperatorId (Large Scale)
+            MidScaleInchargeId, // OperatorId (Mid Scale)
             ManPowerInShift,
             PlantId,
             BeltScaleOHMR,
@@ -24,11 +31,10 @@ export async function POST(request) {
             TotalQty,
             OHMR,
             CHMR,
-            KWH,
             RunningHr,
             TotalStoppageHours,
-            Remarks,
-            UserName = 'Admin', // Default to 'Admin'
+            Remarks: remarksVal, // Renamed to avoid cache collision
+            CreatedBy = userId,
             stoppages = []
         } = body;
 
@@ -41,7 +47,8 @@ export async function POST(request) {
 
             req.input('Date', sql.Date, date);
             req.input('ShiftId', sql.Int, ShiftId);
-            req.input('ShiftInChargeId', sql.VarChar, body.ShiftInChargeId);
+            req.input('ShiftInChargeId', sql.Int, (ShiftInChargeId && ShiftInChargeId != '0') ? ShiftInChargeId : null);
+            req.input('MidScaleInchargeId', sql.Int, (MidScaleInchargeId && MidScaleInchargeId != '0') ? MidScaleInchargeId : null);
             req.input('ManPowerInShift', sql.Decimal(18, 2), ManPowerInShift || 0); // Assuming numeric
             req.input('PlantId', sql.Int, PlantId);
             req.input('BeltScaleOHMR', sql.Decimal(18, 2), BeltScaleOHMR || 0);
@@ -49,38 +56,39 @@ export async function POST(request) {
             req.input('ProductionUnitId', sql.Int, ProductionUnitId);
             req.input('ProductionQty', sql.Decimal(18, 2), ProductionQty || 0);
 
-            req.input('EquipmentId', sql.Int, EquipmentId || null);
+            req.input('EquipmentId', sql.Int, (EquipmentId && EquipmentId != '0') ? EquipmentId : null);
             req.input('NoofTrip', sql.Int, NoofTrip || 0);
             req.input('QtyTrip', sql.Decimal(18, 2), QtyTrip || 0);
-            req.input('TripQtyUnitId', sql.Int, TripQtyUnitId || null);
+            req.input('TripQtyUnitId', sql.Int, (TripQtyUnitId && TripQtyUnitId != '0') ? TripQtyUnitId : null);
 
             req.input('TotalQty', sql.Decimal(18, 2), TotalQty || 0);
             req.input('OHMR', sql.Decimal(18, 2), OHMR || 0);
             req.input('CHMR', sql.Decimal(18, 2), CHMR || 0);
-            req.input('KWH', sql.Decimal(18, 3), KWH || null);
             req.input('RunningHr', sql.Decimal(18, 2), RunningHr || 0);
             req.input('TotalStoppageHours', sql.Decimal(18, 2), TotalStoppageHours || 0);
 
-            req.input('Remarks', sql.NVarChar, Remarks);
-            req.input('UserName', sql.VarChar(50), UserName);
+            req.input('Remarks', sql.NVarChar, remarksVal);
+            req.input('CreatedBy', sql.Int, CreatedBy);
 
             const query = `
                 INSERT INTO [Trans].[TblCrusher] (
-                    [Date], ShiftId, ShiftInChargeId, ManPowerInShift, PlantId,
+                    [Date], ShiftId, ShiftInChargeId, MidScaleInchargeId, ManPowerInShift, PlantId,
                     BeltScaleOHMR, BeltScaleCHMR, ProductionUnitId, ProductionQty,
-                    HaulerId, NoofTrip, QtyTrip, TripQtyUnitId,
-                    TotalQty, OHMR, CHMR, KWH, RunningHr, TotalStoppageHours,
+                    HaulerEquipmentId,
+                    NoofTrip, QtyTrip, TripQtyUnitId,
+                    TotalQty, OHMR, CHMR, RunningHr, TotalStoppageHours,
                     Remarks,
                     CreatedBy, CreatedDate, IsDelete
                 )
                 OUTPUT INSERTED.SlNo
                 VALUES (
-                    @Date, @ShiftId, @ShiftInChargeId, @ManPowerInShift, @PlantId,
+                    @Date, @ShiftId, @ShiftInChargeId, @MidScaleInchargeId, @ManPowerInShift, @PlantId,
                     @BeltScaleOHMR, @BeltScaleCHMR, @ProductionUnitId, @ProductionQty,
-                    @EquipmentId, @NoofTrip, @QtyTrip, @TripQtyUnitId,
-                    @TotalQty, @OHMR, @CHMR, @KWH, @RunningHr, @TotalStoppageHours,
+                    @EquipmentId,
+                    @NoofTrip, @QtyTrip, @TripQtyUnitId,
+                    @TotalQty, @OHMR, @CHMR, @RunningHr, @TotalStoppageHours,
                     @Remarks,
-                    @UserName, GETDATE(), 0
+                    @CreatedBy, GETDATE(), 0
                 )
             `;
 
@@ -110,6 +118,10 @@ export async function POST(request) {
             return NextResponse.json({ success: true, message: 'Record created successfully' });
 
         } catch (err) {
+            console.error("Transaction Error Details:", err);
+            if (err.originalError) {
+                console.error("Original SQL Error:", err.originalError);
+            }
             await transaction.rollback();
             throw err;
         }
@@ -117,6 +129,10 @@ export async function POST(request) {
 
     } catch (error) {
         console.error("Error creating Crusher record:", error);
-        return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+        return NextResponse.json({
+            success: false,
+            message: error.message,
+            details: error.originalError?.message || error.toString()
+        }, { status: 500 });
     }
 }

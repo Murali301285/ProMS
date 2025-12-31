@@ -10,6 +10,7 @@ const SearchableSelect = forwardRef(({
     onChange,
     placeholder = 'Select...',
     name,
+    id, // Added ID prop
     error,
     autoFocus,
     className,
@@ -207,8 +208,9 @@ const SearchableSelect = forwardRef(({
                 className={`${styles.input} ${error ? styles.errorBorder : ''} ${className || ''}`}
                 onClick={() => setIsOpen(!isOpen)}
                 onKeyDown={handleKeyDown}
+                id={id} // Bind ID
                 data-searchable="true"
-                style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: 'var(--input)', border: '1px solid #cbd5e1' }}
+                style={{ textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
                 autoFocus={autoFocus}
             >
                 <span style={{ opacity: (multiple ? value?.length : value) ? 1 : 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginRight: '8px' }}>

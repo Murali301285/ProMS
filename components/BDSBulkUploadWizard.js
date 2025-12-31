@@ -15,14 +15,14 @@ export default function BDSBulkUploadWizard({ onBack }) {
     const [progress, setProgress] = useState(0);
     const [hasValidData, setHasValidData] = useState(true);
     const fileInputRef = useRef(null);
-    const [masters, setMasters] = useState({ parties: [] });
+    const [masters, setMasters] = useState({ smeCategories: [] });
     const [error, setError] = useState(null);
 
     // Config for BDS
     const columns = [
         { label: 'Date(dd/mm/yyyy)', accessor: 'Date', required: true, type: 'date', example: 'YYYY-MM-DD' },
-        { label: 'Party Name', accessor: 'PartyName', required: true, lookup: true },
-        { label: 'Vehicle No', accessor: 'VehicleNo', required: true },
+        { label: 'SME Category', accessor: 'SMECategory', required: true, lookup: true },
+        { label: 'VehicleNo', accessor: 'VehicleNo', required: true },
         { label: 'Weighment (Kg)', accessor: 'Weighment', required: true, type: 'number' },
         { label: 'Counter Reading (Kg)', accessor: 'CounterReading', required: true, type: 'number' },
         { label: 'Loading Sheet (Kg)', accessor: 'LoadingSheet', required: true, type: 'number' },
@@ -33,9 +33,9 @@ export default function BDSBulkUploadWizard({ onBack }) {
     ];
 
     useEffect(() => {
-        // Fetch Party Master
-        fetch('/api/master/party').then(r => r.json()).then(res => {
-            if (res.data) setMasters({ parties: res.data });
+        // Fetch SME Category Master
+        fetch('/api/master/sme-category').then(r => r.json()).then(res => {
+            if (res.data) setMasters({ smeCategories: res.data });
         });
     }, []);
 
@@ -57,7 +57,7 @@ export default function BDSBulkUploadWizard({ onBack }) {
 
         // Define Mandatory Fields for Styling
         const mandatoryFields = [
-            'Date(dd/mm/yyyy)', 'Party Name', 'Vehicle No',
+            'Date(dd/mm/yyyy)', 'SME Category', 'Vehicle No',
             'Weighment (Kg)', 'Counter Reading (Kg)', 'Loading Sheet (Kg)',
             'Std Deduction (Kg)', 'Accepted Qty (Kg)'
         ];
@@ -139,12 +139,12 @@ export default function BDSBulkUploadWizard({ onBack }) {
 
                         // Lookup Validation
                         if (col.lookup && val) {
-                            const party = masters.parties.find(p => p.PartyName.toLowerCase() === String(val).toLowerCase().trim());
-                            if (party) {
-                                newRow['PartyId'] = party.SlNo;
+                            const sme = masters.smeCategories.find(p => p.name.toLowerCase() === String(val).toLowerCase().trim());
+                            if (sme) {
+                                newRow['SMECategoryId'] = sme.id;
                             } else {
                                 isValid = false;
-                                missing.push(`Invalid Party: ${val}`);
+                                missing.push(`Invalid SME Category: ${val}`);
                             }
                         }
 
@@ -202,7 +202,7 @@ export default function BDSBulkUploadWizard({ onBack }) {
                 // Simple call to API
                 const payload = {
                     Date: dateVal,
-                    PartyId: row.PartyId,
+                    SMECategoryId: row.SMECategoryId,
                     VehicleNo: row.VehicleNo,
                     Weighment: row.Weighment,
                     CounterReading: row.CounterReading,

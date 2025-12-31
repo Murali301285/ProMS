@@ -7,11 +7,12 @@ export async function GET() {
         const pool = await getDbConnection();
         const result = await pool.request().query(`
             SELECT TOP 1 
-                Date,
-                CreatedBy 
-            FROM [Trans].[TblBlasting]
-            WHERE isDelete = 0
-            ORDER BY CreatedDate DESC
+                T.Date,
+                ISNULL(U.EmpName, 'Unknown') AS CreatedByName
+            FROM [Trans].[TblBlasting] T
+            LEFT JOIN [Master].[TblUser_New] U ON T.CreatedBy = U.SlNo
+            WHERE T.isDelete = 0
+            ORDER BY T.CreatedDate DESC
         `);
 
         if (result.recordset.length > 0) {

@@ -171,7 +171,7 @@ export default function DrillingPage() {
     return (
         <div className={styles.page} style={{ position: 'relative' }}>
             {/* Blocking Overlay */}
-            {loading && <LoadingOverlay message="Processing..." />}
+            {/* {loading && <LoadingOverlay message="Processing..." />} */}
 
             {/* Header */}
             <div className={styles.header}>
@@ -231,7 +231,7 @@ export default function DrillingPage() {
             <TransactionTable
                 config={config}
                 data={data} // Full Data passed
-                isLoading={false} // Loading handled by overlay
+                isLoading={loading} // Loading handled by overlay
                 onDelete={handleDelete}
                 userRole={userRole}
                 onEdit={handleEdit}

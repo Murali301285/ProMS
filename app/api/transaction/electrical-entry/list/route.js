@@ -17,21 +17,27 @@ export async function POST(request) {
                 T.Date,
                 S.ShiftName,
                 R.Name as RelayName,
-                E.EquipmentName,
+                CASE WHEN T.PlantId IS NOT NULL THEN P.Name ELSE E.EquipmentName END as EquipmentName,
+                T.Type,
+                T.EquipmentId,
+                T.PlantId,
                 T.OMR,
                 T.CMR,
                 T.TotalUnit,
                 U.Name as UnitName,
                 T.Remarks,
-                T.CreatedBy as CreatedByName,
+                ISNULL(U1.EmpName, 'Unknown') as CreatedByName,
                 T.CreatedDate,
-                T.UpdatedBy as UpdatedByName,
+                ISNULL(U2.EmpName, 'Unknown') as UpdatedByName,
                 T.UpdatedDate
             FROM [Trans].[TblElectricalEntry] T
             LEFT JOIN [Master].[TblShift] S ON T.ShiftId = S.SlNo
             LEFT JOIN [Master].[TblRelay] R ON T.RelayId = R.SlNo
             LEFT JOIN [Master].[TblEquipment] E ON T.EquipmentId = E.SlNo
+            LEFT JOIN [Master].[TblPlant] P ON T.PlantId = P.SlNo
             LEFT JOIN [Master].[TblUnit] U ON T.UnitId = U.SlNo
+            LEFT JOIN [Master].[TblUser_New] U1 ON T.CreatedBy = U1.SlNo
+            LEFT JOIN [Master].[TblUser_New] U2 ON T.UpdatedBy = U2.SlNo
             WHERE T.IsDelete = 0
         `;
 

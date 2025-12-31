@@ -19,7 +19,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
         columns: [
             { accessor: 'SlNo', label: '#', width: 50, frozen: true },
             { accessor: 'Date', label: 'Date', type: 'date', width: 100, frozen: true },
-            { accessor: 'PartyName', label: 'Party', width: 150 },
+            { accessor: 'SMECategoryName', label: 'SME Category', width: 200 },
             { accessor: 'VehicleNo', label: 'Vehicle No', width: 120 },
             { accessor: 'Weighment', label: 'Weighment', type: 'number', width: 100 },
             { accessor: 'CounterReading', label: 'Counter', type: 'number', width: 100 },
@@ -35,7 +35,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
 
     const [formData, setFormData] = useState({
         Date: today,
-        PartyId: '',
+        SMECategoryId: '',
         VehicleNo: '',
         Weighment: '',
         CounterReading: '',
@@ -51,7 +51,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
     const [recentData, setRecentData] = useState([]);
     const [loadingRecent, setLoadingRecent] = useState(false);
     const [userRole, setUserRole] = useState(null);
-    const [parties, setParties] = useState([]);
+    const [smeCategories, setSmeCategories] = useState([]);
     const [lastEntry, setLastEntry] = useState(null);
 
     const formRef = useRef(null);
@@ -59,9 +59,10 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
     useEffect(() => {
         fetch('/api/auth/me').then(r => r.json()).then(res => { if (res.user) setUserRole(res.user.role); });
 
-        fetch('/api/master/party').then(r => r.json()).then(res => {
-            if (res.data) setParties(res.data.map(p => ({ id: String(p.SlNo), name: p.PartyName })));
+        fetch('/api/master/sme-category').then(r => r.json()).then(res => {
+            if (res.data) setSmeCategories(res.data); // data has {id, name}
         });
+
 
         fetchLastEntry();
 
@@ -69,7 +70,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
             setFormData({
                 ...initialData,
                 Date: initialData.Date ? new Date(initialData.Date).toISOString().split('T')[0] : today,
-                PartyId: initialData.PartyId ? String(initialData.PartyId) : '',
+                SMECategoryId: initialData.SMECategoryId ? String(initialData.SMECategoryId) : '',
                 VehicleNo: initialData.VehicleNo || '',
                 Weighment: initialData.Weighment,
                 CounterReading: initialData.CounterReading,
@@ -81,6 +82,24 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
             });
         }
     }, [mode, initialData]);
+
+    // Smart Context Effect
+    useEffect(() => {
+        if (mode === 'create' && lastEntry) {
+            setFormData({
+                Date: lastEntry.Date ? new Date(lastEntry.Date).toISOString().split('T')[0] : today,
+                SMECategoryId: lastEntry.SMECategoryId ? String(lastEntry.SMECategoryId) : '',
+                VehicleNo: '',
+                Weighment: '',
+                CounterReading: '',
+                LoadingSheet: '',
+                StandardDeduction: '',
+                AcceptedQuantity: '',
+                ChallanNo: '',
+                Remarks: ''
+            });
+        }
+    }, [lastEntry, mode]);
 
     useEffect(() => { if (formData.Date) fetchRecentData(); }, [formData.Date]);
 
@@ -129,7 +148,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
     const handleReset = () => {
         setFormData({
             Date: today,
-            PartyId: '',
+            SMECategoryId: '',
             VehicleNo: '',
             Weighment: '',
             CounterReading: '',
@@ -145,7 +164,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
     const validate = () => {
         const newErrors = {};
         if (!formData.Date) newErrors.Date = 'Required';
-        if (!formData.PartyId) newErrors.PartyId = 'Required';
+        if (!formData.SMECategoryId) newErrors.SMECategoryId = 'Required';
         if (!formData.VehicleNo) newErrors.VehicleNo = 'Required';
 
         ['Weighment', 'CounterReading', 'LoadingSheet', 'StandardDeduction', 'AcceptedQuantity'].forEach(field => {
@@ -218,7 +237,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
         if (e.key === 'Enter') {
             e.preventDefault();
             const order = [
-                'Date', 'PartyId', 'VehicleNo',
+                'Date', 'SMECategoryId', 'VehicleNo',
                 'Weighment', 'CounterReading', 'LoadingSheet', 'StandardDeduction', 'AcceptedQuantity',
                 'ChallanNo', 'Remarks'
             ];
@@ -227,11 +246,11 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
                 const nextField = order[currentIndex + 1];
 
                 // Special handling for SearchableSelect component which might not have standard name attr on input
-                if (nextField === 'PartyId') {
+                if (nextField === 'SMECategoryId') {
                     // Try to find the first input inside the select container's expected area
                     // Ideally SearchableSelect should expose a ref or ID, but we try generic DOM traversal
                     const inputs = formRef.current.querySelectorAll('input');
-                    // 'Date' is 0, Party input is likely index 1 (depends on rendering)
+                    // 'Date' is 0, SME input is likely index 1 (depends on rendering)
                     if (inputs[1]) inputs[1].focus();
                 } else {
                     const nextInput = formRef.current.querySelector(`[name="${nextField}"]`);
@@ -247,14 +266,14 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
     return (
         <div className={css.container}>
             <div className={css.header}>
-                <button onClick={() => router.back()} className={css.backBtn}>
+                <button onClick={() => router.push('/dashboard/transaction/bds-entry')} className={css.backBtn}>
                     <ArrowLeft size={16} /> Back
                 </button>
                 <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, alignItems: 'center' }}>
                     <h1 className={css.headerTitle} style={{ fontSize: '15px' }}>{mode === 'edit' ? 'Update' : 'Create'} BDS Entry</h1>
                     {mode === 'create' && lastEntry && (
                         <div className="text-xs text-gray-500 mt-1" style={{ fontSize: '11px' }}>
-                            Last data: <span className="font-semibold">{new Date(lastEntry.Date).toLocaleDateString('en-GB')}</span> | Party: <span className="font-semibold text-blue-600">{lastEntry.PartyName}</span> | By: <span className="font-semibold text-blue-600">{lastEntry.CreatedByName || lastEntry.CreatedBy || 'Admin'}</span>
+                            Last data entered on -&gt; Date: <span className="font-semibold">{new Date(lastEntry.Date).toLocaleDateString('en-GB')}</span> | Entered by : <span className="font-semibold text-blue-600">{lastEntry.CreatedByName || lastEntry.CreatedBy || 'Admin'}</span>
                         </div>
                     )}
                 </div>
@@ -268,8 +287,12 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
             </div>
 
             <div className={css.card} ref={formRef}>
-                <div className={css.row} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
-                    <div className={css.group} style={{ width: '50%' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '15px' }}>
+
+                    {/* --- Row 1 --- */}
+
+                    {/* Date: R1 C1 */}
+                    <div className={css.group} style={{ gridColumn: '1 / span 1' }}>
                         <label className={css.label}>Date <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="date"
@@ -281,20 +304,24 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
                             autoFocus
                         />
                     </div>
-                    <div className={css.group} style={{ width: '50%' }}>
-                        <label className={css.label}>Party <span style={{ color: 'red' }}>*</span></label>
+
+                    {/* SME Category: R1 C2-C3 (Span 2) */}
+                    <div className={css.group} style={{ gridColumn: '2 / span 2' }}>
+                        <label className={css.label}>SME Category <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
-                            options={parties}
-                            value={formData.PartyId}
-                            onChange={(e) => handleSelectChange('PartyId', e.target.value)}
-                            placeholder="Select Party"
-                            error={errors.PartyId}
+                            options={smeCategories}
+                            value={formData.SMECategoryId}
+                            onChange={(e) => handleSelectChange('SMECategoryId', e.target.value)}
+                            placeholder="Select SME Category"
+                            error={errors.SMECategoryId}
                             className={css.input}
-                            name="PartyId" // Ensure this is passed if supported, else SearchableSelect needs update
-                            onKeyDown={(e) => handleKeyDown(e, 'PartyId')} // Needs implementation in SearchableSelect usually
+                            name="SMECategoryId"
+                            onKeyDown={(e) => handleKeyDown(e, 'SMECategoryId')}
                         />
                     </div>
-                    <div className={css.group} style={{ width: '50%' }}>
+
+                    {/* Vehicle No: R1 C4 */}
+                    <div className={css.group} style={{ gridColumn: '4 / span 1' }}>
                         <label className={css.label}>Vehicle No <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="text"
@@ -307,81 +334,86 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
                             placeholder="Enter Vehicle No"
                         />
                     </div>
-                </div>
 
-                <div className={css.divider}></div>
+                    {/* --- Row 2 --- */}
 
-                {/*
-                    Numeric Row + Challan
-                    User wants inputs to be 50% width.
-                    We will keep grid but wrapper inputs in div or use inline width.
-                    Order: Weighment, Counter, Loading, StdDed, Accepted, Challan
-                */}
-                <div className={css.row} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px' }}>
-                    <div className={css.group}>
+                    {/* Weighment: R2 C1 */}
+                    <div className={css.group} style={{ gridColumn: '1 / span 1' }}>
                         <label className={css.label}>Weighment (Kg) <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="number" name="Weighment"
                             value={formData.Weighment} onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, 'Weighment')}
                             className={css.input} step="0.001"
-                            style={{ width: '50%', borderColor: errors.Weighment ? 'red' : '' }}
+                            style={{ borderColor: errors.Weighment ? 'red' : '' }}
                         />
                     </div>
-                    <div className={css.group}>
+
+                    {/* Counter Reading: R2 C2 */}
+                    <div className={css.group} style={{ gridColumn: '2 / span 1' }}>
                         <label className={css.label}>Counter Reading (Kg) <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="number" name="CounterReading"
                             value={formData.CounterReading} onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, 'CounterReading')}
                             className={css.input} step="0.001"
-                            style={{ width: '50%', borderColor: errors.CounterReading ? 'red' : '' }}
+                            style={{ borderColor: errors.CounterReading ? 'red' : '' }}
                         />
                     </div>
-                    <div className={css.group}>
+
+                    {/* Loading Sheet: R2 C3 */}
+                    <div className={css.group} style={{ gridColumn: '3 / span 1' }}>
                         <label className={css.label}>Loading Sheet (Kg) <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="number" name="LoadingSheet"
                             value={formData.LoadingSheet} onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, 'LoadingSheet')}
                             className={css.input} step="0.001"
-                            style={{ width: '50%', borderColor: errors.LoadingSheet ? 'red' : '' }}
+                            style={{ borderColor: errors.LoadingSheet ? 'red' : '' }}
                         />
                     </div>
-                    <div className={css.group}>
+
+                    {/* --- Row 3 --- */}
+
+                    {/* Std Deduction: R3 C1 */}
+                    <div className={css.group} style={{ gridColumn: '1 / span 1' }}>
                         <label className={css.label}>Std Deduction (Kg) <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="number" name="StandardDeduction"
                             value={formData.StandardDeduction} onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, 'StandardDeduction')}
                             className={css.input} step="0.001"
-                            style={{ width: '50%', borderColor: errors.StandardDeduction ? 'red' : '' }}
+                            style={{ borderColor: errors.StandardDeduction ? 'red' : '' }}
                         />
                     </div>
-                    <div className={css.group}>
+
+                    {/* Accepted Qty: R3 C2 */}
+                    <div className={css.group} style={{ gridColumn: '2 / span 1' }}>
                         <label className={css.label}>Accepted Qty (Kg) <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="number" name="AcceptedQuantity"
                             value={formData.AcceptedQuantity} onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, 'AcceptedQuantity')}
                             className={css.input} step="0.001"
-                            style={{ width: '50%', borderColor: errors.AcceptedQuantity ? 'red' : '' }}
+                            style={{ borderColor: errors.AcceptedQuantity ? 'red' : '' }}
                         />
                     </div>
-                    <div className={css.group}>
+
+                    {/* Challan No: R3 C3 */}
+                    <div className={css.group} style={{ gridColumn: '3 / span 1' }}>
                         <label className={css.label}>Challan No</label>
                         <input
                             type="text" name="ChallanNo"
                             value={formData.ChallanNo} onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, 'ChallanNo')}
                             className={css.input} placeholder="Enter Challan No"
-                            style={{ width: '50%' }}
                         />
                     </div>
-                </div>
 
-                <div className={css.row}>
-                    <div className={css.group} style={{ width: '100%' }}>
+                    {/* --- Row 4 --- */}
+
+                    {/* Remarks: R4 C1-C6 (Span 6) */}
+                    <div className={css.group} style={{ gridColumn: '1 / span 6' }}>
                         <label className={css.label}>Remarks</label>
                         <input
                             type="text" name="Remarks"
@@ -390,6 +422,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
                             className={css.input}
                         />
                     </div>
+
                 </div>
             </div>
 

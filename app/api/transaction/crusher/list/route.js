@@ -39,17 +39,16 @@ export async function GET(request) {
                 T.[Date],
                 T.ShiftId,
                 T.ShiftInChargeId,
+                T.MidScaleInchargeId,
                 T.PlantId,
                 T.ProductionUnitId,
-                T.HaulerId as EquipmentId,
+                T.HaulerEquipmentId as EquipmentId,
                 T.TripQtyUnitId,
                 
                 S.ShiftName,
                 
-                (SELECT STRING_AGG(O_Sub.OperatorName, ', ') 
-                 FROM STRING_SPLIT(T.ShiftInChargeId, ',') SS
-                 JOIN [Master].[TblOperator] O_Sub ON O_Sub.SlNo = TRY_CAST(SS.value AS INT)
-                ) as ShiftInChargeName,
+                O_Large.OperatorName as ShiftInChargeName,
+                O_Mid.OperatorName as MidScaleInchargeName,
                 
                 T.ManPowerInShift,
                 
@@ -71,21 +70,21 @@ export async function GET(request) {
                 T.OHMR,
                 T.CHMR,
                 T.RunningHr,
-                T.KWH,
                 T.TotalStoppageHours,
                 T.Remarks,
 
-                CU.UserName as CreatedByName,
+                CU.EmpName as CreatedByName,
                 T.CreatedDate,
-                UU.UserName as UpdatedByName,
+                UU.EmpName as UpdatedByName,
                 T.UpdatedDate
-
+            
             FROM [Trans].[TblCrusher] T
             LEFT JOIN [Master].[TblShift] S ON T.ShiftId = S.SlNo
-            -- LEFT JOIN [Master].[TblOperator] O ON T.ShiftInChargeId = O.SlNo -- REMOVED: CSV Issue
+            LEFT JOIN [Master].[TblOperator] O_Large ON T.ShiftInChargeId = O_Large.SlNo
+            LEFT JOIN [Master].[TblOperator] O_Mid ON T.MidScaleInchargeId = O_Mid.SlNo
             LEFT JOIN [Master].[TblPlant] P ON T.PlantId = P.SlNo
             LEFT JOIN [Master].[TblUnit] U1 ON T.ProductionUnitId = U1.SlNo
-            LEFT JOIN [Master].[TblEquipment] H ON T.HaulerId = H.SlNo
+            LEFT JOIN [Master].[TblEquipment] H ON T.HaulerEquipmentId = H.SlNo
             LEFT JOIN [Master].[TblUnit] U2 ON T.TripQtyUnitId = U2.SlNo
             LEFT JOIN [Master].[TblUser_New] CU ON T.CreatedBy = CU.SlNo
             LEFT JOIN [Master].[TblUser_New] UU ON T.UpdatedBy = UU.SlNo

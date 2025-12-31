@@ -1,29 +1,35 @@
 import { NextResponse } from 'next/server';
 import { executeQuery } from '@/lib/db';
-// import { getSession } from '@/lib/session';
+import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
 
 export async function POST(req) {
     try {
-        // const session = await getSession();
-        // const createdBy = session?.user?.name || 'Admin';
-        const createdBy = 'Admin';
+        const cookieStore = await cookies();
+        const authToken = cookieStore.get('auth_token')?.value;
+        let createdBy = 1; // Default to Admin (ID 1)
+
+        if (authToken) {
+            const decoded = jwt.decode(authToken);
+            if (decoded?.id) createdBy = decoded.id;
+        }
 
         const body = await req.json();
         const {
-            Date, PartyId, VehicleNo, Weighment, CounterReading, LoadingSheet,
+            Date, SMECategoryId, VehicleNo, Weighment, CounterReading, LoadingSheet,
             StandardDeduction, AcceptedQuantity, ChallanNo, Remarks
         } = body;
 
         const query = `
             INSERT INTO [Trans].[TblBDSEntry] 
-            (Date, PartyId, VehicleNo, Weighment, CounterReading, LoadingSheet, StandardDeduction, AcceptedQuantity, ChallanNo, Remarks, CreatedBy, CreatedDate, isDelete)
+            (Date, SMECategoryId, VehicleNo, Weighment, CounterReading, LoadingSheet, StandardDeduction, AcceptedQuantity, ChallanNo, Remarks, CreatedBy, CreatedDate, isDelete)
             VALUES 
-            (@Date, @PartyId, @VehicleNo, @Weighment, @CounterReading, @LoadingSheet, @StandardDeduction, @AcceptedQuantity, @ChallanNo, @Remarks, @CreatedBy, GETDATE(), 0)
+            (@Date, @SMECategoryId, @VehicleNo, @Weighment, @CounterReading, @LoadingSheet, @StandardDeduction, @AcceptedQuantity, @ChallanNo, @Remarks, @CreatedBy, GETDATE(), 0)
         `;
 
         const params = [
             { name: 'Date', value: Date },
-            { name: 'PartyId', value: PartyId },
+            { name: 'SMECategoryId', value: SMECategoryId },
             { name: 'VehicleNo', value: VehicleNo },
             { name: 'Weighment', value: Weighment },
             { name: 'CounterReading', value: CounterReading },

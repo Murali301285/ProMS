@@ -133,10 +133,24 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
     // --- Calculations & Unit Logic ---
     useEffect(() => {
         // 1. Auto Select Unit based on Material
-        if (formData.MaterialId) {
-            const material = masters.material.find(m => m.SlNo == formData.MaterialId);
-            if (material && material.UnitId) {
-                setFormData(prev => ({ ...prev, UnitId: material.UnitId }));
+        if (formData.MaterialId && masters.material && masters.material.length > 0) {
+            // Find material by string comparison to be safe
+            const material = masters.material.find(m => String(m.SlNo) === String(formData.MaterialId));
+
+            console.log("[DrillingForm] Material Auto-Select Check:", {
+                selectedMaterialId: formData.MaterialId,
+                foundMaterial: material
+            });
+
+            if (material) {
+                const foundUnitId = material.UnitId;
+                const currentUnitId = formData.UnitId;
+
+                // Update if they differ (comparing as strings/coerced to handle 2 vs '2')
+                if (String(foundUnitId || '') !== String(currentUnitId || '')) {
+                    console.log(`[DrillingForm] Auto-setting UnitId to ${foundUnitId} (was ${currentUnitId})`);
+                    setFormData(prev => ({ ...prev, UnitId: foundUnitId || '' }));
+                }
             }
         }
     }, [formData.MaterialId, masters.material]);
@@ -169,20 +183,180 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
     const [tableData, setTableData] = useState([]);
     const [tableLoading, setTableLoading] = useState(false);
 
-    // Fetch Table Data when Date Changes or on Save
+    // User State for Title
+    const [user, setUser] = useState(null);
+
+    // Initial Load - Get User
+    useEffect(() => {
+        const userStr = localStorage.getItem('user');
+        console.log("[DrillingForm] LocalStorage User:", userStr);
+        if (userStr) {
+            try {
+                const parsed = JSON.parse(userStr);
+                console.log("[DrillingForm] Parsed User:", parsed);
+                // Standardize user object for title
+                const displayUser = {
+                    ...parsed,
+                    username: parsed.EmpName || parsed.UserName || parsed.username || parsed.name || 'User'
+                };
+                setUser(displayUser);
+            } catch (e) {
+                console.error("[DrillingForm] User Parse Error:", e);
+            }
+        }
+    }, []);
+
+    // --- SMART CONTEXT LOGIC ---
+
+    // 1. Initial Load: Get Absolute Last Context (Regardless of Date)
+    useEffect(() => {
+        if (mode !== 'create') return;
+
+        const fetchInitialContext = async () => {
+            try {
+                // No Date payload -> asks for absolute last record
+                const res = await fetch('/api/transaction/drilling/helper/last-context', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const context = await res.json();
+                console.log("[DrillingForm] Initial Absolute Context:", context);
+
+                if (context && Object.keys(context).length > 0) {
+                    // Found last record (e.g., from yesterday)
+                    // Set Date AND Fields
+                    const receivedDate = context.Date;
+                    const parsedDate = receivedDate ? new Date(receivedDate).toISOString().split('T')[0] : today;
+
+                    setFormData(prev => ({
+                        ...prev,
+                        Date: parsedDate, // Overwrite date on initial load
+                        DrillingPatchId: context.DrillingPatchId || '',
+                        EquipmentId: context.EquipmentId || '',
+                        MaterialId: context.MaterialId || '',
+                        LocationId: context.LocationId || '',
+                        SectorId: context.SectorId || '',
+                        ScaleId: context.ScaleId || '',
+                        StrataId: context.StrataId || '',
+                        DepthSlabId: context.DepthSlabId || '',
+                        DrillingAgencyId: context.DrillingAgencyId || '',
+                        // Reset entry fields
+                        NoofHoles: '', TotalMeters: '', Spacing: '', Burden: '', TopRLBottomRL: '',
+                        RemarkId: '', Output: '', UnitId: '', TotalQty: '', Remarks: ''
+                    }));
+                }
+            } catch (err) {
+                console.error("Initial context fetch failed", err);
+            }
+        };
+
+        fetchInitialContext();
+    }, [mode]); // Run once on mount (if create mode)
+
+
+    // 2. Date Change: Get Context Specific to Selected Date
+    useEffect(() => {
+        if (mode !== 'create') return;
+
+        // Skip if Date is same as what we just loaded? 
+        // No, difficult to track here. Let it run, it will just re-confirm data.
+
+        const fetchDateContext = async () => {
+            if (!formData.Date) return;
+
+            try {
+                console.log("[DrillingForm] Checking Context for Date:", formData.Date);
+                const res = await fetch('/api/transaction/drilling/helper/last-context', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ Date: formData.Date }) // Specific Date
+                });
+                const context = await res.json();
+
+                if (context && Object.keys(context).length > 0) {
+                    // Found record for this date
+                    console.log("[DrillingForm] Found Context for Date:", context);
+                    setFormData(prev => ({
+                        ...prev,
+                        // Date: prev.Date, // Keep User Selection
+                        DrillingPatchId: context.DrillingPatchId || '',
+                        EquipmentId: context.EquipmentId || '',
+                        MaterialId: context.MaterialId || '',
+                        LocationId: context.LocationId || '',
+                        SectorId: context.SectorId || '',
+                        ScaleId: context.ScaleId || '',
+                        StrataId: context.StrataId || '',
+                        DepthSlabId: context.DepthSlabId || '',
+                        DrillingAgencyId: context.DrillingAgencyId || '',
+                        // Reset others
+                        NoofHoles: '', TotalMeters: '', Spacing: '', Burden: '', TopRLBottomRL: '',
+                        RemarkId: '', Output: '', UnitId: '', TotalQty: '', Remarks: ''
+                    }));
+
+                    // Focus logic
+                    setTimeout(() => {
+                        if (inputRefs.current['NoofHoles']) inputRefs.current['NoofHoles'].focus();
+                    }, 100);
+
+                } else {
+                    // No record for this date -> Reset
+                    console.log("[DrillingForm] No context for date. Resetting fields.");
+                    setFormData(prev => ({
+                        ...prev,
+                        // Date: prev.Date, // Keep User Selection
+                        DrillingPatchId: '', EquipmentId: '', MaterialId: '', LocationId: '',
+                        SectorId: '', ScaleId: '', StrataId: '', DepthSlabId: '', DrillingAgencyId: '',
+                        NoofHoles: '', TotalMeters: '', Spacing: '', Burden: '', TopRLBottomRL: '',
+                        RemarkId: '', Output: '', UnitId: '', TotalQty: '', Remarks: ''
+                    }));
+                }
+
+            } catch (err) {
+                console.error("Date context fetch failed", err);
+            }
+        };
+
+        // We need to avoid this running immediately and clashing with Initial Load?
+        // Actually, if Initial Load changes the Date, this WILL run.
+        // That is acceptable: 
+        // 1. Initial Load sets Date=25th.
+        // 2. This runs for 25th. Finds data (same data). Sets fields again.
+        // Outcome: Correct State.
+
+        fetchDateContext();
+
+    }, [formData.Date, mode]);
+
+
+    // --- DYNAMIC RECENT LIST LOGIC ---
+    // Fetch Table Data when Relevant Filters Change
     const fetchTableData = async () => {
-        if (!formData.Date) return;
+        // Logic: If Date or Context Control changes -> Load data
+        // "Once the Date or above said controls changes -> recent transactions should load based on the filtered details"
+
         setTableLoading(true);
         try {
-            const config = TRANSACTION_CONFIG['drilling'];
-            // Fetch for specific date
-            const params = new URLSearchParams({
-                offset: '0',
-                limit: '1000',
-                fromDate: formData.Date,
-                toDate: formData.Date
+            // Build Filter Payload
+            // "if field is empty/default then -> condition should be removed"
+            const payload = {
+                Date: formData.Date,
+                DrillingPatchId: formData.DrillingPatchId,
+                EquipmentId: formData.EquipmentId,
+                MaterialId: formData.MaterialId,
+                LocationId: formData.LocationId,
+                SectorId: formData.SectorId,
+                ScaleId: formData.ScaleId,
+                StrataId: formData.StrataId,
+                DepthSlabId: formData.DepthSlabId
+            };
+
+            const res = await fetch('/api/transaction/drilling/helper/recent-list', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
-            const res = await fetch(`${config.apiEndpoint}?${params}`);
+
             const result = await res.json();
             if (result.data) {
                 setTableData(result.data);
@@ -195,8 +369,23 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
     };
 
     useEffect(() => {
-        fetchTableData();
-    }, [formData.Date]);
+        // Trigger fetch on any relevant change
+        // Debounce might be good but let's stick to direct effect for responsiveness if data size is small
+        const timer = setTimeout(() => {
+            fetchTableData();
+        }, 300); // Small delay to avoid heavy hitting while typing Patch ID
+        return () => clearTimeout(timer);
+    }, [
+        formData.Date,
+        formData.DrillingPatchId,
+        formData.EquipmentId,
+        formData.MaterialId,
+        formData.LocationId,
+        formData.SectorId,
+        formData.ScaleId,
+        formData.StrataId,
+        formData.DepthSlabId
+    ]);
 
     // Field Order for Navigation (Visual Order)
     const FIELD_ORDER = [
@@ -325,7 +514,7 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
 
                 fetchTableData(); // Refresh table
             } else {
-                router.back();
+                router.push('/dashboard/transaction/drilling');
             }
 
         } catch (err) {
@@ -425,7 +614,6 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
             // Using logic: ID = SlNo, Name = (Name || EquipmentName || ... fallback chain)
             const mappedOptions = (props.options || []).map(opt => ({
                 id: opt.SlNo,
-                id: opt.SlNo,
                 name: opt.Name || opt.EquipmentName || opt.MaterialName || opt.LocationName || opt.SectorName || opt.DrillingRemarks || opt.Strata || opt.DrillingRemarks || opt.AgencyName || 'Unknown'
             }));
 
@@ -485,10 +673,10 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
             {loading && <LoadingOverlay message="Processing..." />}
 
             <div className={css.header}>
-                <button className={css.backBtn} onClick={() => router.back()}>
+                <button className={css.backBtn} onClick={() => router.push('/dashboard/transaction/drilling')}>
                     <ArrowLeft size={16} /> Back
                 </button>
-                <h1 className={css.title}>{mode === 'create' ? 'Create' : 'Update'} Drilling</h1>
+                <h1 className={css.title}>{mode === 'create' ? 'Create Drilling Entry' : 'Update Drilling Entry'}</h1>
                 <div className={css.headerActions}>
                     <button className={css.refreshBtn} onClick={() => window.location.reload()} title="Refresh (F5)">
                         <RefreshCw size={18} />
@@ -499,65 +687,94 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
                 </div>
             </div>
 
-            <div className={css.formSection}>
-                {/* Row 1: Date */}
-                <div className={css.row}>
-                    {renderField('Date', 'Date of Drilling', 'date', true, { max: today })}
-                </div>
+            {/* Form - 8 Column Grid */}
+            <div className={css.formSection} style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '15px', padding: '15px' }}>
 
-                <div className={css.divider}></div>
+                {/* --- Row 1 --- */}
+                {/* Date: C1 */}
+                {renderField('Date', 'Date of Drilling', 'date', true, { max: today, colSpan: 1 })}
 
-                <div className={css.row}>
-                    {renderField('DrillingPatchId', 'Drilling Patch ID', 'text', true)}
-                    {renderField('EquipmentId', 'Equipment', 'select', true, { options: masters.equipment })}
-                    {renderField('MaterialId', 'Material', 'select', true, { options: masters.material })}
-                    {renderField('LocationId', 'Location', 'select', true, { options: masters.location })}
-                </div>
+                {/* Patch: C2 */}
+                {renderField('DrillingPatchId', 'Drilling Patch ID', 'text', true, { colSpan: 1 })}
 
-                {/* Row 3: Sector, Scale, Strata, Slab (Line Removed) */}
-                <div className={css.row}>
-                    {renderField('SectorId', 'Sector', 'select', true, { options: masters.sector })}
-                    {renderField('ScaleId', 'Scale', 'select', true, { options: masters.scale })}
-                    {renderField('StrataId', 'Strata', 'select', true, { options: masters.strata })}
-                    {renderField('DepthSlabId', 'Depth Slab', 'select', true, { options: masters.depthSlab })}
-                </div>
+                {/* Breaks not needed if we manage spans correctly, but dividers help visual separation */}
 
-                <div className={css.divider}></div>
 
-                {/* Row 4: Holes, Meters, Spacing, Burden, RL, Remarks */}
-                <div className={css.rowCustom}>
-                    {renderField('NoofHoles', 'No of Holes', 'text', true, { placeholder: 'Num' })}
-                    {renderField('TotalMeters', 'Total Meters/Hole', 'text', true, { placeholder: '0.000' })}
-                    {renderField('Spacing', 'Spacing', 'text', true, { placeholder: '0.000' })}
-                    {renderField('Burden', 'Burden', 'text', true, { placeholder: '0.000' })}
-                    {renderField('TopRLBottomRL', 'Top RL Bottom RL', 'text', false)}
-                    {renderField('RemarkId', 'Drilling Remarks', 'select', true, { options: masters.remarks })}
-                </div>
+                {/* --- Row 2 --- */}
+                {/* Equipment: C1-C2 (Span 2) */}
+                {renderField('EquipmentId', 'Equipment', 'select', true, { options: masters.equipment, colSpan: 2 })}
 
-                {/* Divider Removed as requested */}
+                {/* Material: C3 */}
+                {renderField('MaterialId', 'Material', 'select', true, { options: masters.material, colSpan: 1 })}
 
-                {/* Row 5: Avg, Output, Unit, Total Qty, Agency - Custom Width */}
-                <div className={css.rowHalf} style={{ width: '70%', gridTemplateColumns: 'repeat(5, 1fr)' }}>
-                    {renderField('AverageDepth', 'Average Depth', 'text', true, { readOnly: true, placeholder: 'Calc: Meters/Holes' })}
-                    {renderField('Output', 'Output %', 'text', true, { placeholder: 'e.g. 67.0' })}
-                    {/* Unit is ReadOnly and Auto Selected via Material */}
-                    {renderField('UnitId', 'Unit', 'select', true, { options: masters.units, readOnly: true })}
-                    {renderField('TotalQty', 'Total Qty', 'text', true, { readOnly: true, placeholder: 'Calc: H*M*Out' })}
-                    {renderField('DrillingAgencyId', 'Drilling Agency', 'select', true, { options: masters.drillingAgency })}
-                </div>
+                {/* Location: C4 */}
+                {renderField('LocationId', 'Location', 'select', true, { options: masters.location, colSpan: 1 })}
 
-                <div className={css.divider}></div>
 
-                {/* Row 6: Remarks */}
-                <div className={css.row} style={{ gridTemplateColumns: '1fr' }}>
-                    {renderField('Remarks', 'Remarks', 'text', false, { placeholder: 'Optional remarks' })}
-                </div>
+
+                {/* --- Row 3 --- */}
+                {/* Sector: C1 */}
+                {renderField('SectorId', 'Sector', 'select', true, { options: masters.sector, colSpan: 1 })}
+
+                {/* Scale: C2 */}
+                {renderField('ScaleId', 'Scale', 'select', true, { options: masters.scale, colSpan: 1 })}
+
+                {/* Strata: C3 */}
+                {renderField('StrataId', 'Strata', 'select', true, { options: masters.strata, colSpan: 1 })}
+
+                {/* Slab: C4 */}
+                {renderField('DepthSlabId', 'Depth Slab', 'select', true, { options: masters.depthSlab, colSpan: 1 })}
+
+
+
+                {/* --- Row 4 --- */}
+                {/* Holes: C1 */}
+                {renderField('NoofHoles', 'No of Holes', 'text', true, { placeholder: 'Num', colSpan: 1 })}
+
+                {/* Meters: C2 */}
+                {renderField('TotalMeters', 'Total Meters/Hole', 'text', true, { placeholder: '0.000', colSpan: 1 })}
+
+                {/* Spacing: C3 */}
+                {renderField('Spacing', 'Spacing', 'text', true, { placeholder: '0.000', colSpan: 1 })}
+
+                {/* Burden: C4 */}
+                {renderField('Burden', 'Burden', 'text', true, { placeholder: '0.000', colSpan: 1 })}
+
+                {/* RL: C5 */}
+                {renderField('TopRLBottomRL', 'Top RL Bottom RL', 'text', false, { colSpan: 1 })}
+
+                {/* Drilling Remarks: C6-C7 (Span 2) */}
+                {renderField('RemarkId', 'Drilling Remarks', 'select', true, { options: masters.remarks, colSpan: 2 })}
+
+
+
+                {/* --- Row 5 --- */}
+                {/* Avg Depth: C1 */}
+                {renderField('AverageDepth', 'Average Depth', 'text', true, { readOnly: true, placeholder: 'Calc', colSpan: 1 })}
+
+                {/* Output: C2 */}
+                {renderField('Output', 'Output %', 'text', true, { placeholder: 'e.g. 67.0', colSpan: 1 })}
+
+                {/* Unit: C3 - ReadOnly removed for testing */}
+                {renderField('UnitId', 'Unit', 'select', true, { options: masters.units, readOnly: false, colSpan: 1 })}
+
+                {/* Qty: C4 */}
+                {renderField('TotalQty', 'Total Qty', 'text', true, { readOnly: true, placeholder: 'Calc', colSpan: 1 })}
+
+                {/* Agency: C5 */}
+                {renderField('DrillingAgencyId', 'Drilling Agency', 'select', true, { options: masters.drillingAgency, colSpan: 1 })}
+
+
+
+                {/* --- Row 6 --- */}
+                {/* General Remarks: C1-C6 (Span 6) */}
+                {renderField('Remarks', 'Remarks', 'text', false, { placeholder: 'Optional remarks', colSpan: 6 })}
 
             </div>
 
             <div className={css.dataTableSection}>
-                <h3 className={css.tableTitle}>Recent Entries</h3>
                 <TransactionTable
+                    title={`Recent Transactions - By ${user?.username || 'User'}`}
                     config={TRANSACTION_CONFIG['drilling']}
                     data={tableData}
                     isLoading={tableLoading}

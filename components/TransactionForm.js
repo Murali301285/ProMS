@@ -27,9 +27,10 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
     const [formData, setFormData] = useState({
         SlNo: 0,
         LoadingId: 0,
-        Date: today,
+        Date: '', // Init Empty (Load from Context)
         ShiftId: '',
-        ShiftInchargeId: [],
+        ShiftInchargeId: '', // Changed to Single Value
+        MidScaleInchargeId: '', // Added New Field
         RelayId: '',
         SourceId: '',
         DestinationId: '',
@@ -74,13 +75,21 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
             .map(m => m.MaterialId);
 
         if (mappedIds.length === 0) return options.materials;
-        return options.materials.filter(m => mappedIds.includes(m.SlNo));
+        return options.materials.filter(m => mappedIds.includes(m.id));
     }, [formData.DestinationId, mappings, options.materials]);
 
-    // Initial Data Load (Dropdowns & Edit Data)
+    // State for User Info (Title)
+    const [userName, setUserName] = useState('');
+
+    // Initial Data Load (Dropdowns & Edit Data & User Info)
     useEffect(() => {
         const loadInit = async () => {
             try {
+                // Fetch User Info
+                fetch('/api/user/me').then(r => r.json()).then(res => {
+                    if (res.success) setUserName(res.user.name || res.user.username);
+                });
+
                 // Fetch Dropdowns
                 const fetchDDL = async (table, filter = null, extra = []) => {
                     try {
@@ -133,11 +142,16 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                 });
 
                 if (isEdit && initialData) {
+                    // console.log("Initializing Form with:", initialData);
                     setFormData({
                         ...initialData,
                         // Dynamic Date Mapping based on Module
                         Date: initialData.LoadingDate || initialData.RehandlingDate || initialData.TransferDate ?
                             new Date(initialData.LoadingDate || initialData.RehandlingDate || initialData.TransferDate).toISOString().split('T')[0] : '',
+
+                        // Correct Mappings for Specific Fields
+                        // Ensure Trips is mapped regardless of casing (NoOfTrips vs NoofTrip)
+                        NoOfTrips: initialData.NoOfTrips || initialData.NoofTrip || '',
 
                         MangQtyTrip: initialData.QtyTrip,
                         NTPCQtyTrip: initialData.NtpcQtyTrip,
@@ -163,98 +177,93 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
     // Auto-Fill Last Context
     useEffect(() => {
         const isDateChange = prevDateRef.current !== formData.Date;
-        if (isDateChange) prevDateRef.current = formData.Date;
+        prevDateRef.current = formData.Date;
 
         const loadLast = async () => {
             try {
-                console.log("🚀 [SmartContext] calling API", {
-                    moduleType,
-                    date: formData.Date,
-                    ShiftId: formData.ShiftId
-                });
+                // Only load context if in Create Mode (allow empty date for initial load)
+                if (isEdit) return;
 
-                const res = await fetch('/api/transaction/helper/last-context', {
+                const payload = {};
+                if (formData.Date) payload.date = formData.Date;
+                if (formData.ShiftId) payload.ShiftId = formData.ShiftId;
+
+                console.log("🚀 [SmartContext] calling API", payload);
+
+                const res = await fetch('/api/transaction/loading-from-mines/helper/last-context', {
                     method: 'POST',
-                    body: JSON.stringify({
-                        date: formData.Date,
-                        ShiftId: formData.ShiftId,
-                        moduleType // Pass Module Type
-                    })
+                    body: JSON.stringify(payload)
                 }).then(r => r.json());
-
 
                 // If Result Found -> Apply
                 if (res.success && res.data) {
-                    console.log("✅ [SmartContext] Valid Data Found. Applying...");
+                    console.log("✅ [SmartContext] Valid Data Found:", res.data);
 
-                    let incharges = [];
-                    if (res.data.ShiftInchargeIds) {
-                        incharges = res.data.ShiftInchargeIds.toString().split(',').map(id => Number(id));
-                    }
+                    // Parse Date
+                    const newDate = res.data.LoadingDate ? new Date(res.data.LoadingDate).toISOString().split('T')[0] : '';
+
+                    const isDefaultDate = formData.Date === new Date().toISOString().split('T')[0];
 
                     setFormData(prev => ({
                         ...prev,
+                        // If current date is default (Today) and API returned a different date (History), switch to History
+                        // Otherwise keep existing date (if user manually picked something else, or if same)
+                        Date: (isDefaultDate && newDate) ? newDate : (prev.Date || newDate),
+
                         ShiftId: res.data.ShiftId || prev.ShiftId,
-                        ShiftInchargeId: incharges,
+                        ShiftInchargeId: res.data.ShiftInchargeId || '',
+                        MidScaleInchargeId: res.data.MidScaleInchargeId || '',
                         RelayId: res.data.RelayId || '',
                         SourceId: res.data.SourceId || '',
-                        DestinationId: res.data.DestinationId || '',
-                        MaterialId: res.data.MaterialId || '',
-                        HaulerId: res.data.HaulerEquipmentId || '',
-                        LoadingMachineId: res.data.LoadingMachineId || '',
                         ManPower: res.data.ManPower || '',
-                        Unit: res.data.Unit || '',
+                        // Clear others
+                        DestinationId: '',
+                        MaterialId: '',
+                        HaulerId: '',
+                        LoadingMachineId: '',
+                        NoOfTrips: '',
+                        MangQtyTrip: '',
+                        NTPCQtyTrip: '',
+                        Unit: '',
+                        MangTotalQty: '',
+                        NTPCTotalQty: '',
+                        Remarks: ''
                     }));
 
-                    toast.info(`Context Loaded (${res.scope === 'USER' ? 'Your Last' : 'Global Last'})`);
+                    // Prevent duplicate toasts (simple implementation: Use refined toast ID or just trust Effect cleanup)
+                    // Better: Only toast if it's a "New" context load (e.g. not just a refresh)
+                    toast.info("Context Loaded from Last Entry", { id: 'ctx-load' }); // Singleton toast
 
-                    if (sourceRef.current) setTimeout(() => sourceRef.current.focus(), 300);
+                    // Focus Destination
+                    if (destinationRef.current) setTimeout(() => destinationRef.current.focus(), 300);
 
                 } else {
-                    // NO DATA FOUND -> AUTO CLEAR LOGIC
-                    console.log("ℹ️ [SmartContext] No previous data found. Executing Auto-Clear...");
+                    // NO DATA FOUND -> Clear Transactional Fields
+                    console.log("ℹ️ [SmartContext] No previous data found.");
 
-                    setFormData(prev => {
-                        const resetState = {
-                            ...prev,
-                            // Clear Transactional Fields
-                            ShiftInchargeId: [],
-                            RelayId: '',
-                            SourceId: '',
-                            DestinationId: '',
-                            MaterialId: '',
-                            HaulerId: '',
-                            LoadingMachineId: '',
-                            ManPower: '',
-                            Unit: '',
-                            NoOfTrips: '',
-                            MangQtyTrip: '',
-                            NTPCQtyTrip: '',
-                            MangTotalQty: '',
-                            NTPCTotalQty: '',
-                            Remarks: ''
-                        };
+                    // Don't clear Date/Shift if just Date changed, but if Shift changed maybe?
+                    // User Request: "Reset to default for other fields like Dest, Mat..."
 
-                        // Date Change -> Clear Shift too
-                        if (isDateChange) {
-                            resetState.ShiftId = '';
-                        }
-                        // Shift Change -> Keep Shift (do nothing to ShiftId)
-
-                        return resetState;
-                    });
-
-                    toast.info("New Context: Fresh Start");
-
-                    // Focus Logic
-                    if (isDateChange) {
-                        console.log("🎯 [SmartContext] Date Changed & No Data -> Focus Shift");
-                        if (shiftRef.current) setTimeout(() => shiftRef.current.focus(), 300);
-                    } else {
-                        console.log("🎯 [SmartContext] Shift Changed & No Data -> Focus Incharge");
-                        // If we have inchargeRef, focus it. Else fallback.
-                        if (inchargeRef.current) setTimeout(() => inchargeRef.current.focus(), 300);
-                    }
+                    setFormData(prev => ({
+                        ...prev,
+                        // Keep Date, Shift (if selected), 
+                        ShiftInchargeId: '',
+                        MidScaleInchargeId: '',
+                        RelayId: '',
+                        SourceId: '',
+                        DestinationId: '',
+                        MaterialId: '',
+                        HaulerId: '',
+                        LoadingMachineId: '',
+                        ManPower: '',
+                        Unit: '',
+                        NoOfTrips: '',
+                        MangQtyTrip: '',
+                        NTPCQtyTrip: '',
+                        MangTotalQty: '',
+                        NTPCTotalQty: '',
+                        Remarks: ''
+                    }));
                 }
             } catch (e) {
                 console.error("❌ [SmartContext] API Call Failed:", e);
@@ -263,7 +272,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
 
         const timer = setTimeout(loadLast, 500);
         return () => clearTimeout(timer);
-    }, [formData.Date, formData.ShiftId, isEdit]); // Trigger on Date OR Shift change
+    }, [formData.Date, formData.ShiftId, isEdit, moduleType]); // Trigger on Date OR Shift change
 
     // Handle Input Change
     const handleChange = (e) => {
@@ -273,13 +282,26 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
         // Strict Integer Validation for ManPower and NoOfTrips
         if (['ManPower', 'NoOfTrips'].includes(name)) {
             // Allow empty string to let user backspace
-            if (value !== '' && !/^\d+$/.test(value)) {
-                return; // Ignore non-integer input
-            }
+            if (value !== '' && !/^\d+$/.test(value)) return;
         }
+        // If Incharge fields, ensure they are single values (already handled by SearchableSelect scalar mode)
 
         setFormData(prev => {
             const updated = { ...prev, [name]: value };
+
+            // Cascade Reset: Destination -> Clear Material
+            if (name === 'DestinationId') {
+                updated.MaterialId = '';
+            }
+
+            // Auto Auto-Select Unit based on Material
+            if (name === 'MaterialId') {
+                // lookup unit from materials list
+                const selectedMat = options.materials.find(m => m.id == value);
+                if (selectedMat && selectedMat.UnitId) {
+                    updated.Unit = selectedMat.UnitId;
+                }
+            }
 
             // Auto Calculate Totals
             if (['NoOfTrips', 'MangQtyTrip', 'NTPCQtyTrip'].includes(name)) {
@@ -310,8 +332,8 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         setFormData(prev => {
                             const upd = {
                                 ...prev,
-                                MangQtyTrip: res.data.ManagementQtyTrip,
-                                NTPCQtyTrip: res.data.NTPCQtyTrip
+                                MangQtyTrip: res.data.ManagementQtyTrip ?? '',
+                                NTPCQtyTrip: res.data.NTPCQtyTrip ?? ''
                             };
                             calculateTotals(upd);
                             return upd;
@@ -329,60 +351,55 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
     }, [formData.HaulerId, formData.MaterialId]);
 
 
-    // Auto-Fetch Data Table List (Context Aware)
+    // Auto-Fetch Data Table List (Context Aware & Dynamic Filter)
     const fetchContextData = useCallback(async () => {
-        // Only fetch if context is "sufficiently" filled? Or Just fetch?
-        // Let's fetch if Date & Shift are present at minimum.
-        // Only fetch if Date is present (Shift is optional for initial view)
-        if (!formData.Date) return;
+        // As per request: "Controls like Date, Shift... changes -> recent transactions should load based on the filtered details"
+        // Also: "Select... from tblload where Date... etc"
+        // If field is empty -> no filter.
 
         setTableLoading(true);
         try {
-            // Reuse main GET API but with specific filters?
-            // Actually main GET API supports Date.
-            // But we need exact match on Shift, Relay, etc.
-            // Client-side filtering of "Add" page is complex if we use main API.
-            // Let's rely on standard GET and maybe filter client side?
-            // OR pass strict params.
-            // Let's construct a search query string.
-            const query = new URLSearchParams({
-                fromDate: formData.Date,
-                toDate: formData.Date,
-                limit: 1000000 // Get all rows for client-side filtering
-            });
+            const payload = {
+                Date: formData.Date,
+                ShiftId: formData.ShiftId,
+                SourceId: formData.SourceId,
+                DestinationId: formData.DestinationId,
+                MaterialId: formData.MaterialId,
+                HaulerId: formData.HaulerId,
+                LoadingMachineId: formData.LoadingMachineId
+            };
 
-            const res = await fetch(`/api/transaction/loading-from-mines?${query}`).then(r => r.json());
-            if (res.data) {
-                // Client-side strict filter to show ONLY matching context
-                // Context: Shift, Relay, Source, Dest, Material, Hauler
-                const filtered = res.data.filter(row =>
-                    (!formData.ShiftId || row.ShiftId == formData.ShiftId) && // Loose equality, optional
-                    (!formData.RelayId || row.RelayId == formData.RelayId) &&
-                    (!formData.SourceId || row.SourceId == formData.SourceId) &&
-                    (!formData.DestinationId || row.DestinationId == formData.DestinationId) &&
-                    (!formData.MaterialId || row.MaterialId == formData.MaterialId) &&
-                    (!formData.HaulerId || row.HaulerEquipmentId == formData.HaulerId)
-                );
-                setFilteredTableData(filtered);
+            console.log("🔍 Fetching Recent List with Filter:", payload);
+
+            const res = await fetch('/api/transaction/loading-from-mines/helper/recent-list', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            }).then(r => r.json());
+
+            if (res.success) {
+                setFilteredTableData(res.data || []);
             }
+        } catch (e) {
+            console.error("Recent List Fetch Error", e);
         } finally {
             setTableLoading(false);
         }
     }, [
         formData.Date,
         formData.ShiftId,
-        formData.ShiftInchargeId, // Added
-        formData.RelayId,
         formData.SourceId,
         formData.DestinationId,
         formData.MaterialId,
         formData.HaulerId,
-        formData.LoadingMachineId // Added
+        formData.LoadingMachineId
     ]);
 
     useEffect(() => {
-        fetchContextData();
-    }, [fetchContextData]); // Debouncing might be needed if frequent updates
+        const timer = setTimeout(() => {
+            fetchContextData();
+        }, 500); // 500ms Debounce
+        return () => clearTimeout(timer);
+    }, [fetchContextData]);
 
     const handleEnter = (e) => {
         if (e.key === 'Enter') {
@@ -420,10 +437,10 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
             if (!formData[field]) newErrors[field] = 'Required';
         });
 
-        // Special validation for Array (ShiftInchargeId)
-        if (!formData.ShiftInchargeId || (Array.isArray(formData.ShiftInchargeId) && formData.ShiftInchargeId.length === 0)) {
-            newErrors.ShiftInchargeId = 'Required';
-        }
+        if (!formData.ShiftInchargeId) newErrors.ShiftInchargeId = 'Required';
+
+        // MidScaleInchargeId is now MANDATORY per user request (Step 1497)
+        if (!formData.MidScaleInchargeId) newErrors.MidScaleInchargeId = 'Required';
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -439,7 +456,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
         try {
             // Duplicate Check (Add Mode Only)
             if (!isEdit) {
-                const dupRes = await fetch('/api/transaction/helper/check-duplicate', {
+                const dupRes = await fetch('/api/transaction/loading-from-mines/helper/check-duplicate', {
                     method: 'POST', body: JSON.stringify(formData)
                 }).then(r => r.json());
 
@@ -465,7 +482,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
             if (res.success) {
                 toast.success(isEdit ? "Record updated successfully!" : "Record saved successfully!");
                 if (isEdit) {
-                    router.back();
+                    router.push('/dashboard/transaction/loading-from-mines');
                 } else {
                     // Reset Row 3 ONLY (Keep Context)
                     // Reset Logic as per User Request
@@ -529,112 +546,75 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                     </button>
 
 
-                    <button
-                        onClick={async () => {
-                            if (confirm('Reset form to defaults?')) {
-                                const today = new Date().toISOString().split('T')[0];
 
-                                // 1. Reset Form State
-                                setFormData({
-                                    SlNo: 0,
-                                    LoadingId: 0,
-                                    Date: today, // Reset to Today
-                                    ShiftId: '',
-                                    ShiftInchargeId: [],
-                                    RelayId: '',
-                                    SourceId: '',
-                                    DestinationId: '',
-                                    MaterialId: '',
-                                    HaulerId: '',
-                                    LoadingMachineId: '',
-                                    NoOfTrips: '',
-                                    MangQtyTrip: '',
-                                    NTPCQtyTrip: '',
-                                    Unit: '',
-                                    MangTotalQty: '',
-                                    NTPCTotalQty: '',
-                                    Remarks: '',
-                                    ManPower: '',
-                                    CreatedBy: 0,
-                                    CreatedDate: ''
-                                });
-                                setErrors({});
-
-                                // 2. Trigger "Load Last Data" logic (simulating UserScope='ME' for specific date)
-                                // We reuse the logic: if scope is ALL or ME, fetch last context.
-                                // Here we force fetch context for TODAY.
-                                try {
-                                    setIsLoading(true);
-                                    const res = await fetch('/api/transaction/helper/last-context', {
-                                        method: 'POST',
-                                        body: JSON.stringify({ date: today, ShiftId: '' })
-                                    }).then(r => r.json());
-
-                                    if (res.success && res.data) {
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            ShiftId: res.data.ShiftId || '',
-                                            ShiftInchargeId: res.data.ShiftInchargeId ? [res.data.ShiftInchargeId] : [], // Ensure array if single ID returned? Setup logic handles it?
-                                            // Actually backend might return array? No, table has single ID usually?
-                                            // Wait, TblLoadingFromMines structure...
-                                            // Schema check: Trans table has ShiftId, etc.
-                                            // ShiftIncharge logic: `[Trans].[TblLoadingShiftIncharge]` handles multiple. 
-                                            // But `last-context` API returned `ShiftInchargeId`. If multiple, what does it return?
-                                            // The API we saw selects `ShiftInchargeId` from `TblLoadingFromMines`. 
-                                            // Wait, `TblLoadingFromMines` doesn't have `ShiftInchargeId` anymore (it was normalized).
-                                            // I should verify `last-context` query in step 3248.
-                                            // It selected `ShiftInchargeId`. If that column implies primary incharge or is legacy...
-                                            // If normalized, we need to fetch multiple.
-                                            // For now assume single ID for context is better than nothing, or empty.
-
-                                            // Let's assume the API returns what it can.
-                                            RelayId: res.data.RelayId || '',
-                                            SourceId: res.data.SourceId || '',
-                                            DestinationId: res.data.DestinationId || '',
-                                            MaterialId: res.data.MaterialId || '',
-                                            HaulerId: res.data.HaulerEquipmentId || '',
-                                            LoadingMachineId: res.data.LoadingMachineId || ''
-                                        }));
-                                    }
-                                } catch (e) {
-                                    console.error("Reset context fetch failed", e);
-                                } finally {
-                                    setIsLoading(false);
-                                }
-                            }
-                        }}
-                        className={`p-1.5 rounded transition-all text-gray-500 hover:text-red-600 hover:bg-red-50 ml-2 border border-gray-300`}
-                        title="Reset Form"
-                    >
-                        <RotateCcw size={16} strokeWidth={2} />
-                    </button>
                 </div>
 
                 <h1 className={styles.headerTitle}>
                     {isEdit ? 'Update' : 'Create'} Loading From Mines
                 </h1>
 
-                <button onClick={handleSubmit} disabled={isLoading} className={styles.saveBtn}>
-                    {isLoading ? <Loader2 className="animate-spin" /> : <Save size={18} />}
-                    {isEdit ? 'Update (F2)' : 'Save (F2)'}
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                        onClick={async () => {
+                            if (confirm('Reset form to defaults?')) {
+                                // Step 1: Reset to "Fresh" state with EMPTY Date
+                                // This causes useEffect to fire -> fetch "latest user context" -> fill Date/Shift/etc
+                                setFormData({
+                                    SlNo: 0, LoadingId: 0,
+                                    Date: '', // Let Effect Fill this
+                                    ShiftId: '',
+                                    ShiftInchargeId: '', MidScaleInchargeId: '',
+                                    RelayId: '',
+                                    SourceId: '', DestinationId: '', MaterialId: '', HaulerId: '', LoadingMachineId: '',
+                                    NoOfTrips: '', MangQtyTrip: '', NTPCQtyTrip: '', Unit: '', MangTotalQty: '', NTPCTotalQty: '',
+                                    Remarks: '', ManPower: '', CreatedBy: 0, CreatedDate: ''
+                                });
+                                setErrors({});
+
+                                toast.info("Resetting...");
+                            }
+                        }}
+                        className={styles.saveBtn}
+                        title="Reset Form"
+                        type="button"
+                    >
+                        <RotateCcw size={18} />
+                    </button>
+                    <button onClick={handleSubmit} disabled={isLoading} className={styles.saveBtn}>
+                        {isLoading ? <Loader2 className="animate-spin" /> : <Save size={18} />}
+                        {isEdit ? 'Update (F2)' : 'Save (F2)'}
+                    </button>
+                </div>
             </div>
 
-            {/* SINGLE ULTRA-COMPACT CARD */}
+            {/* 8-COLUMN GRID LAYOUT */}
             <form className={styles.card} onSubmit={(e) => e.preventDefault()}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '15px' }}>
 
-                {/* Row 1: Context */}
-                <div className={styles.rowContext}>
-                    <div className={styles.group}>
+                    {/* --- Row 1 --- */}
+
+                    {/* Date: R1 C1 */}
+                    <div className={styles.group} style={{ gridColumn: '1 / span 1' }}>
                         <label>Date <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="date" name="Date" value={formData.Date} max={new Date().toISOString().split('T')[0]}
                             onChange={handleChange} onKeyDown={handleEnter}
-                            className={`${styles.input} ${errors.Date ? styles.errorBorder : ''}`}
+                            onClick={(e) => {
+                                try {
+                                    if (e.target.showPicker) {
+                                        e.target.showPicker();
+                                    }
+                                } catch (error) {
+                                    console.log("Picker not supported", error);
+                                }
+                            }}
+                            className={`${styles.input} ${errors.Date ? styles.errorBorder : ''} ${styles.uniqueField}`}
                         />
                         {errors.Date && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
+
+                    {/* Shift: R1 C2 */}
+                    <div className={styles.group} style={{ gridColumn: '2 / span 1' }}>
                         <label>Shift <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
                             ref={shiftRef}
@@ -644,36 +624,56 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                             options={options.shifts}
                             placeholder="Select Shift"
                             autoFocus
-                            className={styles.select}
+                            className={`${styles.select} ${styles.uniqueField}`}
                             error={errors.ShiftId}
                         />
                         {errors.ShiftId && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
-                        <label>Shift Incharge <span style={{ color: 'red' }}>*</span></label>
+
+                    {/* Shift Incharge (Large Scale): R1 C3-C4 (Span 2) */}
+                    <div className={styles.group} style={{ gridColumn: '3 / span 2' }}>
+                        <label>Incharge (Large-Scale) <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
                             ref={inchargeRef}
                             name="ShiftInchargeId"
                             value={formData.ShiftInchargeId}
                             onChange={handleChange}
                             options={options.incharges}
-                            placeholder="Select Incharge(s)"
+                            placeholder="Large Scale"
                             className={styles.select}
                             error={errors.ShiftInchargeId}
-                            multiple={true}
                         />
                         {errors.ShiftInchargeId && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
+
+                    {/* Incharge (Mid Scale): R1 C5-C6 (Span 2) */}
+                    <div className={styles.group} style={{ gridColumn: '5 / span 2' }}>
+                        <label>Incharge (Mid-Scale) <span style={{ color: 'red' }}>*</span></label>
+                        <SearchableSelect
+                            name="MidScaleInchargeId"
+                            value={formData.MidScaleInchargeId}
+                            onChange={handleChange}
+                            options={options.incharges}
+                            placeholder="Mid Scale"
+                            className={styles.select}
+                            error={errors.MidScaleInchargeId}
+                        />
+                        {errors.MidScaleInchargeId && <div className={styles.errorMsg}>Required</div>}
+                    </div>
+
+                    {/* Man Power: R1 C7 */}
+                    <div className={styles.group} style={{ gridColumn: '7 / span 1' }}>
                         <label>Man Power <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="text" name="ManPower" value={formData.ManPower}
                             onChange={handleChange} className={`${styles.input} ${errors.ManPower ? styles.errorBorder : ''}`}
-                            onKeyDown={handleEnter} placeholder="Enter Man Power"
+                            onKeyDown={handleEnter} placeholder="Man Power"
                         />
                         {errors.ManPower && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
+
+                    {/* Relay: R1 C8 */}
+                    <div className={styles.group} style={{ gridColumn: '8 / span 1' }}>
                         <label>Relay <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
                             name="RelayId"
@@ -686,13 +686,12 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         />
                         {errors.RelayId && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                </div>
 
-                <hr className={styles.divider} />
 
-                {/* Row 2: Source/Dest/Mat/Hauler/Loader */}
-                <div className={styles.rowConfig}>
-                    <div className={styles.group}>
+                    {/* --- Row 2 --- */}
+
+                    {/* Source: R2 C1 */}
+                    <div className={styles.group} style={{ gridColumn: '1 / span 1' }}>
                         <label>Source <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
                             ref={sourceRef}
@@ -701,12 +700,14 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                             onChange={handleChange}
                             options={options.sources}
                             placeholder="Select Source"
-                            className={styles.select}
+                            className={`${styles.select} ${styles.uniqueField}`}
                             error={errors.SourceId}
                         />
                         {errors.SourceId && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
+
+                    {/* Destination: R2 C2 */}
+                    <div className={styles.group} style={{ gridColumn: '2 / span 1' }}>
                         <label>Destination <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
                             ref={destinationRef}
@@ -715,25 +716,29 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                             onChange={handleChange}
                             options={options.destinations}
                             placeholder="Select Destination"
-                            className={styles.select}
+                            className={`${styles.select} ${styles.uniqueField}`}
                             error={errors.DestinationId}
                         />
                         {errors.DestinationId && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
+
+                    {/* Material: R2 C3 */}
+                    <div className={styles.group} style={{ gridColumn: '3 / span 1' }}>
                         <label>Material <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
                             name="MaterialId"
                             value={formData.MaterialId}
                             onChange={handleChange}
-                            options={filteredMaterials} // Use Filtered List
+                            options={filteredMaterials}
                             placeholder="Select Material"
-                            className={styles.select}
+                            className={`${styles.select} ${styles.uniqueField}`}
                             error={errors.MaterialId}
                         />
                         {errors.MaterialId && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
+
+                    {/* Hauler: R2 C4-C5 (Span 2) */}
+                    <div className={styles.group} style={{ gridColumn: '4 / span 2' }}>
                         <label>Hauler <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
                             name="HaulerId"
@@ -741,12 +746,14 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                             onChange={handleChange}
                             options={options.haulers}
                             placeholder="Select Hauler"
-                            className={styles.select}
+                            className={`${styles.select} ${styles.uniqueField}`}
                             error={errors.HaulerId}
                         />
                         {errors.HaulerId && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
+
+                    {/* Loading M/C: R2 C6-C7 (Span 2) */}
+                    <div className={styles.group} style={{ gridColumn: '6 / span 2' }}>
                         <label>Loading M/C <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
                             name="LoadingMachineId"
@@ -754,18 +761,17 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                             onChange={handleChange}
                             options={options.loaders}
                             placeholder="Select Loader"
-                            className={styles.select}
+                            className={`${styles.select} ${styles.uniqueField}`}
                             error={errors.LoadingMachineId}
                         />
                         {errors.LoadingMachineId && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                </div>
 
-                <hr className={styles.divider} />
 
-                {/* Row 3 - Quantities */}
-                <div className={styles.rowQuantities}>
-                    <div className={styles.group}>
+                    {/* --- Row 3 --- */}
+
+                    {/* No of Trips: R3 C1 */}
+                    <div className={styles.group} style={{ gridColumn: '1 / span 1' }}>
                         <label>No of Trips <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="text" name="NoOfTrips" value={formData.NoOfTrips}
@@ -774,17 +780,23 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         />
                         {errors.NoOfTrips && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
-                        <label>Mang Qty/Trip <span style={{ color: 'red' }}>*</span></label>
+
+                    {/* Mang Qty/Trip: R3 C2 */}
+                    <div className={styles.group} style={{ gridColumn: '2 / span 1' }}>
+                        <label>Mang. Load Factor <span style={{ color: 'red' }}>*</span></label>
                         <input type="number" name="MangQtyTrip" value={formData.MangQtyTrip} readOnly className={`${styles.input} ${styles.readOnly}`} />
                         {errors.MangQtyTrip && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
-                        <label>NTPC Qty/Trip <span style={{ color: 'red' }}>*</span></label>
+
+                    {/* NTPC Qty/Trip: R3 C3 */}
+                    <div className={styles.group} style={{ gridColumn: '3 / span 1' }}>
+                        <label>NTPC Load Factor <span style={{ color: 'red' }}>*</span></label>
                         <input type="number" name="NTPCQtyTrip" value={formData.NTPCQtyTrip} readOnly className={`${styles.input} ${styles.readOnly}`} />
                         {errors.NTPCQtyTrip && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
+
+                    {/* Unit: R3 C4 */}
+                    <div className={styles.group} style={{ gridColumn: '4 / span 1' }}>
                         <label>Unit <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
                             name="Unit"
@@ -797,59 +809,73 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         />
                         {errors.Unit && <div className={styles.errorMsg}>Required</div>}
                     </div>
-                    <div className={styles.group}>
+
+                    {/* Mang Total Qty: R3 C5 */}
+                    <div className={styles.group} style={{ gridColumn: '5 / span 1' }}>
                         <label>Mang Total Qty <span style={{ color: 'red' }}>*</span></label>
-                        <input type="text" name="MangTotalQty" value={formData.MangTotalQty} readOnly className={`${styles.input} ${styles.readOnly}`} />
-                        {errors.MangTotalQty && <div className={styles.errorMsg}>Required</div>}
+                        <input type="number" name="MangTotalQty" value={formData.MangTotalQty} readOnly className={`${styles.input} ${styles.readOnly}`} />
                     </div>
-                    <div className={styles.group}>
+
+                    {/* NTPC Total Qty: R3 C6 */}
+                    <div className={styles.group} style={{ gridColumn: '6 / span 1' }}>
                         <label>NTPC Total Qty <span style={{ color: 'red' }}>*</span></label>
-                        <input type="text" name="NTPCTotalQty" value={formData.NTPCTotalQty} readOnly className={`${styles.input} ${styles.readOnly}`} />
-                        {errors.NTPCTotalQty && <div className={styles.errorMsg}>Required</div>}
+                        <input type="number" name="NTPCTotalQty" value={formData.NTPCTotalQty} readOnly className={`${styles.input} ${styles.readOnly}`} />
                     </div>
 
-                </div>
 
-                {/* Remarks Row (Moved out of Grid for clean stacking) */}
-                <div className={styles.remarksRow} style={{ marginTop: '12px', marginBottom: '12px', width: '100%' }}>
-                    <div className={styles.group}>
+                    {/* --- Row 4 --- */}
+
+                    {/* Remarks: R4 C1-C6 (Span 6) */}
+                    <div className={styles.group} style={{ gridColumn: '1 / span 6' }}>
                         <label>Remarks</label>
-                        <input type="text" name="Remarks" value={formData.Remarks || ''} onChange={handleChange} onKeyDown={handleEnter} className={styles.input} placeholder="Optional remarks..." />
+                        <input
+                            type="text"
+                            name="Remarks" value={formData.Remarks}
+                            onChange={handleChange} onKeyDown={handleEnter}
+                            className={styles.input} placeholder="Any Remarks..."
+                        />
                     </div>
-                </div>
 
+                </div>
                 <div className={styles.tableSection} style={{ marginTop: '12px' }}>
-                    <h3 className={styles.tableHeader}>Recent Transactions</h3>
+                    {/* Header handled by TransactionTable title prop */}
                     <TransactionTable
                         config={{
                             columns: [
                                 { accessor: 'SlNo', label: 'Sl No', width: 60, disableFilter: true },
-                                { accessor: 'LoadingDate', label: 'Date', width: 100, type: 'date', disableFilter: true },
+                                { accessor: 'Date', label: 'Date', width: 100, type: 'date', disableFilter: true },
                                 { accessor: 'ShiftName', label: 'Shift', width: 100 },
-                                { accessor: 'ShiftInCharge', label: 'Shift In Charge', width: 200 }, // Added
-                                { accessor: 'ManPower', label: 'Man Power', width: 80 }, // Added missing column
+                                { accessor: 'ShiftInchargeName', label: 'Incharge (Large)', width: 150 },
+                                { accessor: 'MidScaleInchargeName', label: 'Incharge (Mid)', width: 150 },
+                                { accessor: 'ManPower', label: 'Man Power', width: 90 },
                                 { accessor: 'RelayName', label: 'Relay', width: 100 },
-
                                 { accessor: 'SourceName', label: 'Source', width: 120 },
                                 { accessor: 'DestinationName', label: 'Destination', width: 120 },
                                 { accessor: 'MaterialName', label: 'Material', width: 120 },
                                 { accessor: 'HaulerName', label: 'Hauler', width: 140 },
-                                { accessor: 'LoadingMachineName', label: 'Loader', width: 140 },
-                                { accessor: 'UnitName', label: 'Unit', width: 60 },
-
-                                { accessor: 'NoofTrip', label: 'Trips', width: 80 },
-                                { accessor: 'QtyTrip', label: 'Mgmt Qty/Trip', width: 110, type: 'number' },
-                                { accessor: 'NtpcQtyTrip', label: 'NTPC Qty/Trip', width: 110, type: 'number' },
-                                { accessor: 'TotalQty', label: 'Mgmt Total', width: 110, type: 'number' },
-                                { accessor: 'TotalNtpcQty', label: 'NTPC Total', width: 110, type: 'number' }, // Added splits
-                                { accessor: 'CreatedDate', label: 'Time', width: 120, type: 'datetime', disableFilter: true }
-                            ],
-                            idField: 'SlNo',
-                            defaultSort: 'CreatedDate'
+                                { accessor: 'LoadingMachineName', label: 'Loading M/C', width: 140 }, // Changed label to match request
+                                { accessor: 'NoOfTrips', label: 'Trips', width: 80 },
+                                { accessor: 'QtyTrip', label: 'Mang. Load Factor', width: 130 },
+                                { accessor: 'NtpcQtyTrip', label: 'NTPC Load Factor', width: 130 },
+                                { accessor: 'UnitName', label: 'Unit', width: 80 },
+                                { accessor: 'TotalQty', label: 'Mang Total Qty', width: 130, type: 'number' },
+                                { accessor: 'TotalNtpcQty', label: 'NTPC Total Qty', width: 130, type: 'number' },
+                                { accessor: 'CreatedByName', label: 'Created By', width: 110 },
+                                { accessor: 'CreatedDate', label: 'Created Date', type: 'datetime', width: 140 },
+                                { accessor: 'UpdatedByName', label: 'Updated By', width: 110 },
+                                { accessor: 'UpdatedDate', label: 'Updated Date', type: 'datetime', width: 140 }
+                            ]
                         }}
+                        title={userName ? `Recent Transactions - by ${userName}` : "Recent Transactions"}
                         data={filteredTableData}
                         isLoading={tableLoading}
-                        userRole="Admin"
+                        onEdit={(row) => {
+                            // Edit Logic - mostly handled by parent or router.push
+                            // But here we are in Add page usually... Wait, this table is used for "Recent".
+                            // Clicking Edit here should navigate to Edit page.
+                            router.push(`/dashboard/transaction/loading-from-mines/edit/${row.SlNo}`);
+                        }}
+                        userRole="User" // TODO: Pass actual role
                     />
                 </div>
             </form>

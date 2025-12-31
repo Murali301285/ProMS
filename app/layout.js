@@ -1,4 +1,5 @@
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { UIProvider } from "@/contexts/UIContext";
 import "./globals.css";
 
 export const metadata = {
@@ -13,8 +14,10 @@ export default function RootLayout({ children }) {
         <html lang="en" suppressHydrationWarning>
             <body suppressHydrationWarning>
                 <ThemeProvider>
-                    {children}
-                    <Toaster position="top-right" richColors closeButton />
+                    <UIProvider>
+                        {children}
+                        <Toaster position="top-right" richColors closeButton />
+                    </UIProvider>
                 </ThemeProvider>
             </body>
         </html>

@@ -138,7 +138,7 @@ export default function EquipmentReadingPage() {
     return (
         <div className={styles.page} style={{ position: 'relative' }}>
             {/* Blocking Overlay */}
-            {loading && <LoadingOverlay message="Processing..." />}
+            {/* {loading && <LoadingOverlay message="Processing..." />} */}
 
             {/* Header */}
             <div className={styles.header}>
@@ -198,7 +198,7 @@ export default function EquipmentReadingPage() {
             <TransactionTable
                 config={config}
                 data={data}
-                isLoading={false}
+                isLoading={loading}
                 onDelete={handleDelete}
                 userRole={userRole}
                 onEdit={(row) => router.push(`/dashboard/transaction/equipment-reading/${row.SlNo}`)}
