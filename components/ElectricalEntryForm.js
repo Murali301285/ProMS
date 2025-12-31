@@ -50,6 +50,8 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
     const [recentData, setRecentData] = useState([]);
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
     const [loadingRecent, setLoadingRecent] = useState(false);
     const [userRole, setUserRole] = useState(null); // Added for TransactionTable
     const [displayUser, setDisplayUser] = useState(null);
@@ -99,11 +101,22 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
     // --- Dynamic Table & Smart Context Logic ---
 
     // 1. Fetch data for the Table (Dynamic Filter)
-    const fetchTableData = async () => {
+    const fetchTableData = async (isLoadMore = false) => {
+        if (!isLoadMore) {
+            setPage(0);
+            setHasMore(true);
+        }
+        setLoadingRecent(true);
         try {
+            const currentPage = isLoadMore ? page + 1 : 0;
+            const take = 50;
+            const skip = currentPage * take;
+
             const payload = {
                 Date: formData.Date,
-                ShiftId: formData.ShiftId // Optional Filter
+                ShiftId: formData.ShiftId, // Optional Filter
+                skip,
+                take
             };
             const res = await fetch('/api/transaction/electrical-entry/helper/recent-list', {
                 method: 'POST',
@@ -112,12 +125,22 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
             });
             const result = await res.json();
             if (result.data) {
-                setRecentData(result.data);
+                const newData = result.data;
+                if (newData.length < take) setHasMore(false);
+
+                if (isLoadMore) {
+                    setRecentData(prev => [...prev, ...newData]);
+                    setPage(currentPage);
+                } else {
+                    setRecentData(newData);
+                }
             } else {
-                setRecentData([]);
+                if (!isLoadMore) setRecentData([]);
             }
         } catch (err) {
             console.error("Failed to fetch recent data:", err);
+        } finally {
+            setLoadingRecent(false);
         }
     };
 
@@ -819,17 +842,37 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
             {/* Recent Transactions - Updated to TransactionTable */}
             <div className={css.dataTableSection}>
                 <div style={{ padding: '0' }}> {/* Clean padding for sticky headers */}
-                    <div style={{ height: '400px', width: '100%' }}>
-                        <TransactionTable
-                            config={config}
-                            title={`Recent Transactions - By ${displayUser || 'User'}`}
-                            data={recentData}
-                            isLoading={loadingRecent}
-                            onEdit={handleEditRecent}
-                            onDelete={handleDeleteRecent}
-                            userRole={userRole}
-                        />
-                    </div>
+                    <TransactionTable
+                        config={config}
+                        title={`Recent Transactions - By ${displayUser || 'User'}`}
+                        data={recentData}
+                        isLoading={loadingRecent && page === 0}
+                        onEdit={handleEditRecent}
+                        onDelete={handleDeleteRecent}
+                        userRole={userRole}
+                    />
+                    {/* Load More Button */}
+                    {recentData.length > 0 && hasMore && (
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px', marginBottom: '20px' }}>
+                            <button
+                                type="button"
+                                onClick={() => fetchTableData(true)}
+                                disabled={loadingRecent}
+                                style={{
+                                    padding: '8px 24px',
+                                    background: 'white',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '20px',
+                                    color: '#1e293b',
+                                    cursor: 'pointer',
+                                    fontSize: '12px',
+                                    fontWeight: 500
+                                }}
+                            >
+                                {loadingRecent ? 'Loading...' : 'Load More'}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

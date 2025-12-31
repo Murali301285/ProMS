@@ -15,6 +15,8 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
     const [userRole, setUserRole] = useState('User'); // Default to User
 
     const [recentData, setRecentData] = useState([]);
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
 
     // Masters
     const [suppliers, setSuppliers] = useState([]);
@@ -172,14 +174,31 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
 
 
     // --- DYNAMIC RECENT LIST LOGIC ---
-    const fetchTableData = async () => {
+    const fetchTableData = async (isLoadMore = false) => {
         // Triggered by changes in filter fields
+        if (!isLoadMore) {
+            setPage(0);
+            setHasMore(true);
+        }
+
+        setLoading(true); // Re-using main loading or should create tableLoading? Using main loading might block form. Let's use separate if desired or just reuse.
+        // BlastingForm uses 'loading' for Save. Let's create local tableLoading or just not block UI.
+        // Actually, existing code didn't use loading state for table explicitly in fetch? 
+        // Ah, it didn't. Let's add simple state or just proceed. 
+        // Wait, TransactionTable has isLoading prop.
+
         try {
+            const currentPage = isLoadMore ? page + 1 : 0;
+            const take = 50;
+            const skip = currentPage * take;
+
             const payload = {
                 Date: formData.Date,
                 // Removed specific filters (PatchId, SupplierId) to show ALL records for the selected Date
                 // BlastingPatchId: formData.BlastingPatchId, 
-                // SMESupplierId: formData.SMESupplierId
+                // SMESupplierId: formData.SMESupplierId,
+                skip,
+                take
             };
 
             const res = await fetch('/api/transaction/blasting/helper/recent-list', {
@@ -188,11 +207,22 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                 body: JSON.stringify(payload)
             });
             const result = await res.json();
+
             if (result.data) {
-                setRecentData(result.data);
+                const newData = result.data;
+                if (newData.length < take) setHasMore(false);
+
+                if (isLoadMore) {
+                    setRecentData(prev => [...prev, ...newData]);
+                    setPage(currentPage);
+                } else {
+                    setRecentData(newData);
+                }
             }
         } catch (err) {
             console.error("Failed to load table data", err);
+        } finally {
+            // setLoading(false); 
         }
     };
 
@@ -695,7 +725,7 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
 
                         if (!confirm("Delete?")) return;
                         await fetch(`/api/transaction/blasting/${id}`, { method: 'DELETE' });
-                        fetchRecentData();
+                        fetchTableData(); // Refresh, cleaned up name call
                     }}
                     onEdit={(row) => {
                         // Permission Check
@@ -714,6 +744,27 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                     }}
                     userRole={userRole}
                 />
+                {/* Load More Button */}
+                {recentData.length > 0 && hasMore && (
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px', marginBottom: '20px' }}>
+                        <button
+                            type="button"
+                            onClick={() => fetchTableData(true)}
+                            style={{
+                                padding: '8px 24px',
+                                background: 'white',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '20px',
+                                color: '#1e293b',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 500
+                            }}
+                        >
+                            Load More
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

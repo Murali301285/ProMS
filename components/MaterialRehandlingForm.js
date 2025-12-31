@@ -69,6 +69,8 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
     const [mappings, setMappings] = useState([]);
     const [filteredTableData, setFilteredTableData] = useState([]);
     const [tableLoading, setTableLoading] = useState(false);
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
 
     // Derived State: Material Filtering
     const filteredMaterials = useMemo(() => {
@@ -401,30 +403,57 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
     }, [formData.HaulerId, formData.MaterialId]);
 
 
-    // Auto-Fetch Data Table List
-    const fetchContextData = useCallback(async () => {
+    const pageRef = useRef(0);
+
+    // Auto-Fetch Data Table List (Switched to recent-list for Pagination)
+    const fetchContextData = useCallback(async (isLoadMore = false) => {
         if (!formData.Date) return;
+
+        if (!isLoadMore) {
+            setPage(0);
+            pageRef.current = 0;
+            setHasMore(true);
+        }
 
         setTableLoading(true);
         try {
-            const query = new URLSearchParams({
-                fromDate: formData.Date,
-                toDate: formData.Date,
-                limit: 1000
-            });
+            const currentPage = isLoadMore ? pageRef.current + 1 : 0;
+            const take = 50;
+            const skip = currentPage * take;
 
-            const res = await fetch(`/api/transaction/material-rehandling?${query}`).then(r => r.json());
-            if (res.data) {
-                const filtered = res.data.filter(row =>
-                    (!formData.ShiftId || row.ShiftId == formData.ShiftId) &&
-                    (!formData.RelayId || row.RelayId == formData.RelayId) &&
-                    (!formData.SourceId || row.SourceId == formData.SourceId) &&
-                    (!formData.DestinationId || row.DestinationId == formData.DestinationId) &&
-                    (!formData.MaterialId || row.MaterialId == formData.MaterialId) &&
-                    (!formData.HaulerId || row.HaulerEquipmentId == formData.HaulerId)
-                );
-                setFilteredTableData(filtered);
+            const payload = {
+                Date: formData.Date,
+                ShiftId: formData.ShiftId,
+                RelayId: formData.RelayId,
+                SourceId: formData.SourceId,
+                DestinationId: formData.DestinationId,
+                MaterialId: formData.MaterialId,
+                HaulerId: formData.HaulerId,
+                LoadingMachineId: formData.LoadingMachineId,
+                skip,
+                take
+            };
+
+            const res = await fetch('/api/transaction/material-rehandling/helper/recent-list', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(r => r.json());
+
+            if (res.success) {
+                const newData = res.data || [];
+                if (newData.length < take) setHasMore(false);
+
+                if (isLoadMore) {
+                    setFilteredTableData(prev => [...prev, ...newData]);
+                    setPage(currentPage);
+                    pageRef.current = currentPage;
+                } else {
+                    setFilteredTableData(newData);
+                }
             }
+        } catch (err) {
+            console.error(err);
         } finally {
             setTableLoading(false);
         }
@@ -432,10 +461,15 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
         formData.Date, formData.ShiftId, formData.RelayId, formData.SourceId,
         formData.DestinationId, formData.MaterialId, formData.HaulerId,
         formData.LoadingMachineId
+        // Removed page dependency
     ]);
 
     useEffect(() => {
-        fetchContextData();
+        // Debounce Fetch
+        const timer = setTimeout(() => {
+            fetchContextData(false);
+        }, 500);
+        return () => clearTimeout(timer);
     }, [fetchContextData]);
 
     const handleEnter = (e) => {
@@ -526,7 +560,10 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                     setTimeout(() => {
                         if (destinationRef.current) destinationRef.current.focus();
                     }, 100);
-                    fetchContextData();
+                    setTimeout(() => {
+                        if (destinationRef.current) destinationRef.current.focus();
+                    }, 100);
+                    fetchContextData(false);
                 }
             } else {
                 toast.error(res.message || "Failed to save");
@@ -763,7 +800,6 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                     </div>
 
                 </div>
-
                 <div className={styles.tableSection} style={{ marginTop: '20px' }}>
                     <TransactionTable
                         config={{
@@ -801,6 +837,28 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                         }}
                         title={`Recent Transactions - By ${user?.username || user?.UserName || user?.name || 'User'}`}
                     />
+                    {/* Load More Button */}
+                    {filteredTableData.length > 0 && hasMore && (
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px', marginBottom: '20px' }}>
+                            <button
+                                type="button"
+                                onClick={() => fetchContextData(true)}
+                                disabled={tableLoading}
+                                style={{
+                                    padding: '8px 24px',
+                                    background: 'white',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '20px',
+                                    color: '#1e293b',
+                                    cursor: 'pointer',
+                                    fontSize: '12px',
+                                    fontWeight: 500
+                                }}
+                            >
+                                {tableLoading ? 'Loading...' : 'Load More'}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </form>
         </div>

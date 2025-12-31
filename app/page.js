@@ -167,14 +167,21 @@ export default function LoginPage() {
                     </button>
                 </form>
 
-                <div className={styles.footer}>
-                    <button className={styles.iconBtn} onClick={handleSettingsClick} title="Settings">
-                        <Settings size={20} />
-                    </button>
-                    <button className={styles.iconBtn} onClick={toggleTheme} title="Toggle Theme">
-                        {theme === 'light' ? '🌙' : '☀️'}
-                    </button>
-                    <p>ProMS 2.0 © 2026</p>
+                <div className={styles.footer} style={{ position: 'relative', justifyContent: 'center' }}>
+                    <div style={{ position: 'absolute', left: 0, display: 'flex', gap: '8px' }}>
+                        <button className={styles.iconBtn} onClick={handleSettingsClick} title="Settings">
+                            <Settings size={18} />
+                        </button>
+                        <button className={styles.iconBtn} onClick={toggleTheme} title="Toggle Theme">
+                            {theme === 'light' ? '🌙' : '☀️'}
+                        </button>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                        <p style={{ fontWeight: '500' }}>ProMS 2.0 © 2026</p>
+                        <p style={{ fontSize: '0.75rem', fontStyle: 'italic', color: 'var(--primary)', marginTop: '0.25rem' }}>
+                            Version : {process.env.NEXT_PUBLIC_APP_VERSION} , Last Updated on : {process.env.NEXT_PUBLIC_LAST_UPDATED}
+                        </p>
+                    </div>
                 </div>
             </div>
 

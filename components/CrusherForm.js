@@ -17,6 +17,9 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
     const [userRole, setUserRole] = useState('User');
     const [userId, setUserId] = useState(null);
     const [recentData, setRecentData] = useState([]);
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const [tableLoading, setTableLoading] = useState(false);
 
     // Masters
     const [shifts, setShifts] = useState([]);
@@ -153,12 +156,23 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
     // --- Dynamic Table & Smart Context Logic ---
 
     // 1. Fetch data for the Table (Dynamic Filter)
-    const fetchTableData = async () => {
+    const fetchTableData = async (isLoadMore = false) => {
+        if (!isLoadMore) {
+            setPage(0);
+            setHasMore(true);
+        }
+        setTableLoading(true);
         try {
+            const currentPage = isLoadMore ? page + 1 : 0;
+            const take = 50;
+            const skip = currentPage * take;
+
             // Filter by Date AND Shift (and User ID implicitly via API)
             const payload = {
                 Date: formData.Date,
-                ShiftId: formData.ShiftId
+                ShiftId: formData.ShiftId,
+                skip,
+                take
             };
 
             console.log("Fetching Table Data with:", payload);
@@ -169,11 +183,22 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
                 body: JSON.stringify(payload)
             });
             const result = await res.json();
+
             if (result.data) {
-                setRecentData(result.data);
+                const newData = result.data;
+                if (newData.length < take) setHasMore(false);
+
+                if (isLoadMore) {
+                    setRecentData(prev => [...prev, ...newData]);
+                    setPage(currentPage);
+                } else {
+                    setRecentData(newData);
+                }
             }
         } catch (err) {
             console.error("Failed to fetch recent data:", err);
+        } finally {
+            setTableLoading(false);
         }
     };
 
@@ -1000,6 +1025,28 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
                     onEdit={handleEdit}
                     userRole={userRole}
                 />
+                {/* Load More Button */}
+                {recentData.length > 0 && hasMore && (
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px', marginBottom: '20px' }}>
+                        <button
+                            type="button"
+                            onClick={() => fetchTableData(true)}
+                            disabled={tableLoading}
+                            style={{
+                                padding: '8px 24px',
+                                background: 'white',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '20px',
+                                color: '#1e293b',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 500
+                            }}
+                        >
+                            {tableLoading ? 'Loading...' : 'Load More'}
+                        </button>
+                    </div>
+                )}
             </div>
         </div >
     );

@@ -15,7 +15,12 @@ const config = {
 
 async function runScript() {
     try {
-        const query = fs.readFileSync('alter_crusher_shiftincharge.sql', 'utf8');
+        const scriptName = process.argv[2];
+        if (!scriptName) {
+            console.error("Please provide a SQL file name.");
+            process.exit(1);
+        }
+        const query = fs.readFileSync(scriptName, 'utf8');
         await sql.connect(config);
         await sql.query(query);
         console.log("Schema update executed successfully.");

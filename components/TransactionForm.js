@@ -14,12 +14,14 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
     console.log(`!!! VERSION_CHECK_FINAL: TransactionForm Loaded (${moduleType}) !!!`);
     const [isLoading, setIsLoading] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Refs
     const shiftRef = useRef(null);
     const inchargeRef = useRef(null);
     const sourceRef = useRef(null);
     const destinationRef = useRef(null);
+    const loadingMachineRef = useRef(null); // Added Ref for Loading M/C
     const prevDateRef = useRef(new Date().toISOString().split('T')[0]);
 
     // Initial Form State
@@ -66,6 +68,8 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
     const [mappings, setMappings] = useState([]);
     const [filteredTableData, setFilteredTableData] = useState([]);
     const [tableLoading, setTableLoading] = useState(false);
+    const [page, setPage] = useState(0); // Pagination Page Index
+    const [hasMore, setHasMore] = useState(true); // Is there more data?
 
     // Derived State
     const filteredMaterials = useMemo(() => {
@@ -208,7 +212,9 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         ...prev,
                         // If current date is default (Today) and API returned a different date (History), switch to History
                         // Otherwise keep existing date (if user manually picked something else, or if same)
-                        Date: (isDefaultDate && newDate) ? newDate : (prev.Date || newDate),
+                        // FIX: If user explicit cleared date (isDateChange && !formData.Date), keep it empty.
+                        Date: (isDateChange && !formData.Date) ? '' :
+                            ((isDefaultDate && newDate) ? newDate : (prev.Date || newDate)),
 
                         ShiftId: res.data.ShiftId || prev.ShiftId,
                         ShiftInchargeId: res.data.ShiftInchargeId || '',
@@ -216,10 +222,13 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         RelayId: res.data.RelayId || '',
                         SourceId: res.data.SourceId || '',
                         ManPower: res.data.ManPower || '',
-                        // Clear others
-                        DestinationId: '',
-                        MaterialId: '',
-                        HaulerId: '',
+
+                        // Smart Context: Pre-Load these from history (User Request)
+                        DestinationId: res.data.DestinationId || '',
+                        MaterialId: res.data.MaterialId || '',
+                        HaulerId: res.data.HaulerId || '',
+
+                        // Explicitly Clear Transactional Fields
                         LoadingMachineId: '',
                         NoOfTrips: '',
                         MangQtyTrip: '',
@@ -234,8 +243,8 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                     // Better: Only toast if it's a "New" context load (e.g. not just a refresh)
                     toast.info("Context Loaded from Last Entry", { id: 'ctx-load' }); // Singleton toast
 
-                    // Focus Destination
-                    if (destinationRef.current) setTimeout(() => destinationRef.current.focus(), 300);
+                    // Focus Loading Machine (Next logical step)
+                    if (loadingMachineRef.current) setTimeout(() => loadingMachineRef.current.focus(), 300);
 
                 } else {
                     // NO DATA FOUND -> Clear Transactional Fields
@@ -351,14 +360,24 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
     }, [formData.HaulerId, formData.MaterialId]);
 
 
+    const pageRef = useRef(0);
+
     // Auto-Fetch Data Table List (Context Aware & Dynamic Filter)
-    const fetchContextData = useCallback(async () => {
-        // As per request: "Controls like Date, Shift... changes -> recent transactions should load based on the filtered details"
-        // Also: "Select... from tblload where Date... etc"
-        // If field is empty -> no filter.
+    const fetchContextData = useCallback(async (isLoadMore = false) => {
+        if (!isLoadMore) {
+            // Reset if fresh load
+            setPage(0);
+            pageRef.current = 0;
+            setHasMore(true);
+        }
 
         setTableLoading(true);
         try {
+            // Use Ref for stable page access without dependency
+            const currentPage = isLoadMore ? pageRef.current + 1 : 0;
+            const take = 50;
+            const skip = currentPage * take;
+
             const payload = {
                 Date: formData.Date,
                 ShiftId: formData.ShiftId,
@@ -366,10 +385,10 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                 DestinationId: formData.DestinationId,
                 MaterialId: formData.MaterialId,
                 HaulerId: formData.HaulerId,
-                LoadingMachineId: formData.LoadingMachineId
+                LoadingMachineId: formData.LoadingMachineId,
+                skip,
+                take
             };
-
-            console.log("🔍 Fetching Recent List with Filter:", payload);
 
             const res = await fetch('/api/transaction/loading-from-mines/helper/recent-list', {
                 method: 'POST',
@@ -377,7 +396,18 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
             }).then(r => r.json());
 
             if (res.success) {
-                setFilteredTableData(res.data || []);
+                const newData = res.data || [];
+                if (newData.length < take) {
+                    setHasMore(false);
+                }
+
+                if (isLoadMore) {
+                    setFilteredTableData(prev => [...prev, ...newData]);
+                    setPage(currentPage);
+                    pageRef.current = currentPage;
+                } else {
+                    setFilteredTableData(newData);
+                }
             }
         } catch (e) {
             console.error("Recent List Fetch Error", e);
@@ -392,11 +422,12 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
         formData.MaterialId,
         formData.HaulerId,
         formData.LoadingMachineId
+        // Removed 'page' dependency to prevent infinite reset loop
     ]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
-            fetchContextData();
+            fetchContextData(false); // Fresh Load
         }, 500); // 500ms Debounce
         return () => clearTimeout(timer);
     }, [fetchContextData]);
@@ -446,6 +477,58 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
         return Object.keys(newErrors).length === 0;
     };
 
+    const handleReset = () => {
+        // Full Reset logic (similar to initial state but keeping context if intended? usually Reset button clears everything or reverts to defaults)
+        // User behavior "Reset form to defaults" implies clearing transaction data.
+        // If in Edit mode, it might mean "Reload initial data", but usually just clears user input.
+
+        if (isEdit) {
+            // In Edit mode, reset to initialData
+            setFormData({
+                ...initialData,
+                Date: initialData.LoadingDate ? new Date(initialData.LoadingDate).toISOString().split('T')[0] : '',
+                NoOfTrips: initialData.NoOfTrips || initialData.NoofTrip || '',
+                MangQtyTrip: initialData.QtyTrip,
+                NTPCQtyTrip: initialData.NtpcQtyTrip,
+                MangTotalQty: initialData.TotalQty,
+                NTPCTotalQty: initialData.TotalNtpcQty,
+                Unit: initialData.UnitId,
+                Remarks: initialData.Remarks || ''
+            });
+        } else {
+            // In Add Mode: Clear Transaction fields, Keep Date/Shift/Context if desirable, OR clear all? 
+            // The "Reset" button usually clears everything the user typed. 
+            // But let's follow the "Reset Row 3" logic we used in save-success, plus clearing context if the USER clicks Reset.
+            // ACTUALLY, usually Reset button clears to "Blank Form" state.
+            setFormData(prev => ({
+                ...prev,
+                // Keep Context (Date, Shift, Incharge, Relay, Source) - as these are often repetitive
+                ShiftInchargeId: prev.ShiftInchargeId,
+                MidScaleInchargeId: prev.MidScaleInchargeId,
+                RelayId: prev.RelayId,
+                SourceId: prev.SourceId,
+                ManPower: prev.ManPower,
+
+                // Reset Destination and below
+                DestinationId: '',
+                MaterialId: '',
+                HaulerId: '',
+                LoadingMachineId: '',
+                NoOfTrips: '',
+                MangQtyTrip: '',
+                NTPCQtyTrip: '',
+                Unit: '',
+                MangTotalQty: '',
+                NTPCTotalQty: '',
+                Remarks: ''
+            }));
+
+            setErrors({});
+            // Focus Source or Date?
+            if (shiftRef.current) shiftRef.current.focus();
+        }
+    };
+
     const handleSubmit = async () => {
         if (!validateForm()) {
             toast.error("Please fill all mandatory fields");
@@ -462,7 +545,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
 
                 if (dupRes.exists) {
                     toast.error("Duplicate Entry! A record with this combination already exists.");
-                    setIsLoading(false);
+                    setIsSubmitting(false);
                     return;
                 }
             }
@@ -489,10 +572,12 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                     setFormData(prev => ({
                         ...prev,
                         // Retain: Date, Shift, Incharge, ManPower, Relay, Source
-                        // Reset below:
-                        DestinationId: '',
-                        MaterialId: '',
-                        HaulerId: '',
+                        // AND Retain: Destination, Material, Hauler (User Request)
+                        DestinationId: prev.DestinationId,
+                        MaterialId: prev.MaterialId,
+                        HaulerId: prev.HaulerId,
+
+                        // Reset Transactional Fields
                         LoadingMachineId: '',
                         NoOfTrips: '',
                         MangQtyTrip: '',
@@ -503,12 +588,12 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         Remarks: ''
                     }));
 
-                    // Focus Destination after Reset
+                    // Focus Loading Machine after Reset (User Request)
                     setTimeout(() => {
-                        if (destinationRef.current) destinationRef.current.focus();
+                        if (loadingMachineRef.current) loadingMachineRef.current.focus();
                     }, 100);
 
-                    fetchContextData(); // Refresh the grid below
+                    fetchContextData(false); // Refresh the grid below
                 }
             } else {
                 toast.error(res.message || "Failed to save record");
@@ -756,6 +841,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                     <div className={styles.group} style={{ gridColumn: '6 / span 2' }}>
                         <label>Loading M/C <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
+                            ref={loadingMachineRef}
                             name="LoadingMachineId"
                             value={formData.LoadingMachineId}
                             onChange={handleChange}
@@ -837,48 +923,91 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                     </div>
 
                 </div>
-                <div className={styles.tableSection} style={{ marginTop: '12px' }}>
-                    {/* Header handled by TransactionTable title prop */}
-                    <TransactionTable
-                        config={{
-                            columns: [
-                                { accessor: 'SlNo', label: 'Sl No', width: 60, disableFilter: true },
-                                { accessor: 'Date', label: 'Date', width: 100, type: 'date', disableFilter: true },
-                                { accessor: 'ShiftName', label: 'Shift', width: 100 },
-                                { accessor: 'ShiftInchargeName', label: 'Incharge (Large)', width: 150 },
-                                { accessor: 'MidScaleInchargeName', label: 'Incharge (Mid)', width: 150 },
-                                { accessor: 'ManPower', label: 'Man Power', width: 90 },
-                                { accessor: 'RelayName', label: 'Relay', width: 100 },
-                                { accessor: 'SourceName', label: 'Source', width: 120 },
-                                { accessor: 'DestinationName', label: 'Destination', width: 120 },
-                                { accessor: 'MaterialName', label: 'Material', width: 120 },
-                                { accessor: 'HaulerName', label: 'Hauler', width: 140 },
-                                { accessor: 'LoadingMachineName', label: 'Loading M/C', width: 140 }, // Changed label to match request
-                                { accessor: 'NoOfTrips', label: 'Trips', width: 80 },
-                                { accessor: 'QtyTrip', label: 'Mang. Load Factor', width: 130 },
-                                { accessor: 'NtpcQtyTrip', label: 'NTPC Load Factor', width: 130 },
-                                { accessor: 'UnitName', label: 'Unit', width: 80 },
-                                { accessor: 'TotalQty', label: 'Mang Total Qty', width: 130, type: 'number' },
-                                { accessor: 'TotalNtpcQty', label: 'NTPC Total Qty', width: 130, type: 'number' },
-                                { accessor: 'CreatedByName', label: 'Created By', width: 110 },
-                                { accessor: 'CreatedDate', label: 'Created Date', type: 'datetime', width: 140 },
-                                { accessor: 'UpdatedByName', label: 'Updated By', width: 110 },
-                                { accessor: 'UpdatedDate', label: 'Updated Date', type: 'datetime', width: 140 }
-                            ]
-                        }}
-                        title={userName ? `Recent Transactions - by ${userName}` : "Recent Transactions"}
-                        data={filteredTableData}
-                        isLoading={tableLoading}
-                        onEdit={(row) => {
-                            // Edit Logic - mostly handled by parent or router.push
-                            // But here we are in Add page usually... Wait, this table is used for "Recent".
-                            // Clicking Edit here should navigate to Edit page.
-                            router.push(`/dashboard/transaction/loading-from-mines/edit/${row.SlNo}`);
-                        }}
-                        userRole="User" // TODO: Pass actual role
-                    />
+
+                {/* Submit / Reset / Cancel */}
+                <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
+                    <button type="submit" disabled={isSubmitting} className={`${styles.btn} ${styles.btnPrimary}`}>
+                        {isSubmitting ? 'Saving...' : (isEdit ? 'Update' : 'Save')}
+                    </button>
+                    <button type="button" onClick={handleReset} className={`${styles.btn} ${styles.btnSecondary}`}>Reset</button>
+                    <button type="button" onClick={() => router.back()} className={`${styles.btn} ${styles.btnSecondary}`}>Cancel</button>
                 </div>
+
             </form>
+
+            {/* Transaction Table Section */}
+            <div className={styles.tableSection} style={{ marginTop: '30px', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+                <TransactionTable
+                    title={userName ? `Recent Transactions - by ${userName}` : "Recent Transactions"}
+                    config={{
+                        columns: [
+                            { accessor: 'SlNo', label: 'Sl No', width: 60, disableFilter: true },
+                            { accessor: 'Date', label: 'Date', width: 100, type: 'date', disableFilter: true },
+                            { accessor: 'ShiftName', label: 'Shift', width: 80 },
+                            { accessor: 'ShiftInchargeName', label: 'Incharge (L)', width: 130 },
+                            { accessor: 'MidScaleInchargeName', label: 'Incharge (M)', width: 130 },
+                            { accessor: 'ManPower', label: 'ManP', width: 60 },
+                            { accessor: 'RelayName', label: 'Relay', width: 80 },
+                            { accessor: 'SourceName', label: 'Source', width: 110 },
+                            { accessor: 'DestinationName', label: 'Destination', width: 110 },
+                            { accessor: 'MaterialName', label: 'Material', width: 110 },
+                            { accessor: 'HaulerName', label: 'Hauler', width: 130 },
+                            { accessor: 'LoadingMachineName', label: 'Loading M/C', width: 130 },
+                            { accessor: 'NoOfTrips', label: 'Trips', width: 60 },
+                            { accessor: 'QtyTrip', label: 'Mang LF', width: 80 },
+                            { accessor: 'NtpcQtyTrip', label: 'NTPC LF', width: 80 },
+                            { accessor: 'UnitName', label: 'Unit', width: 60 },
+                            { accessor: 'TotalQty', label: 'Mang Total', width: 100, type: 'number' },
+                            { accessor: 'TotalNtpcQty', label: 'NTPC Total', width: 100, type: 'number' },
+                            { accessor: 'CreatedByName', label: 'Created By', width: 100 },
+                            { accessor: 'CreatedDate', label: 'Created', type: 'datetime', width: 130 }
+                        ],
+                        idField: 'SlNo',
+                        defaultSort: 'SlNo'
+                    }}
+                    data={filteredTableData}
+                    isLoading={tableLoading && page === 0}
+                    onEdit={(row) => router.push(`/dashboard/transaction/loading-from-mines/edit/${row.SlNo}`)}
+                    userRole="User"
+                />
+
+                {/* Load More Button */}
+                {filteredTableData.length > 0 && hasMore && (
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '15px', marginBottom: '30px' }}>
+                        <button
+                            type="button"
+                            onClick={() => fetchContextData(true)}
+                            disabled={tableLoading}
+                            style={{
+                                padding: '8px 24px', // Comfortable click area
+                                background: 'white',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '20px', // Pill shape
+                                color: '#334155',
+                                cursor: tableLoading ? 'wait' : 'pointer',
+                                fontSize: '13px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                fontWeight: 600,
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'white'}
+                        >
+                            {tableLoading ? (
+                                <span style={{ color: '#64748b' }}>Loading more...</span>
+                            ) : (
+                                <>
+                                    <span>Load More Records</span>
+                                    <span style={{ background: '#e2e8f0', padding: '2px 6px', borderRadius: '10px', fontSize: '10px', color: '#475569' }}>+50</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                )}
+            </div>
         </div >
     );
 }

@@ -6,7 +6,7 @@ import { authenticateUser } from '@/lib/auth';
 export async function POST(req) {
     try {
         const user = await authenticateUser(req);
-        const { Date: LoadDate } = await req.json(); // Only Date filter usually for "Recent"
+        const { Date: LoadDate, skip = 0, take = 50 } = await req.json(); // Only Date filter usually for "Recent"
 
         const pool = await getDbConnection();
         const request = pool.request();
@@ -77,7 +77,9 @@ export async function POST(req) {
             request.input('UserId', user.id);
         }
 
-        query += ` ORDER BY T.CreatedDate DESC`;
+        query += ` ORDER BY T.CreatedDate DESC OFFSET @skip ROWS FETCH NEXT @take ROWS ONLY`;
+        request.input('skip', skip);
+        request.input('take', take);
 
         console.log("🚀 [EqReading Recent] Query:", query);
         console.log("   Params:", { LoadDate, UserId: user?.id });

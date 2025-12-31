@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -1037,49 +1037,106 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
 // Sub-component for auto-fetching history based on context
 function RecentHistory({ config, date, shiftId, userRole, title }) {
     const [data, setData] = useState([]);
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const [loading, setLoading] = useState(false);
     const router = useRouter();
 
-    useEffect(() => {
+    const fetchHistory = useCallback(async (isLoadMore = false) => {
         if (!date) return;
-        const fetchHistory = async () => {
-            try {
-                // Use new POST API
-                const res = await fetch('/api/transaction/equipment-reading/helper/recent-list', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ Date: date })
-                }).then(r => r.json());
 
-                if (res.success) setData(res.data);
-            } catch (e) { console.error(e); }
-        };
-        fetchHistory();
-    }, [date, shiftId]); // Removed config dependency
+        if (!isLoadMore) {
+            setPage(0);
+            setHasMore(true);
+        }
+        setLoading(true);
+
+        try {
+            const currentPage = isLoadMore ? page + 1 : 0;
+            const take = 50;
+            const skip = currentPage * take;
+
+            // Use new POST API
+            const res = await fetch('/api/transaction/equipment-reading/helper/recent-list', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    Date: date,
+                    skip,
+                    take
+                })
+            }).then(r => r.json());
+
+            if (res.success) {
+                const newData = res.data || [];
+                if (newData.length < take) setHasMore(false);
+
+                if (isLoadMore) {
+                    setData(prev => [...prev, ...newData]);
+                    setPage(currentPage);
+                } else {
+                    setData(newData);
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    }, [date, page]);
+
+    useEffect(() => {
+        fetchHistory(false);
+    }, [date, shiftId]); // Reset on Date/Shift change. Note: fetchHistory depends on page, so we don't put it here to avoid loops.
 
     return (
-        <TransactionTable
-            config={config}
-            data={data}
-            isLoading={false}
-            title={title}
-            userRole={userRole}
-            onEdit={(item) => router.push(`/dashboard/transaction/equipment-reading/${item.SlNo}`)}
-            onDelete={async (item) => {
-                if (!confirm(`Are you sure you want to delete this record (SlNo: ${item.SlNo})?`)) return;
-                try {
-                    const res = await fetch(`/api/transaction/equipment-reading/${item.SlNo}`, { method: 'DELETE' }).then(r => r.json());
-                    if (res.success) {
-                        toast.success("Deleted Successfully");
-                        // Refresh Data
-                        setData(prev => prev.filter(row => row.SlNo !== item.SlNo));
-                    } else {
-                        toast.error(res.message || "Delete Failed");
+        <>
+            <TransactionTable
+                config={config}
+                data={data}
+                isLoading={loading && page === 0}
+                title={title}
+                userRole={userRole}
+                onEdit={(item) => router.push(`/dashboard/transaction/equipment-reading/${item.SlNo}`)}
+                onDelete={async (item) => {
+                    if (!confirm(`Are you sure you want to delete this record (SlNo: ${item.SlNo})?`)) return;
+                    try {
+                        const res = await fetch(`/api/transaction/equipment-reading/${item.SlNo}`, { method: 'DELETE' }).then(r => r.json());
+                        if (res.success) {
+                            toast.success("Deleted Successfully");
+                            // Refresh Data
+                            fetchHistory(false);
+                        } else {
+                            toast.error(res.message || "Delete Failed");
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        toast.error("Delete Failed");
                     }
-                } catch (e) {
-                    console.error(e);
-                    toast.error("Delete Failed");
-                }
-            }}
-        />
+                }}
+            />
+            {/* Load More Button */}
+            {data.length > 0 && hasMore && (
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px', marginBottom: '20px' }}>
+                    <button
+                        type="button"
+                        onClick={() => fetchHistory(true)}
+                        disabled={loading}
+                        style={{
+                            padding: '8px 24px',
+                            background: 'white',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '20px',
+                            color: '#1e293b',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            fontWeight: 500
+                        }}
+                    >
+                        {loading ? 'Loading...' : 'Load More'}
+                    </button>
+                </div>
+            )}
+        </>
     );
 }

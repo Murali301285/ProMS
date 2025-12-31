@@ -7,7 +7,7 @@ export async function POST(req) {
     try {
         const user = await authenticateUser(req);
         const body = await req.json();
-        const { Date: LoadDate, ShiftId, SourceId, DestinationId, MaterialId, HaulerId, LoadingMachineId } = body;
+        const { Date: LoadDate, ShiftId, SourceId, DestinationId, MaterialId, HaulerId, LoadingMachineId, skip = 0, take = 50 } = body;
 
         const pool = await getDbConnection();
         const request = pool.request();
@@ -87,7 +87,9 @@ export async function POST(req) {
             request.input('UserId', user.id);
         }
 
-        query += ` ORDER BY T.CreatedDate DESC`;
+        query += ` ORDER BY T.CreatedDate DESC OFFSET @skip ROWS FETCH NEXT @take ROWS ONLY`;
+        request.input('skip', skip);
+        request.input('take', take);
 
         const result = await request.query(query);
 

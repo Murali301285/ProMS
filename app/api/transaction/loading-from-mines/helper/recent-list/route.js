@@ -15,7 +15,7 @@ export async function POST(req) {
 
         const body = await req.json();
         console.log("Values passed to recent-list:", body);
-        const { Date: LoadDate, ShiftId, SourceId, DestinationId, MaterialId, HaulerId, LoadingMachineId } = body;
+        const { Date: LoadDate, ShiftId, SourceId, DestinationId, MaterialId, HaulerId, LoadingMachineId, skip = 0, take = 50 } = body;
 
         const pool = await getDbConnection();
         const request = pool.request();
@@ -90,15 +90,16 @@ export async function POST(req) {
             request.input('LoadingMachineId', LoadingMachineId);
         }
 
-        // Add scoping to User? req says "Load the Recent transactions is based on the created or updated by logged in user"
-        // But also says "Controls like Date... changes -> load based on filtered details"
-        // Usually "Recent Transactions" implies "My Work".
+        // Add scoping to User
         if (user) {
             query += ` AND (T.CreatedBy = @UserId OR T.UpdatedBy = @UserId)`;
             request.input('UserId', user.id);
         }
 
-        query += ` ORDER BY T.CreatedDate DESC`; // Sort by newest
+        // Pagination
+        query += ` ORDER BY T.CreatedDate DESC, T.SlNo DESC OFFSET @skip ROWS FETCH NEXT @take ROWS ONLY`;
+        request.input('skip', skip);
+        request.input('take', take);
 
         console.log("📝 [Recent-List] Generated Query:", query);
         const result = await request.query(query);

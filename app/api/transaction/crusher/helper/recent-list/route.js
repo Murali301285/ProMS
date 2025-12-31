@@ -13,6 +13,7 @@ export async function POST(request) {
         // Standardized on session.id (which should be user.SlNo)
         const userId = session.id;
         const body = await request.json();
+        const { skip = 0, take = 50 } = body;
         console.log("Recent List Request:", { userId, body });
 
         // Query: 
@@ -91,7 +92,9 @@ export async function POST(request) {
         }
 
         // Sorting
-        query += ` ORDER BY T.SlNo DESC`;
+        query += ` ORDER BY T.SlNo DESC OFFSET @skip ROWS FETCH NEXT @take ROWS ONLY`;
+        params.push({ name: 'skip', type: sql.Int, value: skip });
+        params.push({ name: 'take', type: sql.Int, value: take });
 
         // console.log("Executing Query Params:", JSON.stringify(params)); 
         console.log("Executing Query Params Values:", params.map(p => ({ name: p.name, value: p.value })));

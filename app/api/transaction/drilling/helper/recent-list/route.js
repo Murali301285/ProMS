@@ -16,7 +16,8 @@ export async function POST(request) {
 
         // Extract Filters
         const {
-            Date: date,
+            Date: LoadDate, // Renamed from 'date' to 'LoadDate'
+            DrillingId, // New field
             DrillingPatchId,
             EquipmentId,
             MaterialId,
@@ -24,7 +25,9 @@ export async function POST(request) {
             SectorId,
             ScaleId,
             StrataId,
-            DepthSlabId
+            DepthSlabId,
+            skip = 0, // Pagination parameter
+            take = 50 // Pagination parameter
         } = body;
 
         // Base Query
@@ -80,9 +83,14 @@ export async function POST(request) {
         // Dynamic Filters
         // "if field is empty/default then -> condition should be removed"
 
-        if (date) {
-            query += ` AND CAST(t.Date AS DATE) = @date`;
-            params.push({ name: 'date', type: sql.Date, value: date });
+        if (LoadDate) { // Changed from 'date' to 'LoadDate'
+            query += ` AND CAST(t.Date AS DATE) = @LoadDate`; // Changed parameter name
+            params.push({ name: 'LoadDate', type: sql.Date, value: LoadDate }); // Changed parameter name
+        }
+
+        if (DrillingId) { // New filter
+            query += ` AND t.SlNo = @DrillingId`;
+            params.push({ name: 'DrillingId', type: sql.Int, value: DrillingId });
         }
 
         if (DrillingPatchId) {
@@ -125,8 +133,10 @@ export async function POST(request) {
             params.push({ name: 'depthslab', type: sql.Int, value: DepthSlabId });
         }
 
-        // Ordering
-        query += ` ORDER BY t.CreatedDate DESC`;
+        // Ordering and Pagination
+        query += ` ORDER BY t.SlNo DESC OFFSET @skip ROWS FETCH NEXT @take ROWS ONLY`;
+        params.push({ name: 'skip', type: sql.Int, value: skip });
+        params.push({ name: 'take', type: sql.Int, value: take });
 
         const data = await executeQuery(query, params);
 

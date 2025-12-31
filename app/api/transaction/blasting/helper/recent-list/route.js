@@ -11,6 +11,7 @@ export async function POST(request) {
         }
 
         const body = await request.json();
+        const { skip = 0, take = 50 } = body;
 
         // Base Query - Filter by Logged In User
         let query = `
@@ -61,7 +62,9 @@ export async function POST(request) {
             params.push({ name: 'supplierId', type: sql.Int, value: body.SMESupplierId });
         }
 
-        query += ` ORDER BY t.SlNo DESC`;
+        query += ` ORDER BY t.SlNo DESC OFFSET @skip ROWS FETCH NEXT @take ROWS ONLY`;
+        params.push({ name: 'skip', type: sql.Int, value: skip });
+        params.push({ name: 'take', type: sql.Int, value: take });
 
         const data = await executeQuery(query, params);
 
