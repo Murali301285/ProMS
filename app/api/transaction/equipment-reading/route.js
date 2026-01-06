@@ -124,14 +124,28 @@ export async function POST(request) {
         const body = await request.json();
         const {
             Date: date, ShiftId, ShiftInchargeId, MidScaleInchargeId, RelayId,
-            ActivityId, EquipmentId, OperatorId,
+            ActivityId, EquipmentId, OperatorId, // Expecting Array
             OHMR, CHMR, NetHMR, OKMR, CKMR, NetKMR,
             DevelopmentHrMining, FaceMarchingHr, DevelopmentHrNonMining, BlastingMarchingHr,
             RunningBDMaintenanceHr, TotalWorkingHr, BDHr, MaintenanceHr, IdleHr,
             SectorId, PatchId, MethodId, Remarks,
         } = body;
 
+        // Ensure OperatorId is handled (Array check)
+        // If legacy single value comes, wrap in array
+        const operators = Array.isArray(OperatorId) ? OperatorId : (OperatorId ? [OperatorId] : []);
+
         // Insert Query
+        // Note: We might still keep 'OperatorId' in main table as NULL or Primary, 
+        // but strictly we should rely on child table. 
+        // If Database requires OperatorId in main table, we might need to pass the first one or 0.
+        // Assuming column is nullable or allowed to be empty for now if we use child table.
+        // CHECK: If Schema has OperatorId int, we pass null if we want to rely on child. 
+        // Safest: Pass null to main table OperatorId to avoid confusion, or first operator for fast lookup.
+        // Let's pass the first operator as 'Primary' to main table for compatibility, or null.
+
+        const primaryOperator = operators.length > 0 ? operators[0] : null;
+
         const query = `
             INSERT INTO [Trans].[TblEquipmentReading] (
                 [Date], ShiftId, ShiftInchargeId, MidScaleInchargeId, RelayId, ActivityId, EquipmentId, OperatorId,
@@ -153,48 +167,72 @@ export async function POST(request) {
         `;
 
         const pool = await getDbConnection();
-        const req = pool.request();
-        // Bind all inputs
-        req.input('date', sql.Date, date);
-        req.input('ShiftId', sql.Int, ShiftId);
-        req.input('ShiftInchargeId', sql.Int, ShiftInchargeId);
-        req.input('MidScaleInchargeId', sql.Int, MidScaleInchargeId);
-        req.input('RelayId', sql.Int, RelayId);
-        req.input('ActivityId', sql.Int, ActivityId);
-        req.input('EquipmentId', sql.Int, EquipmentId);
-        req.input('OperatorId', sql.Int, OperatorId);
+        const transaction = new sql.Transaction(pool);
 
-        req.input('OHMR', sql.Decimal(18, 2), OHMR || null);
-        req.input('CHMR', sql.Decimal(18, 2), CHMR || null);
-        req.input('NetHMR', sql.Decimal(18, 2), NetHMR || null);
-        req.input('OKMR', sql.Decimal(18, 2), OKMR || null);
-        req.input('CKMR', sql.Decimal(18, 2), CKMR || null);
-        req.input('NetKMR', sql.Decimal(18, 2), NetKMR || null);
+        await transaction.begin();
 
-        req.input('DevelopmentHrMining', sql.Decimal(18, 2), DevelopmentHrMining || null);
-        req.input('FaceMarchingHr', sql.Decimal(18, 2), FaceMarchingHr || null);
-        req.input('DevelopmentHrNonMining', sql.Decimal(18, 2), DevelopmentHrNonMining || null);
-        req.input('BlastingMarchingHr', sql.Decimal(18, 2), BlastingMarchingHr || null);
+        try {
+            const req = new sql.Request(transaction);
 
-        req.input('RunningBDMaintenanceHr', sql.Decimal(18, 2), RunningBDMaintenanceHr || null);
-        req.input('TotalWorkingHr', sql.Decimal(18, 2), TotalWorkingHr || null);
-        req.input('BDHr', sql.Decimal(18, 2), BDHr || null);
-        req.input('MaintenanceHr', sql.Decimal(18, 2), MaintenanceHr || null);
-        req.input('IdleHr', sql.Decimal(18, 2), IdleHr || null);
+            // Bind all inputs
+            req.input('date', sql.Date, date);
+            req.input('ShiftId', sql.Int, ShiftId);
+            req.input('ShiftInchargeId', sql.Int, ShiftInchargeId);
+            req.input('MidScaleInchargeId', sql.Int, MidScaleInchargeId);
+            req.input('RelayId', sql.Int, RelayId);
+            req.input('ActivityId', sql.Int, ActivityId);
+            req.input('EquipmentId', sql.Int, EquipmentId);
 
-        req.input('SectorId', sql.Int, SectorId || null);
-        req.input('PatchId', sql.Int, PatchId || null);
-        req.input('MethodId', sql.Int, MethodId || null);
+            // Main Table OperatorId (Primary or Null)
+            req.input('OperatorId', sql.Int, primaryOperator);
 
-        req.input('Remarks', sql.NVarChar, Remarks);
-        req.input('UserId', sql.Int, UserId);
+            req.input('OHMR', sql.Decimal(18, 2), OHMR || null);
+            req.input('CHMR', sql.Decimal(18, 2), CHMR || null);
+            req.input('NetHMR', sql.Decimal(18, 2), NetHMR || null);
+            req.input('OKMR', sql.Decimal(18, 2), OKMR || null);
+            req.input('CKMR', sql.Decimal(18, 2), CKMR || null);
+            req.input('NetKMR', sql.Decimal(18, 2), NetKMR || null);
 
-        const result = await req.query(query);
-        const newId = result.recordset[0].SlNo;
+            req.input('DevelopmentHrMining', sql.Decimal(18, 2), DevelopmentHrMining || null);
+            req.input('FaceMarchingHr', sql.Decimal(18, 2), FaceMarchingHr || null);
+            req.input('DevelopmentHrNonMining', sql.Decimal(18, 2), DevelopmentHrNonMining || null);
+            req.input('BlastingMarchingHr', sql.Decimal(18, 2), BlastingMarchingHr || null);
 
-        // Child Table Insert Logic Removed (Now Single Column)
+            req.input('RunningBDMaintenanceHr', sql.Decimal(18, 2), RunningBDMaintenanceHr || null);
+            req.input('TotalWorkingHr', sql.Decimal(18, 2), TotalWorkingHr || null);
+            req.input('BDHr', sql.Decimal(18, 2), BDHr || null);
+            req.input('MaintenanceHr', sql.Decimal(18, 2), MaintenanceHr || null);
+            req.input('IdleHr', sql.Decimal(18, 2), IdleHr || null);
 
-        return NextResponse.json({ success: true, message: 'Saved Successfully', id: newId });
+            req.input('SectorId', sql.Int, SectorId || null);
+            req.input('PatchId', sql.Int, PatchId || null);
+            req.input('MethodId', sql.Int, MethodId || null);
+
+            req.input('Remarks', sql.NVarChar, Remarks);
+            req.input('UserId', sql.Int, UserId);
+
+            const result = await req.query(query);
+            const newId = result.recordset[0].SlNo;
+
+            // --- Child Table Insert ---
+            if (operators.length > 0) {
+                const childReq = new sql.Request(transaction);
+                // Bulk Insert or Loop? Loop is easier for small arrays.
+                for (const opId of operators) {
+                    await childReq.query(`
+                        INSERT INTO [Trans].[TblEquipmentReadingOperator] (EquipmentReadingId, OperatorId)
+                        VALUES (${newId}, ${opId})
+                    `);
+                }
+            }
+
+            await transaction.commit();
+            return NextResponse.json({ success: true, message: 'Saved Successfully', id: newId });
+
+        } catch (err) {
+            await transaction.rollback();
+            throw err;
+        }
 
     } catch (error) {
         console.error("Create Error:", error);

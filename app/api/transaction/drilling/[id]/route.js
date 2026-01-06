@@ -106,13 +106,15 @@ export async function PUT(request, { params }) {
 // DELETE Record (Soft Delete)
 export async function DELETE(request, { params }) {
     try {
+        const user = await authenticateUser(request);
         const { id } = await params;
         const pool = await getDbConnection();
 
-        // Soft delete logic
+        // Soft delete logic with Audit
         await pool.request()
             .input('Id', sql.BigInt, id)
-            .query("UPDATE [Trans].[TblDrilling] SET IsDelete = 1 WHERE SlNo = @Id");
+            .input('UserId', sql.BigInt, user ? user.id : 1)
+            .query("UPDATE [Trans].[TblDrilling] SET IsDelete = 1, UpdatedBy = @UserId, UpdatedDate = GETDATE() WHERE SlNo = @Id");
 
         return NextResponse.json({ success: true, message: 'Record deleted successfully' });
 

@@ -22,7 +22,8 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
     const inchargeRef = useRef(null);
     const sourceRef = useRef(null);
     const destinationRef = useRef(null);
-    const haulerRef = useRef(null); // Added Hauler Ref
+    const haulerRef = useRef(null);
+    const loadingMachineRef = useRef(null); // Added Loader Ref
     const prevDateRef = useRef(new Date().toISOString().split('T')[0]);
 
     // Initial Form State
@@ -238,6 +239,7 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
 
                 // If Result Found -> Apply
                 if (res.success && res.data) {
+                    console.log("[DEBUG] MR Context Loaded:", res.data);
                     let incharges = [];
                     if (res.data.ShiftInchargeIds) {
                         incharges = res.data.ShiftInchargeIds.toString().split(',').map(id => Number(id)); // Handle potentially different formats
@@ -270,17 +272,18 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                             SourceId: isFallback ? '' : (res.data.SourceId || ''),
                             DestinationId: isFallback ? '' : (res.data.DestinationId || ''),
                             MaterialId: isFallback ? '' : (res.data.MaterialId || ''),
-                            HaulerId: isFallback ? '' : (res.data.HaulerEquipmentId || ''),
+                            HaulerId: isFallback ? '' : (res.data.HaulerId || ''),
 
                             // Explicitly clear Loader as per request
                             LoadingMachineId: '',
 
-                            Unit: isFallback ? '' : (res.data.Unit ? String(res.data.Unit) : ''),
+                            Unit: isFallback ? '' : (res.data.UnitId ? String(res.data.UnitId) : ''),
 
                             // Clear others on context load
                             NoOfTrips: '',
-                            MangQtyTrip: '',
-                            NTPCQtyTrip: '',
+                            // Load Factors (Prefill)
+                            MangQtyTrip: res.data.ManagementQtyTrip ?? '',
+                            NTPCQtyTrip: res.data.NTPCQtyTrip ?? '',
                             MangTotalQty: '',
                             NTPCTotalQty: '',
                             Remarks: ''
@@ -291,8 +294,15 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                     // Removed Debug Toast
                     toast.info(`Context Loaded (${isFallback ? 'From Daily Loading' : 'Previous Entry'})`, { id: 'ctx-load-mr' });
 
-                    // Auto Focus Hauler
-                    if (haulerRef.current) setTimeout(() => haulerRef.current.focus(), 300);
+                    // Auto Focus Logic (Hauler Present -> Focus Loader, Else -> Focus Hauler)
+                    setTimeout(() => {
+                        const hasHauler = !isFallback && res.data.HaulerId;
+                        if (hasHauler && loadingMachineRef.current) {
+                            loadingMachineRef.current.focus();
+                        } else if (haulerRef.current) {
+                            haulerRef.current.focus();
+                        }
+                    }, 300);
 
                 } else {
                     // NO DATA FOUND -> AUTO CLEAR LOGIC
@@ -349,6 +359,14 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
     // Handle Input Change
     const handleChange = (e) => {
         const { name, value } = e.target;
+
+        // Auto-Focus Incharge (Large-Scale) on Shift Change
+        if (name === 'ShiftId') {
+            setTimeout(() => {
+                if (inchargeRef.current) inchargeRef.current.focus();
+            }, 100);
+        }
+
         // console.log(`[Form Change] ${name} = ${value} (Type: ${typeof value})`);
 
         // Clear error if value is valid (truthy or 0)
@@ -545,24 +563,27 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                 } else {
                     setFormData(prev => ({
                         ...prev,
-                        DestinationId: '',
-                        MaterialId: '',
-                        HaulerId: '',
+                        DestinationId: prev.DestinationId,
+                        MaterialId: prev.MaterialId,
+                        // Retain Hauler to allow faster entry (User requested "Same like Loading From Mines")
+                        HaulerId: prev.HaulerId,
                         LoadingMachineId: '',
                         NoOfTrips: '',
-                        MangQtyTrip: '',
-                        NTPCQtyTrip: '',
-                        Unit: '',
+                        MangQtyTrip: prev.MangQtyTrip,
+                        NTPCQtyTrip: prev.NTPCQtyTrip,
+                        Unit: prev.Unit,
                         MangTotalQty: '',
                         NTPCTotalQty: '',
                         Remarks: ''
                     }));
+
+                    // Focus Loader for next entry
                     setTimeout(() => {
-                        if (destinationRef.current) destinationRef.current.focus();
+                        // Assuming loadingMachineRef will be added
+                        // If not, it falls back to Hauler manually or I'll add the ref
+                        if (loadingMachineRef.current) loadingMachineRef.current.focus();
                     }, 100);
-                    setTimeout(() => {
-                        if (destinationRef.current) destinationRef.current.focus();
-                    }, 100);
+
                     fetchContextData(false);
                 }
             } else {
@@ -738,7 +759,7 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                     {/* Loading M/C: R2 C6-C7 (Span 2) */}
                     <div className={styles.group} style={{ gridColumn: '6 / span 2' }}>
                         <label>Loader <span style={{ color: 'red' }}>*</span></label>
-                        <SearchableSelect name="LoadingMachineId" value={formData.LoadingMachineId} onChange={handleChange} options={options.loaders} placeholder="Loader" className={styles.select} error={errors.LoadingMachineId} />
+                        <SearchableSelect ref={loadingMachineRef} name="LoadingMachineId" value={formData.LoadingMachineId} onChange={handleChange} options={options.loaders} placeholder="Loader" className={styles.select} error={errors.LoadingMachineId} />
                         {errors.LoadingMachineId && <div className={styles.errorMsg}>Required</div>}
                     </div>
 
@@ -800,12 +821,15 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                     </div>
 
                 </div>
-                <div className={styles.tableSection} style={{ marginTop: '20px' }}>
+                {/* Transaction Table Section */}
+                <div className={styles.tableSection} style={{ marginTop: '30px', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
                     <TransactionTable
+                        title="Recent Transactions"
                         config={{
                             columns: [
+
                                 { accessor: 'SlNo', label: 'ID', width: 60 },
-                                { accessor: 'RehandlingDate', label: 'Date', width: 90, type: 'date' },
+                                { accessor: 'Date', label: 'Date', width: 90, type: 'date' },
                                 { accessor: 'ShiftName', label: 'Shift', width: 80 },
                                 { accessor: 'ShiftInchargeName', label: 'Incharge (Large)', width: 140 }, // Mapped from API
                                 { accessor: 'MidScaleInchargeName', label: 'Incharge (Mid)', width: 140 }, // Mapped from API
@@ -815,8 +839,8 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                                 { accessor: 'DestinationName', label: 'Dest', width: 100 },
                                 { accessor: 'MaterialName', label: 'Material', width: 100 },
                                 { accessor: 'HaulerName', label: 'Hauler', width: 100 },
-                                { accessor: 'LoadingMachineName', label: 'Loader', width: 100 },
-                                { accessor: 'NoofTrip', label: 'Trips', width: 60 },
+                                { accessor: 'LoaderName', label: 'Loader', width: 100 },
+                                { accessor: 'NoOfTrips', label: 'Trips', width: 60 },
                                 { accessor: 'QtyTrip', label: 'Management Load Factor', width: 90 },
                                 { accessor: 'NtpcQtyTrip', label: 'NTPC Load Factor', width: 90 },
                                 { accessor: 'TotalQty', label: 'Total Mang. Qty', width: 100 },
@@ -835,7 +859,6 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                                 router.push(`/dashboard/transaction/material-rehandling/${row.SlNo}`);
                             }
                         }}
-                        title={`Recent Transactions - By ${user?.username || user?.UserName || user?.name || 'User'}`}
                     />
                     {/* Load More Button */}
                     {filteredTableData.length > 0 && hasMore && (

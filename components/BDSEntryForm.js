@@ -48,16 +48,28 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
 
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
+    const [user, setUser] = useState(null); // Added user state
+    const [userRole, setUserRole] = useState('User'); // Added userRole state fallback
+
+    useEffect(() => {
+        // Fetch User
+        fetch('/api/auth/me').then(r => r.json()).then(res => {
+            if (res.user) {
+                setUser(res.user);
+                setUserRole(res.user.role || 'User');
+            }
+        }).catch(err => console.error(err));
+    }, []);
     const [recentData, setRecentData] = useState([]);
     const [loadingRecent, setLoadingRecent] = useState(false);
-    const [userRole, setUserRole] = useState(null);
+    // userRole removed (duplicate)
     const [smeCategories, setSmeCategories] = useState([]);
     const [lastEntry, setLastEntry] = useState(null);
 
     const formRef = useRef(null);
 
     useEffect(() => {
-        fetch('/api/auth/me').then(r => r.json()).then(res => { if (res.user) setUserRole(res.user.role); });
+        // Redundant fetch '/api/auth/me' removed
 
         fetch('/api/master/sme-category').then(r => r.json()).then(res => {
             if (res.data) setSmeCategories(res.data); // data has {id, name}
@@ -86,7 +98,8 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
     // Smart Context Effect
     useEffect(() => {
         if (mode === 'create' && lastEntry) {
-            setFormData({
+            setFormData(prev => ({ // Use prev to keep untouched fields if any, though we are resetting most
+                ...prev,
                 Date: lastEntry.Date ? new Date(lastEntry.Date).toISOString().split('T')[0] : today,
                 SMECategoryId: lastEntry.SMECategoryId ? String(lastEntry.SMECategoryId) : '',
                 VehicleNo: '',
@@ -97,7 +110,12 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
                 AcceptedQuantity: '',
                 ChallanNo: '',
                 Remarks: ''
-            });
+            }));
+            // Auto-focus Vehicle No if context found
+            setTimeout(() => {
+                const vehicleInput = formRef.current?.querySelector('input[name="VehicleNo"]');
+                if (vehicleInput) vehicleInput.focus();
+            }, 100);
         }
     }, [lastEntry, mode]);
 
@@ -271,11 +289,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
                 </button>
                 <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, alignItems: 'center' }}>
                     <h1 className={css.headerTitle} style={{ fontSize: '15px' }}>{mode === 'edit' ? 'Update' : 'Create'} BDS Entry</h1>
-                    {mode === 'create' && lastEntry && (
-                        <div className="text-xs text-gray-500 mt-1" style={{ fontSize: '11px' }}>
-                            Last data entered on -&gt; Date: <span className="font-semibold">{new Date(lastEntry.Date).toLocaleDateString('en-GB')}</span> | Entered by : <span className="font-semibold text-blue-600">{lastEntry.CreatedByName || lastEntry.CreatedBy || 'Admin'}</span>
-                        </div>
-                    )}
+
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                     <button onClick={handleReset} className={css.backBtn} title="(F5) Reset"><RotateCcw size={18} /></button>
@@ -427,9 +441,10 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
             </div>
 
             <div className={css.dataTableSection}>
-                <div className={css.tableTitle}>Recent Entries</div>
                 <div style={{ height: '400px', width: '100%' }}>
-                    <TransactionTable config={config} data={recentData} isLoading={loadingRecent} onEdit={handleEditRecent} onDelete={handleDeleteRecent} userRole={userRole} />
+                    <TransactionTable
+                        title="Recent Transactions"
+                        config={config} data={recentData} isLoading={loadingRecent} onEdit={handleEditRecent} onDelete={handleDeleteRecent} userRole={userRole} />
                 </div>
             </div>
         </div>

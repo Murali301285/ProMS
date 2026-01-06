@@ -1016,8 +1016,8 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
 
             {/* Recent Transactions */}
             <div className={css.dataTableSection}>
-                <div className={css.tableTitle}>Recent Transactions</div>
                 <TransactionTable
+                    title="Recent Transactions"
                     config={TRANSACTION_CONFIG['crusher']}
                     data={recentData}
                     isLoading={false}

@@ -257,8 +257,8 @@ export default function DispatchEntryForm({ mode = 'create', initialData = null 
                 <button onClick={() => router.push('/dashboard/transaction/dispatch-entry')} className={css.backBtn}>
                     <ArrowLeft size={16} /> Back
                 </button>
-                <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, marginLeft: '10px' }}>
-                    <h1 className={css.headerTitle} style={{ fontSize: '15px', marginBottom: '0' }}>{mode === 'edit' ? 'Update' : 'Create'} Dispatch Entry</h1>
+                <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, alignItems: 'center' }}>
+                    <h1 className={css.headerTitle} style={{ fontSize: '15px', marginBottom: '0', textAlign: 'center' }}>{mode === 'edit' ? 'Update' : 'Create'} Dispatch Entry</h1>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                     <button onClick={handleReset} className={css.backBtn} style={{ justifyContent: 'center', width: '36px' }} title="(F5) Reset">
@@ -277,8 +277,8 @@ export default function DispatchEntryForm({ mode = 'create', initialData = null 
                     {/* Row 1 */}
 
                     {/* Date */}
-                    <div className={css.group}>
-                        <label className={css.label}>Date <span className="text-red-500">*</span></label>
+                    <div className={css.group} style={{ gridColumn: '1 / span 1' }}>
+                        <label className={css.label}>Date <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="date"
                             name="Date"
@@ -291,8 +291,8 @@ export default function DispatchEntryForm({ mode = 'create', initialData = null 
                     </div>
 
                     {/* Dispatch Location */}
-                    <div className={css.group} style={{ gridColumn: 'span 2' }}>
-                        <label className={css.label}>Dispatch Location <span className="text-red-500">*</span></label>
+                    <div className={css.group} style={{ gridColumn: '2 / span 2' }}>
+                        <label className={css.label}>Dispatch Location <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
                             options={locations}
                             value={formData.DispatchLocationId}
@@ -303,24 +303,11 @@ export default function DispatchEntryForm({ mode = 'create', initialData = null 
                         />
                     </div>
 
-                    {/* UOM */}
-                    <div className={css.group}>
-                        <label className={css.label}>UOM <span className="text-red-500">*</span></label>
-                        <SearchableSelect
-                            options={units}
-                            value={formData.UOMId}
-                            onChange={(e) => handleSelectChange('UOMId', e.target.value)}
-                            placeholder="Select Unit"
-                            error={errors.UOMId}
-                            className={css.input}
-                        />
-                    </div>
-
                     {/* Row 2 */}
 
                     {/* Trip */}
-                    <div className={css.group}>
-                        <label className={css.label}>Trip <span className="text-red-500">*</span></label>
+                    <div className={css.group} style={{ gridColumn: '1 / span 1' }}>
+                        <label className={css.label}>Trip <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="number"
                             name="Trip"
@@ -333,8 +320,8 @@ export default function DispatchEntryForm({ mode = 'create', initialData = null 
                     </div>
 
                     {/* Total Qty */}
-                    <div className={css.group}>
-                        <label className={css.label}>Total Qty <span className="text-red-500">*</span></label>
+                    <div className={css.group} style={{ gridColumn: '2 / span 1' }}>
+                        <label className={css.label}>Total Qty <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="number"
                             name="TotalQty"
@@ -347,8 +334,21 @@ export default function DispatchEntryForm({ mode = 'create', initialData = null 
                         {errors.TotalQty && <span className={css.errorText}>{errors.TotalQty}</span>}
                     </div>
 
+                    {/* UOM */}
+                    <div className={css.group} style={{ gridColumn: '3 / span 1' }}>
+                        <label className={css.label}>UOM <span style={{ color: 'red' }}>*</span></label>
+                        <SearchableSelect
+                            options={units}
+                            value={formData.UOMId}
+                            onChange={(e) => handleSelectChange('UOMId', e.target.value)}
+                            placeholder="Select Unit"
+                            error={errors.UOMId}
+                            className={css.input}
+                        />
+                    </div>
+
                     {/* Remarks */}
-                    <div className={css.group} style={{ gridColumn: 'span 3' }}>
+                    <div className={css.group} style={{ gridColumn: '1 / span 6' }}>
                         <label className={css.label}>Remarks</label>
                         <input
                             type="text"
@@ -366,7 +366,7 @@ export default function DispatchEntryForm({ mode = 'create', initialData = null 
                 <div style={{ height: '400px', width: '100%' }}>
                     <TransactionTable
                         config={config}
-                        title={`Recent Transactions - By ${displayUser || 'User'}`}
+                        title="Recent Transactions"
                         data={recentData}
                         isLoading={loadingRecent}
                         onEdit={handleEditRecent}

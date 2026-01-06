@@ -7,9 +7,13 @@ export const dynamic = 'force-dynamic';
 
 export async function DELETE(request, { params }) {
     try {
+        const user = await authenticateUser(request);
         const { id } = await params;
-        const pool = await getDbConnection();
-        await pool.request().query(`UPDATE [Trans].[TblLoading] SET IsDelete = 1 WHERE SlNo = ${id}`);
+
+        await executeQuery(`UPDATE [Trans].[TblLoading] SET IsDelete = 1, UpdatedBy = @userId, UpdatedDate = GETDATE() WHERE SlNo = @id`, [
+            { name: 'userId', type: sql.Int, value: user ? user.id : 1 },
+            { name: 'id', type: sql.Int, value: id }
+        ]);
 
         return NextResponse.json({ success: true, message: 'Record deleted successfully' });
     } catch (error) {

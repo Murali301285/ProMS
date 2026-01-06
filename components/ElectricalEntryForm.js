@@ -345,15 +345,15 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                             ...prev,
                             ShiftId: ctx.ShiftId || '',
                             RelayId: ctx.RelayId || '',
-                            PlantId: ctx.PlantId || '',
-                            EquipmentId: ctx.EquipmentId || '',
+                            PlantId: '', // Reset
+                            EquipmentId: '', // Reset
                             UnitId: ctx.UnitId || prev.UnitId,
 
                             // Map Transactional from Last Context
-                            OMR: ctx.OMR || '',
-                            CMR: ctx.CMR || '',
-                            TotalUnit: ctx.TotalUnit || '',
-                            Remarks: ctx.Remarks || ''
+                            OMR: '', // Reset
+                            CMR: '', // Reset
+                            TotalUnit: '', // Reset
+                            Remarks: '' // Reset
                         }));
                     } else {
                         // Reset if no data for date
@@ -614,7 +614,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                 </button>
                 <div style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, alignItems: 'center' }}>
                     <h1 className={css.headerTitle} style={{ fontSize: '15px', marginBottom: '0', textAlign: 'center' }}>
-                        {mode === 'edit' ? 'Update' : 'Create'} Electrical Entry <span style={{ fontSize: '10px', color: 'gray' }}>(v2.0)</span>
+                        {mode === 'edit' ? 'Update' : 'Create'} Electrical Entry
                     </h1>
                     {/* Last Entry Display - Hidden per User Request */}
                     {/* {lastEntry && (
@@ -641,7 +641,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
 
                     {/* Date: R1 C1 */}
                     <div className={css.group} style={{ gridColumn: '1 / span 1' }}>
-                        <label className={css.label}>Date <span className="text-red-500">*</span></label>
+                        <label className={css.label}>Date <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="date"
                             name="Date"
@@ -655,7 +655,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
 
                     {/* Shift: R1 C2 */}
                     <div className={css.group} style={{ gridColumn: '2 / span 1' }}>
-                        <label className={css.label}>Shift <span className="text-red-500">*</span></label>
+                        <label className={css.label}>Shift <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
                             id="shift-input"
                             options={masters.shift}
@@ -669,7 +669,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
 
                     {/* Relay: R1 C3 */}
                     <div className={css.group} style={{ gridColumn: '3 / span 1' }}>
-                        <label className={css.label}>Relay <span className="text-red-500">*</span></label>
+                        <label className={css.label}>Relay <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
                             options={masters.relay}
                             value={formData.RelayId}
@@ -686,7 +686,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                     <div className={css.group} style={{ gridColumn: '1 / span 2' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <label className={css.label}>
-                                {entryType} <span className="text-red-500">*</span>
+                                {entryType} <span style={{ color: 'red' }}>*</span>
                             </label>
 
                             {/* Toggle Switch UI */}
@@ -771,7 +771,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
 
                     {/* OMR: R2 C3 */}
                     <div className={css.group} style={{ gridColumn: '3 / span 1' }}>
-                        <label className={css.label}>OMR <span className="text-red-500">*</span></label>
+                        <label className={css.label}>OMR <span style={{ color: 'red' }}>*</span></label>
                         <input
                             id="omr-input"
                             type="number"
@@ -786,7 +786,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
 
                     {/* CMR: R2 C4 */}
                     <div className={css.group} style={{ gridColumn: '4 / span 1' }}>
-                        <label className={css.label}>CMR <span className="text-red-500">*</span></label>
+                        <label className={css.label}>CMR <span style={{ color: 'red' }}>*</span></label>
                         <input
                             id="cmr-input"
                             type="number"
@@ -812,7 +812,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
 
                     {/* Unit: R2 C6 */}
                     <div className={css.group} style={{ gridColumn: '6 / span 1' }}>
-                        <label className={css.label}>Unit <span className="text-red-500">*</span></label>
+                        <label className={css.label}>Unit <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
                             options={masters.unit}
                             value={formData.UnitId}
@@ -844,7 +844,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                 <div style={{ padding: '0' }}> {/* Clean padding for sticky headers */}
                     <TransactionTable
                         config={config}
-                        title={`Recent Transactions - By ${displayUser || 'User'}`}
+                        title="Recent Transactions"
                         data={recentData}
                         isLoading={loadingRecent && page === 0}
                         onEdit={handleEditRecent}

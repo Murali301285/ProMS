@@ -159,14 +159,8 @@ export default function TransactionTable({
     };
 
     const canEdit = (createdDate) => {
-        // 1. Admin Override
-        if (['Admin', 'SuperAdmin', 'Administrator'].includes(userRole)) return true;
-
-        // 2. User Time Constraint
-        if (!createdDate) return false;
-        const d = new Date(createdDate);
-        const today = new Date();
-        return d.toDateString() === today.toDateString();
+        // ALWAYS ALLOW EDIT/DELETE as per new policy (Step 1591)
+        return true;
     };
 
     // Helper to calculate sticky offsets

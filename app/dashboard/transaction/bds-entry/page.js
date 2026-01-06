@@ -145,7 +145,7 @@ export default function BDSEntryList() {
                             fontWeight: 500,
                             alignSelf: 'center'
                         }}>
-                            Last data entered on -&gt; Date: {new Date(lastEntry.Date).toLocaleDateString('en-GB')} | SME: {lastEntry.SMECategoryName} | Entered by : {lastEntry.CreatedByName || lastEntry.CreatedBy || 'Admin'}
+                            Last data entered on -&gt; Date: {new Date(lastEntry.Date).toLocaleDateString('en-GB')} | Entered by : {lastEntry.CreatedByName || lastEntry.CreatedBy || 'Admin'}
                         </span>
                     )}
                     <button

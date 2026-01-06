@@ -141,12 +141,14 @@ VALUES(@CrusherId, @FromTime, @ToTime, @StoppageId, @StoppageHours, @Remarks)
 export async function DELETE(request, { params }) {
     const { id } = await params;
     try {
+        const user = await authenticateUser(request);
         const pool = await getDbConnection();
         const req = pool.request();
         req.input('id', sql.Int, id);
+        req.input('userId', sql.Int, user ? user.id : 1);
 
-        // Soft Delete
-        await req.query(`UPDATE [Trans].[TblCrusher] SET IsDelete = 1 WHERE SlNo = @id`);
+        // Soft Delete with Audit
+        await req.query(`UPDATE [Trans].[TblCrusher] SET IsDelete = 1, UpdatedBy = @userId, UpdatedDate = GETDATE() WHERE SlNo = @id`);
 
         return NextResponse.json({ success: true, message: 'Deleted Successfully' });
     } catch (error) {

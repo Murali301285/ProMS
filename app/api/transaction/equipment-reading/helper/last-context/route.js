@@ -25,6 +25,7 @@ export async function POST(req) {
                 ShiftInchargeId,
                 MidScaleInchargeId,
                 RelayId,
+                ActivityId,
                 EquipmentId,
                 OperatorId,
                 'EquipmentReading' as [SourceOfContext]

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { executeQuery, sql } from '@/lib/db';
+import { authenticateUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -132,6 +133,23 @@ export async function GET(req, { params }) {
         }
         return NextResponse.json({ success: false, message: 'Record not found' }, { status: 404 });
     } catch (error) {
+        return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    }
+}
+
+export async function DELETE(request, { params }) {
+    try {
+        const user = await authenticateUser(request);
+        const { id } = await params;
+
+        await executeQuery(`UPDATE [Trans].[TblInternalTransfer] SET IsDelete = 1, UpdatedBy = @userId, UpdatedDate = GETDATE() WHERE SlNo = @id`, [
+            { name: 'userId', type: sql.Int, value: user ? user.id : 1 },
+            { name: 'id', type: sql.Int, value: id }
+        ]);
+
+        return NextResponse.json({ success: true, message: 'Record deleted successfully' });
+    } catch (error) {
+        console.error('Internal Transfer Delete Error:', error);
         return NextResponse.json({ success: false, message: error.message }, { status: 500 });
     }
 }

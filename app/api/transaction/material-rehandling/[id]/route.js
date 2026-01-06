@@ -167,3 +167,20 @@ export async function PUT(request, { params }) {
         return NextResponse.json({ success: false, message: error.message }, { status: 500 });
     }
 }
+
+export async function DELETE(request, { params }) {
+    try {
+        const user = await authenticateUser(request);
+        const { id } = await params;
+
+        await executeQuery(`UPDATE [Trans].[TblMaterialRehandling] SET IsDelete = 1, UpdatedBy = @userId, UpdatedDate = GETDATE() WHERE SlNo = @id`, [
+            { name: 'userId', type: sql.Int, value: user ? user.id : 1 },
+            { name: 'id', type: sql.Int, value: id }
+        ]);
+
+        return NextResponse.json({ success: true, message: 'Record deleted successfully' });
+    } catch (error) {
+        console.error('Material Rehandling Delete Error:', error);
+        return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    }
+}

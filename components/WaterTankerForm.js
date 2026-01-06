@@ -14,6 +14,29 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
     const router = useRouter();
     const [helpers, setHelpers] = useState(initialHelpers);
     const [submitting, setSubmitting] = useState(false);
+    const [user, setUser] = useState(null); // Added user state
+
+    useEffect(() => {
+        // Fetch User
+        fetch('/api/auth/me').then(r => r.json()).then(res => {
+            if (res.user) {
+                setUser(res.user);
+            }
+        }).catch(err => console.error(err));
+
+        // Client-side Fallback for Helpers if SSR failed
+        if (!helpers.shifts || helpers.shifts.length === 0) {
+            console.log("Fetching helpers client-side...");
+            fetch('/api/transaction/water-tanker-entry/helpers')
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.shifts) {
+                        setHelpers(data);
+                    }
+                })
+                .catch(err => console.error("Client helper fetch failed:", err));
+        }
+    }, []);
 
     // Initial State
     const initialState = initialData ? {
@@ -50,7 +73,7 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
     // Auto Focus Shift on Load & Smart Context
     useEffect(() => {
         setTimeout(() => {
-            shiftRef.current?.focus();
+            destRef.current?.focus();
         }, 100);
 
         if (!initialData) {
@@ -232,9 +255,9 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [formData]);
 
-    const shiftOpts = helpers.shifts?.map(s => ({ id: s.SlNo, name: s.ShiftName })) || [];
-    const destOpts = helpers.fillingPoints?.map(f => ({ id: f.SlNo, name: f.FillingPoint })) || [];
-    const haulerOpts = helpers.haulers?.map(h => ({ id: h.SlNo, name: h.EquipmentName })) || [];
+    const shiftOpts = helpers.shifts?.map(s => ({ id: String(s.SlNo), name: s.ShiftName })) || [];
+    const destOpts = helpers.fillingPoints?.map(f => ({ id: String(f.SlNo), name: f.FillingPoint })) || [];
+    const haulerOpts = helpers.haulers?.map(h => ({ id: String(h.SlNo), name: h.EquipmentName })) || [];
 
     const [lastEntry, setLastEntry] = useState(null);
 
@@ -416,6 +439,7 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
             <div className={styles.dataTableSection}>
                 {/* <h3 className={styles.tableTitle}>Recent Entries</h3> */}
                 <TransactionTable
+                    title="Recent Transactions"
                     config={TRANSACTION_CONFIG['water-tanker-entry']}
                     data={tableData}
                     isLoading={tableLoading}

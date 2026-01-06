@@ -242,7 +242,7 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
                         ScaleId: context.ScaleId || '',
                         StrataId: context.StrataId || '',
                         DepthSlabId: context.DepthSlabId || '',
-                        DrillingAgencyId: context.DrillingAgencyId || '',
+                        DrillingAgencyId: '', // Always Reset Agency on Load
                         // Reset entry fields
                         NoofHoles: '', TotalMeters: '', Spacing: '', Burden: '', TopRLBottomRL: '',
                         RemarkId: '', Output: '', UnitId: '', TotalQty: '', Remarks: ''
@@ -290,7 +290,7 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
                         ScaleId: context.ScaleId || '',
                         StrataId: context.StrataId || '',
                         DepthSlabId: context.DepthSlabId || '',
-                        DrillingAgencyId: context.DrillingAgencyId || '',
+                        DrillingAgencyId: '', // Always Reset Agency on Date Change
                         // Reset others
                         NoofHoles: '', TotalMeters: '', Spacing: '', Burden: '', TopRLBottomRL: '',
                         RemarkId: '', Output: '', UnitId: '', TotalQty: '', Remarks: ''
@@ -795,7 +795,7 @@ export default function DrillingForm({ mode = 'create', initialData = null }) {
 
             <div className={css.dataTableSection}>
                 <TransactionTable
-                    title={`Recent Transactions - By ${user?.username || 'User'}`}
+                    title="Recent Transactions"
                     config={TRANSACTION_CONFIG['drilling']}
                     data={tableData}
                     isLoading={tableLoading && page === 0}

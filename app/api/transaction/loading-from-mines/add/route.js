@@ -30,7 +30,7 @@ export async function POST(request) {
             SELECT TOP 1 SlNo FROM [Trans].[TblLoading]
             WHERE CAST(LoadingDate AS DATE) = @date
             AND ShiftId = @ShiftId
-            AND RelayId = @RelayId
+            -- AND RelayId = @RelayId (Removed Strict Check per User Request)
             AND SourceId = @SourceId
             AND DestinationId = @DestinationId
             AND MaterialId = @MaterialId
@@ -40,7 +40,7 @@ export async function POST(request) {
         `, [
             { name: 'date', type: sql.Date, value: date },
             { name: 'ShiftId', type: sql.Int, value: ShiftId },
-            { name: 'RelayId', type: sql.Int, value: RelayId },
+            // { name: 'RelayId', type: sql.Int, value: RelayId },
             { name: 'SourceId', type: sql.Int, value: SourceId },
             { name: 'DestinationId', type: sql.Int, value: DestinationId },
             { name: 'MaterialId', type: sql.Int, value: MaterialId },

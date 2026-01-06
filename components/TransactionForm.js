@@ -21,6 +21,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
     const inchargeRef = useRef(null);
     const sourceRef = useRef(null);
     const destinationRef = useRef(null);
+    const haulerRef = useRef(null); // Added Ref for Hauler
     const loadingMachineRef = useRef(null); // Added Ref for Loading M/C
     const prevDateRef = useRef(new Date().toISOString().split('T')[0]);
 
@@ -202,6 +203,9 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                 // If Result Found -> Apply
                 if (res.success && res.data) {
                     console.log("✅ [SmartContext] Valid Data Found:", res.data);
+                    console.log("   -> Load Factors via Context:", res.data.ManagementQtyTrip, res.data.NTPCQtyTrip);
+                    console.log("   -> Unit via Context:", res.data.UnitId);
+
 
                     // Parse Date
                     const newDate = res.data.LoadingDate ? new Date(res.data.LoadingDate).toISOString().split('T')[0] : '';
@@ -227,13 +231,13 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         DestinationId: res.data.DestinationId || '',
                         MaterialId: res.data.MaterialId || '',
                         HaulerId: res.data.HaulerId || '',
+                        Unit: res.data.UnitId || (options.materials?.find(m => m.id == res.data.MaterialId)?.UnitId) || '', // Auto-fill Unit (Context or Master)
 
                         // Explicitly Clear Transactional Fields
                         LoadingMachineId: '',
                         NoOfTrips: '',
-                        MangQtyTrip: '',
-                        NTPCQtyTrip: '',
-                        Unit: '',
+                        MangQtyTrip: res.data.ManagementQtyTrip ?? '', // Pre-load Load Factor
+                        NTPCQtyTrip: res.data.NTPCQtyTrip ?? '',       // Pre-load Load Factor
                         MangTotalQty: '',
                         NTPCTotalQty: '',
                         Remarks: ''
@@ -243,8 +247,16 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                     // Better: Only toast if it's a "New" context load (e.g. not just a refresh)
                     toast.info("Context Loaded from Last Entry", { id: 'ctx-load' }); // Singleton toast
 
-                    // Focus Loading Machine (Next logical step)
-                    if (loadingMachineRef.current) setTimeout(() => loadingMachineRef.current.focus(), 300);
+                    // Auto Focus Logic (Hauler Present -> Focus Loader, Else -> Focus Hauler)
+                    setTimeout(() => {
+                        // Check if Hauler was pre-loaded (and not just clearing)
+                        const hasHauler = res.data.HaulerId;
+                        if (hasHauler && loadingMachineRef.current) {
+                            loadingMachineRef.current.focus();
+                        } else if (haulerRef.current) {
+                            haulerRef.current.focus();
+                        }
+                    }, 300);
 
                 } else {
                     // NO DATA FOUND -> Clear Transactional Fields
@@ -287,6 +299,13 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
     const handleChange = (e) => {
         const { name, value } = e.target;
         if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' })); // Clear error
+
+        // Auto-Focus Incharge (Large-Scale) on Shift Change
+        if (name === 'ShiftId') {
+            setTimeout(() => {
+                if (inchargeRef.current) inchargeRef.current.focus();
+            }, 100);
+        }
 
         // Strict Integer Validation for ManPower and NoOfTrips
         if (['ManPower', 'NoOfTrips'].includes(name)) {
@@ -577,12 +596,14 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         MaterialId: prev.MaterialId,
                         HaulerId: prev.HaulerId,
 
+                        // RETAIN Load Factors & Unit (User Request Re-Fix)
+                        MangQtyTrip: prev.MangQtyTrip,
+                        NTPCQtyTrip: prev.NTPCQtyTrip,
+                        Unit: prev.Unit,
+
                         // Reset Transactional Fields
                         LoadingMachineId: '',
                         NoOfTrips: '',
-                        MangQtyTrip: '',
-                        NTPCQtyTrip: '',
-                        Unit: '',
                         MangTotalQty: '',
                         NTPCTotalQty: '',
                         Remarks: ''
@@ -826,6 +847,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                     <div className={styles.group} style={{ gridColumn: '4 / span 2' }}>
                         <label>Hauler <span style={{ color: 'red' }}>*</span></label>
                         <SearchableSelect
+                            ref={haulerRef}
                             name="HaulerId"
                             value={formData.HaulerId}
                             onChange={handleChange}
@@ -925,20 +947,14 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                 </div>
 
                 {/* Submit / Reset / Cancel */}
-                <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
-                    <button type="submit" disabled={isSubmitting} className={`${styles.btn} ${styles.btnPrimary}`}>
-                        {isSubmitting ? 'Saving...' : (isEdit ? 'Update' : 'Save')}
-                    </button>
-                    <button type="button" onClick={handleReset} className={`${styles.btn} ${styles.btnSecondary}`}>Reset</button>
-                    <button type="button" onClick={() => router.back()} className={`${styles.btn} ${styles.btnSecondary}`}>Cancel</button>
-                </div>
+                {/* Bottom Actions Removed - Handled in Header */}
 
             </form>
 
             {/* Transaction Table Section */}
             <div className={styles.tableSection} style={{ marginTop: '30px', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
                 <TransactionTable
-                    title={userName ? `Recent Transactions - by ${userName}` : "Recent Transactions"}
+                    title="Recent Transactions"
                     config={{
                         columns: [
                             { accessor: 'SlNo', label: 'Sl No', width: 60, disableFilter: true },

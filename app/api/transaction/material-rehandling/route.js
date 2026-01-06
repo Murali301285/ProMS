@@ -133,7 +133,7 @@ export async function POST(request) {
             WHERE 
                 CAST(RehandlingDate AS DATE) = CAST(@date AS DATE) AND
                 ShiftId = @ShiftId AND
-                RelayId = @RelayId AND
+                -- RelayId = @RelayId AND (Removed to enforce strict uniqueness per shift)
                 SourceId = @SourceId AND
                 DestinationId = @DestinationId AND
                 MaterialId = @MaterialId AND
@@ -145,7 +145,7 @@ export async function POST(request) {
         const dupRes = await executeQuery(dupQuery, [
             { name: 'date', type: sql.Date, value: date },
             { name: 'ShiftId', type: sql.Int, value: ShiftId },
-            { name: 'RelayId', type: sql.Int, value: RelayId },
+            // { name: 'RelayId', type: sql.Int, value: RelayId },
             { name: 'SourceId', type: sql.Int, value: SourceId },
             { name: 'DestinationId', type: sql.Int, value: DestinationId },
             { name: 'MaterialId', type: sql.Int, value: MaterialId },

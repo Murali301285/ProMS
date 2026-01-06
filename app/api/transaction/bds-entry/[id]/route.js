@@ -81,8 +81,20 @@ export async function PUT(req, { params }) {
 export async function DELETE(req, { params }) {
     try {
         const { id } = await params;
-        const query = `UPDATE [Trans].[TblBDSEntry] SET isDelete = 1 WHERE SlNo = @id`;
-        await executeQuery(query, [{ name: 'id', value: id }]);
+        const cookieStore = await cookies();
+        const authToken = cookieStore.get('auth_token')?.value;
+        let updatedBy = 1; // Default Admin
+
+        if (authToken) {
+            const decoded = jwt.decode(authToken);
+            if (decoded?.id) updatedBy = decoded.id;
+        }
+
+        const query = `UPDATE [Trans].[TblBDSEntry] SET isDelete = 1, UpdatedBy = @UpdatedBy, UpdatedDate = GETDATE() WHERE SlNo = @id`;
+        await executeQuery(query, [
+            { name: 'UpdatedBy', value: updatedBy },
+            { name: 'id', value: id }
+        ]);
         return NextResponse.json({ success: true, message: 'Entry Deleted Successfully' });
     } catch (error) {
         return NextResponse.json({ success: false, message: error.message }, { status: 500 });

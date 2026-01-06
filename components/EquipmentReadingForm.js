@@ -135,16 +135,20 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                         ShiftInchargeId: ctx.ShiftInchargeId || '',
                         MidScaleInchargeId: ctx.MidScaleInchargeId || '',
                         RelayId: ctx.RelayId || '',
+                        ActivityId: ctx.ActivityId || '', // Pre-load Activity
 
-                        // Map Operator
-                        OperatorId: '', // Reset Operator on initial load (User Request)
-                        EquipmentId: '', // Reset Equipment on initial load
+                        // REST OF FIELDS: RESET TO DEFAULT/EMPTY
+                        EquipmentId: '',
+                        OperatorId: [],
+                        OHMR: '', CHMR: '', NetHMR: '', OKMR: '', CKMR: '', NetKMR: '',
+                        DevelopmentHrMining: '', FaceMarchingHr: '', DevelopmentHrNonMining: '', BlastingMarchingHr: '',
+                        RunningBDMaintenanceHr: '', TotalWorkingHr: '', BDHr: '', MaintenanceHr: '', IdleHr: '',
+                        SectorId: '', PatchId: '', MethodId: '', Remarks: ''
                     }));
 
-                    // Focus Activity
+                    // Focus Equipment (Skip Activity as it is pre-loaded)
                     setTimeout(() => {
-                        const actInput = document.querySelector('select[name="ActivityId"]');
-                        if (actInput) actInput.focus();
+                        if (equipmentRef.current) equipmentRef.current.focus();
                     }, 100);
 
                 } else {
@@ -153,7 +157,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                         toast.info("No history. Resetting.");
                         setFormData(prev => ({
                             ...prev,
-                            ShiftId: '', ShiftInchargeId: '', MidScaleInchargeId: '', RelayId: '', ManPower: '',
+                            ShiftId: '', ShiftInchargeId: '', MidScaleInchargeId: '', RelayId: '',
                             ActivityId: '', EquipmentId: '', OperatorId: [],
                             OHMR: '', CHMR: '', NetHMR: '', OKMR: '', CKMR: '', NetKMR: '',
                             DevelopmentHrMining: '', FaceMarchingHr: '', DevelopmentHrNonMining: '', BlastingMarchingHr: '', RunningBDMaintenanceHr: '',
@@ -299,52 +303,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
     }, [isEdit, initialData]);
 
 
-    // --- 2. Context Loading (Add Mode Only) ---
-    // Trigger on Date or Shift Change
-    useEffect(() => {
-        if (isEdit) return; // Don't auto-load context in edit mode
 
-        const loadContext = async () => {
-            // Basic req: Only Date or Date+Shift selected
-            if (!formData.Date) return;
-
-            try {
-                const res = await fetch('/api/transaction/helper/last-equipment-reading-context', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        date: formData.Date,
-                        shiftId: formData.ShiftId || null,
-                        userId: userId
-                    })
-                }).then(r => r.json());
-
-                if (res.success && res.data) {
-                    setFormData(prev => ({
-                        ...prev,
-                        ShiftId: res.data.ShiftId || prev.ShiftId,
-                        RelayId: res.data.RelayId || prev.RelayId,
-                        ShiftInchargeId: res.data.ShiftInchargeId || prev.ShiftInchargeId,
-                        MidScaleInchargeId: res.data.MidScaleInchargeId || prev.MidScaleInchargeId,
-                        // V19.2: Apply Context Fields if returned (Priorities 1 & 2)
-                        ActivityId: res.data.ActivityId || '', // Reset if empty/null in P3
-                        EquipmentId: res.data.EquipmentId || '',
-                        OperatorId: res.data.OperatorId || [],
-                    }));
-                    if (res.source) toast.info(`Context Loaded (${res.source})`);
-
-                    // Focus Activity if not set, or Equipment if Activity set
-                    if (activityRef.current && !res.data.ActivityId) {
-                        setTimeout(() => activityRef.current.focus(), 100);
-                    }
-                }
-            } catch (e) {
-                console.error("[loadContext] Error:", e);
-            }
-        };
-
-        const timer = setTimeout(loadContext, 500); // Debounce
-        return () => clearTimeout(timer);
-    }, [formData.Date, formData.ShiftId, isEdit, userId]);
 
 
     // --- 3. Meter Reading Fetch ---
@@ -471,7 +430,19 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
         if (formData.CHMR === '') errs.CHMR = REQ_MSG;
 
         // HMR Logic
-        if (parseFloat(formData.NetHMR) < 0) errs.NetHMR = "Cannot be negative";
+        const netHmr = parseFloat(formData.NetHMR);
+
+        if (!isNaN(netHmr)) {
+            if (netHmr < 0) {
+                errs.NetHMR = "Cannot be negative";
+                toast.error("Net HMR cannot be negative!");
+            } else if (netHmr > 8) {
+                errs.NetHMR = "Cannot exceed 8 Hrs";
+                toast.error(`Net HMR (${netHmr}) cannot be more than 8 Hours in a single shift!`);
+            }
+        }
+
+        // CHMR Checks
         if (parseFloat(formData.CHMR) < parseFloat(formData.OHMR)) errs.CHMR = "Must be >= OHMR";
 
         // 4. KMR (Mandatory if Visible/Applicable)
@@ -570,7 +541,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                     setFormData(prev => ({
                         ...prev,
                         EquipmentId: '',
-                        OperatorId: '', // Reset Operator
+                        OperatorId: [], // Reset Operator
 
                         // Reset Meters
                         OHMR: '', CHMR: '', NetHMR: '',
@@ -651,6 +622,50 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
     };
 
 
+    // Live Validation on Blur
+    const handleHMRBlur = () => {
+        const netHmr = parseFloat(formData.NetHMR);
+        // Only validate if it's a valid number (skip empty or incomplete states)
+        if (!isNaN(netHmr) && (formData.OHMR !== '' && formData.CHMR !== '')) {
+            let newErrors = { ...errors };
+
+            if (netHmr < 0) {
+                toast.error("Net HMR cannot be negative!");
+                newErrors.NetHMR = "Cannot be negative";
+                setErrors(newErrors);
+            } else if (netHmr > 8) {
+                toast.error(`Net HMR (${netHmr}) cannot be more than 8 Hours in a single shift!`);
+                newErrors.NetHMR = "Cannot exceed 8 Hrs";
+                setErrors(newErrors);
+            } else {
+                // Clear Error if valid
+                if (newErrors.NetHMR) {
+                    delete newErrors.NetHMR;
+                    setErrors(newErrors);
+                }
+            }
+        }
+    };
+
+    const handleKMRBlur = () => {
+        const netKmr = parseFloat(formData.NetKMR);
+        if (!isNaN(netKmr) && (formData.OKMR !== '' && formData.CKMR !== '')) {
+            let newErrors = { ...errors };
+
+            if (netKmr < 0) {
+                toast.error("Net KMR cannot be negative!");
+                newErrors.NetKMR = "Cannot be negative";
+                setErrors(newErrors);
+            } else {
+                // Clear Error if valid
+                if (newErrors.NetKMR) {
+                    delete newErrors.NetKMR;
+                    setErrors(newErrors);
+                }
+            }
+        }
+    };
+
     // --- Render Helpers ---
 
     return (
@@ -670,6 +685,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                         if (confirm('Reset Form?')) {
                             setFormData({
                                 ...formData,
+                                EquipmentId: '', OperatorId: [],
                                 OHMR: '', CHMR: '', NetHMR: '', OKMR: '', CKMR: '', NetKMR: '',
                                 DevelopmentHrMining: '', FaceMarchingHr: '', DevelopmentHrNonMining: '', BlastingMarchingHr: '',
                                 RunningBDMaintenanceHr: '', TotalWorkingHr: '', BDHr: '', MaintenanceHr: '', IdleHr: '',
@@ -827,6 +843,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                         <label>OHMR</label>
                         <input type="number" step="0.01" className={`${styles.input} ${errors.OHMR ? styles.errorBorder : ''}`}
                             value={formData.OHMR} onChange={e => setFormData({ ...formData, OHMR: e.target.value })}
+                            onBlur={handleHMRBlur}
                             placeholder="Prev"
                         />
                         {errors.OHMR && <div className={styles.errorMsg}>{errors.OHMR}</div>}
@@ -837,6 +854,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                         <label>CHMR</label>
                         <input type="number" step="0.01" className={`${styles.input} ${errors.CHMR ? styles.errorBorder : ''}`}
                             value={formData.CHMR} onChange={e => setFormData({ ...formData, CHMR: e.target.value })}
+                            onBlur={handleHMRBlur}
                         />
                         {errors.CHMR && <div className={styles.errorMsg}>{errors.CHMR}</div>}
                     </div>
@@ -844,14 +862,17 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                     {/* Net HMR: C3 */}
                     <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                         <label>Net HMR</label>
-                        <input type="number" readOnly className={`${styles.input} ${styles.readOnly} ${errors.NetHMR ? styles.errorBorder : ''}`} value={formData.NetHMR} />
+                        <input type="number" readOnly
+                            className={`${styles.input} ${styles.readOnly} ${errors.NetHMR ? styles.errorBorder : ''}`}
+                            value={formData.NetHMR}
+                            onBlur={handleHMRBlur}
+                        />
                         {errors.NetHMR && <div className={styles.errorMsg}>{errors.NetHMR}</div>}
                     </div>
 
                     {/* KMR (Conditional) */}
                     {isDetailActivity && (
                         <>
-                            {/* OKMR: C4 */}
                             {/* OKMR: C4 */}
                             <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                                 <label>OKMR <span style={{ color: 'red' }}>*</span></label>
@@ -866,6 +887,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                                 <label>CKMR <span style={{ color: 'red' }}>*</span></label>
                                 <input type="number" step="0.01" className={`${styles.input} ${errors.CKMR ? styles.errorBorder : ''}`}
                                     value={formData.CKMR} onChange={e => setFormData({ ...formData, CKMR: e.target.value })}
+                                    onBlur={handleKMRBlur}
                                 />
                                 {errors.CKMR && <div className={styles.errorMsg}>{errors.CKMR}</div>}
                             </div>
@@ -873,7 +895,10 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                             {/* Net KMR: C6 */}
                             <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                                 <label>Net KMR</label>
-                                <input type="number" readOnly className={`${styles.input} ${styles.readOnly} ${errors.NetKMR ? styles.errorBorder : ''}`} value={formData.NetKMR} />
+                                <input type="number" readOnly className={`${styles.input} ${styles.readOnly} ${errors.NetKMR ? styles.errorBorder : ''}`}
+                                    value={formData.NetKMR}
+                                    onBlur={handleKMRBlur}
+                                />
                                 {errors.NetKMR && <div className={styles.errorMsg}>{errors.NetKMR}</div>}
                             </div>
                         </>
@@ -1027,7 +1052,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                     date={formData.Date}
                     shiftId={formData.ShiftId}
                     userRole={userRole}
-                    title={`Recent Transactions - By ${user?.username || user?.UserName || user?.name || 'User'}`}
+                    title="Recent Transactions"
                 />
             </div>
         </div>

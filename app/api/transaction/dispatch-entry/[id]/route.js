@@ -56,8 +56,11 @@ export async function PUT(req, { params }) {
 export async function DELETE(req, { params }) {
     try {
         const { id } = params;
-        const query = `UPDATE [Trans].[TblDispatchEntry] SET isDelete = 1 WHERE SlNo = @id`;
-        await executeQuery(query, { id });
+        const session = await getSession();
+        const updatedBy = session?.user?.id || 1;
+
+        const query = `UPDATE [Trans].[TblDispatchEntry] SET isDelete = 1, UpdatedBy = @UpdatedBy, UpdatedDate = GETDATE() WHERE SlNo = @id`;
+        await executeQuery(query, { id, UpdatedBy: updatedBy });
         return NextResponse.json({ success: true, message: 'Entry Deleted Successfully' });
     } catch (error) {
         return NextResponse.json({ success: false, message: error.message }, { status: 500 });

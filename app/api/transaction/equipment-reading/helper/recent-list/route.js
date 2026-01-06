@@ -17,9 +17,16 @@ export async function POST(req) {
                 T.Date,
                 sh.ShiftName,
                 -- Incharges
+                -- Incharges
                 incL.OperatorName as ShiftInchargeName,
                 incM.OperatorName as MidScaleInchargeName,
-                op.OperatorName,
+                
+                -- Operator/Driver (Multiple)
+                (SELECT STUFF((SELECT ', ' + O.OperatorName + ' (' + CAST(O.OperatorId AS VARCHAR) + ')' 
+                 FROM [Trans].[TblEquipmentReadingOperator] ERO 
+                 JOIN [Master].[TblOperator] O ON ERO.OperatorId = O.SlNo 
+                 WHERE ERO.EquipmentReadingId = T.SlNo 
+                 FOR XML PATH('')), 1, 2, '')) AS OperatorName,
                 
                 -- Master Names (Fixing Aliases)
                 r.Name as RelayName,
@@ -52,7 +59,8 @@ export async function POST(req) {
             LEFT JOIN [Master].[TblShift] sh ON T.ShiftId = sh.SlNo
             LEFT JOIN [Master].[TblOperator] incL ON T.ShiftInchargeId = incL.SlNo
             LEFT JOIN [Master].[TblOperator] incM ON T.MidScaleInchargeId = incM.SlNo
-            LEFT JOIN [Master].[TblOperator] op ON T.OperatorId = op.SlNo
+
+            -- LEFT JOIN [Master].[TblOperator] op ON T.OperatorId = op.SlNo (Removed for Multi-Select)
             
             LEFT JOIN [Master].[TblRelay] r ON T.RelayId = r.SlNo
             LEFT JOIN [Master].[TblEquipment] e ON T.EquipmentId = e.SlNo

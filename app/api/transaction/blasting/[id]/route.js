@@ -5,9 +5,14 @@ import { authenticateUser } from '@/lib/auth';
 
 export async function DELETE(request, { params }) {
     try {
+        const user = await authenticateUser(request);
         const { id } = await params;
         const pool = await getDbConnection();
-        await pool.request().query(`UPDATE [Trans].[TblBlasting] SET IsDelete = 1 WHERE SlNo = ${id}`);
+        // Use parameterized query
+        await pool.request()
+            .input('id', id) // Assuming default type or let driver handle it, previously used template literal ${id}
+            .input('userId', user ? user.id : 1)
+            .query(`UPDATE [Trans].[TblBlasting] SET IsDelete = 1, UpdatedBy = @userId, UpdatedDate = GETDATE() WHERE SlNo = @id`);
         return NextResponse.json({ success: true });
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });

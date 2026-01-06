@@ -32,12 +32,15 @@ export async function GET(request, { params }) {
         // Fetch Child Tables (Operators Only)
         // Incharges now in Main Table
 
-        // Fetch Child Tables - NONE (Everything is single column now)
+        // Fetch Child Tables - Operators
+        const operatorsQuery = `SELECT OperatorId FROM [Trans].[TblEquipmentReadingOperator] WHERE EquipmentReadingId = @id`;
+        const operatorsResult = await executeQuery(operatorsQuery, [{ name: 'id', type: sql.Int, value: id }]);
+        const operatorIds = operatorsResult.map(row => row.OperatorId);
 
         // Format for Frontend
         const data = {
             ...record,
-            OperatorId: record.OperatorId // Direct mapping
+            OperatorId: operatorIds.length > 0 ? operatorIds : (record.OperatorId ? [record.OperatorId] : []) // Fallback to main table if child is empty
         };
 
         return NextResponse.json({ success: true, data });
@@ -52,12 +55,15 @@ export async function GET(request, { params }) {
 import { authenticateUser } from '@/lib/auth';
 
 // PUT (Update)
+// PUT (Update)
 export async function PUT(request, { params }) {
     try {
         const user = await authenticateUser(request);
         const UserId = user ? user.id : 1;
 
-        const { id } = await params;
+        const { id } = await params; // await params in Next.js 15+ convention if needed, though mostly params is sync in older versions. 
+        // Based on previous code: const { id } = await params; - sticking to existing pattern.
+
         const body = await request.json();
         const {
             Date: date, ShiftId, ShiftInchargeId, MidScaleInchargeId, RelayId,
@@ -67,6 +73,10 @@ export async function PUT(request, { params }) {
             RunningBDMaintenanceHr, TotalWorkingHr, BDHr, MaintenanceHr, IdleHr,
             SectorId, PatchId, MethodId, Remarks,
         } = body;
+
+        // Handle Operator Array
+        const operators = Array.isArray(OperatorId) ? OperatorId : (OperatorId ? [OperatorId] : []);
+        const primaryOperator = operators.length > 0 ? operators[0] : null;
 
         // Update Main Table
         // Note: We use merge/update logic.
@@ -97,47 +107,75 @@ export async function PUT(request, { params }) {
             WHERE SlNo = @id
         `;
 
-        await executeQuery(query, [
-            { name: 'date', type: sql.Date, value: date },
-            { name: 'ShiftId', type: sql.Int, value: ShiftId },
-            { name: 'ShiftInchargeId', type: sql.Int, value: ShiftInchargeId },
-            { name: 'MidScaleInchargeId', type: sql.Int, value: MidScaleInchargeId },
-            { name: 'RelayId', type: sql.Int, value: RelayId },
-            { name: 'ActivityId', type: sql.Int, value: ActivityId },
-            { name: 'EquipmentId', type: sql.Int, value: EquipmentId },
-            { name: 'OperatorId', type: sql.Int, value: OperatorId },
+        const pool = await getDbConnection();
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
 
-            { name: 'OHMR', type: sql.Decimal(18, 2), value: OHMR || null },
-            { name: 'CHMR', type: sql.Decimal(18, 2), value: CHMR || null },
-            { name: 'NetHMR', type: sql.Decimal(18, 2), value: NetHMR || null },
+        try {
+            const req = new sql.Request(transaction);
 
-            { name: 'OKMR', type: sql.Decimal(18, 2), value: OKMR || null },
-            { name: 'CKMR', type: sql.Decimal(18, 2), value: CKMR || null },
-            { name: 'NetKMR', type: sql.Decimal(18, 2), value: NetKMR || null },
+            req.input('date', sql.Date, date);
+            req.input('ShiftId', sql.Int, ShiftId);
+            req.input('ShiftInchargeId', sql.Int, ShiftInchargeId);
+            req.input('MidScaleInchargeId', sql.Int, MidScaleInchargeId);
+            req.input('RelayId', sql.Int, RelayId);
+            req.input('ActivityId', sql.Int, ActivityId);
+            req.input('EquipmentId', sql.Int, EquipmentId);
+            // Main Table Operator
+            req.input('OperatorId', sql.Int, primaryOperator);
 
-            { name: 'DevelopmentHrMining', type: sql.Decimal(18, 2), value: DevelopmentHrMining || null },
-            { name: 'FaceMarchingHr', type: sql.Decimal(18, 2), value: FaceMarchingHr || null },
-            { name: 'DevelopmentHrNonMining', type: sql.Decimal(18, 2), value: DevelopmentHrNonMining || null },
-            { name: 'BlastingMarchingHr', type: sql.Decimal(18, 2), value: BlastingMarchingHr || null },
+            req.input('OHMR', sql.Decimal(18, 2), OHMR || null);
+            req.input('CHMR', sql.Decimal(18, 2), CHMR || null);
+            req.input('NetHMR', sql.Decimal(18, 2), NetHMR || null);
 
-            { name: 'RunningBDMaintenanceHr', type: sql.Decimal(18, 2), value: RunningBDMaintenanceHr || null },
-            { name: 'TotalWorkingHr', type: sql.Decimal(18, 2), value: TotalWorkingHr || null },
-            { name: 'BDHr', type: sql.Decimal(18, 2), value: BDHr || null },
-            { name: 'MaintenanceHr', type: sql.Decimal(18, 2), value: MaintenanceHr || null },
-            { name: 'IdleHr', type: sql.Decimal(18, 2), value: IdleHr || null },
+            req.input('OKMR', sql.Decimal(18, 2), OKMR || null);
+            req.input('CKMR', sql.Decimal(18, 2), CKMR || null);
+            req.input('NetKMR', sql.Decimal(18, 2), NetKMR || null);
 
-            { name: 'SectorId', type: sql.Int, value: SectorId || null },
-            { name: 'PatchId', type: sql.Int, value: PatchId || null },
-            { name: 'MethodId', type: sql.Int, value: MethodId || null },
+            req.input('DevelopmentHrMining', sql.Decimal(18, 2), DevelopmentHrMining || null);
+            req.input('FaceMarchingHr', sql.Decimal(18, 2), FaceMarchingHr || null);
+            req.input('DevelopmentHrNonMining', sql.Decimal(18, 2), DevelopmentHrNonMining || null);
+            req.input('BlastingMarchingHr', sql.Decimal(18, 2), BlastingMarchingHr || null);
 
-            { name: 'Remarks', type: sql.NVarChar, value: Remarks },
-            { name: 'UserId', type: sql.Int, value: UserId },
-            { name: 'id', type: sql.Int, value: id }
-        ]);
+            req.input('RunningBDMaintenanceHr', sql.Decimal(18, 2), RunningBDMaintenanceHr || null);
+            req.input('TotalWorkingHr', sql.Decimal(18, 2), TotalWorkingHr || null);
+            req.input('BDHr', sql.Decimal(18, 2), BDHr || null);
+            req.input('MaintenanceHr', sql.Decimal(18, 2), MaintenanceHr || null);
+            req.input('IdleHr', sql.Decimal(18, 2), IdleHr || null);
 
-        // Child Table Update Logic Removed (Single Column Now)
+            req.input('SectorId', sql.Int, SectorId || null);
+            req.input('PatchId', sql.Int, PatchId || null);
+            req.input('MethodId', sql.Int, MethodId || null);
 
-        return NextResponse.json({ success: true, message: 'Updated Successfully' });
+            req.input('Remarks', sql.NVarChar, Remarks);
+            req.input('UserId', sql.Int, UserId);
+            req.input('id', sql.Int, id);
+
+            await req.query(query);
+
+            // --- Child Table Update ---
+            // 1. Delete Existing
+            const deleteReq = new sql.Request(transaction);
+            await deleteReq.query(`DELETE FROM [Trans].[TblEquipmentReadingOperator] WHERE EquipmentReadingId = ${id}`);
+
+            // 2. Insert New
+            if (operators.length > 0) {
+                const insertReq = new sql.Request(transaction);
+                for (const opId of operators) {
+                    await insertReq.query(`
+                        INSERT INTO [Trans].[TblEquipmentReadingOperator] (EquipmentReadingId, OperatorId)
+                        VALUES (${id}, ${opId})
+                    `);
+                }
+            }
+
+            await transaction.commit();
+            return NextResponse.json({ success: true, message: 'Updated Successfully' });
+
+        } catch (err) {
+            await transaction.rollback();
+            throw err;
+        }
 
     } catch (error) {
         console.error("Update Error:", error);
@@ -148,11 +186,15 @@ export async function PUT(request, { params }) {
 // DELETE (Soft Delete)
 export async function DELETE(request, { params }) {
     try {
+        const user = await authenticateUser(request);
         const { id } = await params;
         if (!id) return NextResponse.json({ success: false, message: 'ID missing' }, { status: 400 });
 
-        const query = `UPDATE [Trans].[TblEquipmentReading] SET IsDelete = 1 WHERE SlNo = @id`;
-        await executeQuery(query, [{ name: 'id', type: sql.Int, value: id }]);
+        const query = `UPDATE [Trans].[TblEquipmentReading] SET IsDelete = 1, UpdatedBy = @userId, UpdatedDate = GETDATE() WHERE SlNo = @id`;
+        await executeQuery(query, [
+            { name: 'id', type: sql.Int, value: id },
+            { name: 'userId', type: sql.Int, value: user ? user.id : 1 }
+        ]);
 
         return NextResponse.json({ success: true, message: 'Deleted Successfully' });
     } catch (error) {

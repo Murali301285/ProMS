@@ -21,7 +21,7 @@ export async function POST(request) {
         // Generate JWT Token
         const SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-prod';
         const token = jwt.sign(
-            { id: user.id, username: user.username, role: user.role, roleId: user.roleId },
+            { id: user.id, username: user.username, name: user.name, role: user.role, roleId: user.roleId },
             SECRET,
             { expiresIn: '12h' } // 12 Hours Session (Client side handles inactivity)
         );

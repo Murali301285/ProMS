@@ -96,12 +96,12 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                         Date: parsedDate, // Overwrite Date
                         BlastingPatchId: context.BlastingPatchId || '',
                         SMESupplierId: context.SMESupplierId || '',
-                        SMEQty: context.SMEQty || '',
-                        MaxCharge: context.MaxCharge || '',
-                        PPV: context.PPV || '',
-                        DeckHoles: context.DeckHoles || '',
-                        WetHoles: context.WetHoles || '',
-                        AirPressure: context.AirPressure || '',
+                        SMEQty: '', // Reset
+                        MaxCharge: '', // Reset
+                        PPV: '', // Reset
+                        DeckHoles: '', // Reset
+                        WetHoles: '', // Reset
+                        AirPressure: '', // Reset
                         // Reset entry specific
                         TotalExplosiveUsed: 0, Remarks: ''
                     }));
@@ -137,12 +137,12 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                         // Date: prev.Date, // Keep User Selection
                         BlastingPatchId: context.BlastingPatchId || '',
                         SMESupplierId: context.SMESupplierId || '',
-                        SMEQty: context.SMEQty || '',
-                        MaxCharge: context.MaxCharge || '',
-                        PPV: context.PPV || '',
-                        DeckHoles: context.DeckHoles || '',
-                        WetHoles: context.WetHoles || '',
-                        AirPressure: context.AirPressure || '',
+                        SMEQty: '', // Reset
+                        MaxCharge: '', // Reset
+                        PPV: '', // Reset
+                        DeckHoles: '', // Reset
+                        WetHoles: '', // Reset
+                        AirPressure: '', // Reset
                         // Reset entry specific
                         TotalExplosiveUsed: 0, Remarks: ''
                     }));
@@ -503,7 +503,9 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
 
                 {/* --- Row 1 --- */}
                 {/* Date: C1 */}
-                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                {/* --- Row 1 --- */}
+                {/* Date: Col 1 */}
+                <div className={css.fieldGroup} style={{ gridColumn: '1 / span 1' }}>
                     <label className={css.label}>Date<span className={css.required}>*</span></label>
                     <input
                         type="date"
@@ -517,7 +519,8 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                 </div>
 
                 {/* Patch ID: C2 */}
-                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                {/* Patch ID: Col 2 */}
+                <div className={css.fieldGroup} style={{ gridColumn: '2 / span 1' }}>
                     <label className={css.label}>
                         Blasting Patch ID
                         {errors.BlastingPatchId && <span className={css.errorLabel}>value is missing</span>}
@@ -536,7 +539,9 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
 
                 {/* --- Row 2 --- */}
                 {/* No of Holes: C1 */}
-                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                {/* --- Row 2 --- */}
+                {/* No of Holes: Col 1 */}
+                <div className={css.fieldGroup} style={{ gridColumn: '1 / span 1' }}>
                     <label className={css.label}>No of Holes</label>
                     <input
                         className={`${css.input} ${css.readOnly}`}
@@ -546,7 +551,8 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                 </div>
 
                 {/* Avg Depth: C2 */}
-                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                {/* Avg Depth: Col 2 */}
+                <div className={css.fieldGroup} style={{ gridColumn: '2 / span 1' }}>
                     <label className={css.label}>Avg Depth</label>
                     <input
                         className={`${css.input} ${css.readOnly}`}
@@ -556,7 +562,8 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                 </div>
 
                 {/* SME Supplier: C3 */}
-                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                {/* SME Supplier: Col 3-4 (Span 2) */}
+                <div className={css.fieldGroup} style={{ gridColumn: '3 / span 2' }}>
                     <label className={css.label}>
                         SME Supplier<span className={css.required}>*</span>
                         {errors.SMESupplierId && <span className={css.errorLabel}>value is missing</span>}
@@ -574,7 +581,8 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                 </div>
 
                 {/* SME Qty: C4 */}
-                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                {/* SME Qty: Col 5 */}
+                <div className={css.fieldGroup} style={{ gridColumn: '5 / span 1' }}>
                     <label className={css.label}>
                         SME Qty (KG)<span className={css.required}>*</span>
                         {errors.SMEQty && <span className={css.errorLabel}>value is missing</span>}
@@ -592,32 +600,32 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
 
 
                 {/* --- Row 3 --- */}
-                {/* Max Charge: C1 */}
-                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                {/* Max Charge: Col 1 */}
+                <div className={css.fieldGroup} style={{ gridColumn: '1 / span 1' }}>
                     <label className={css.label}>Max Charge/Hole (KG)</label>
                     <input type="number" step="0.001" className={css.input} value={formData.MaxCharge} onChange={e => handleChange('MaxCharge', e.target.value)} />
                 </div>
 
-                {/* PPV: C2 */}
-                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                {/* PPV: Col 2 */}
+                <div className={css.fieldGroup} style={{ gridColumn: '2 / span 1' }}>
                     <label className={css.label}>PPV (mm/sec)</label>
                     <input type="number" step="0.001" className={css.input} value={formData.PPV} onChange={e => handleChange('PPV', e.target.value)} />
                 </div>
 
-                {/* Deck Holes: C3 */}
-                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                {/* Deck Holes: Col 3 */}
+                <div className={css.fieldGroup} style={{ gridColumn: '3 / span 1' }}>
                     <label className={css.label}>Holes Deck Charged</label>
                     <input type="number" step="0.001" className={css.input} value={formData.DeckHoles} onChange={e => handleChange('DeckHoles', e.target.value)} />
                 </div>
 
-                {/* Wet Holes: C4 */}
-                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                {/* Wet Holes: Col 4 */}
+                <div className={css.fieldGroup} style={{ gridColumn: '4 / span 1' }}>
                     <label className={css.label}>Wet Holes</label>
                     <input type="number" step="0.001" className={css.input} value={formData.WetHoles} onChange={e => handleChange('WetHoles', e.target.value)} />
                 </div>
 
-                {/* Air Pressure: C5 */}
-                <div className={css.fieldGroup} style={{ gridColumn: 'span 1' }}>
+                {/* Air Pressure: Col 5 */}
+                <div className={css.fieldGroup} style={{ gridColumn: '5 / span 1' }}>
                     <label className={css.label}>Air Pressure (DB)</label>
                     <input type="number" step="0.001" className={css.input} value={formData.AirPressure} onChange={e => handleChange('AirPressure', e.target.value)} />
                 </div>
@@ -689,8 +697,8 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
 
 
                 {/* --- Row 5: Remarks --- */}
-                {/* Remarks: Span 6 */}
-                <div className={css.fieldGroup} style={{ gridColumn: 'span 6' }}>
+                {/* Remarks: Col 1-6 (Span 6) */}
+                <div className={css.fieldGroup} style={{ gridColumn: '1 / span 6' }}>
                     <label className={css.label}>Remarks</label>
                     <textarea
                         className={css.textarea}
@@ -704,7 +712,7 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
             {/* Recent Blasting List */}
             <div className={css.dataTableSection}>
                 <TransactionTable
-                    title={`Recent Transactions - By ${user?.username || 'User'}`}
+                    title="Recent Transactions"
                     config={TRANSACTION_CONFIG['blasting']}
                     data={recentData}
                     isLoading={false}

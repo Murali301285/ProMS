@@ -146,17 +146,20 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
     try {
         const { id } = await params;
-        const pool = await getDbConnection();
+        const cookieStore = await cookies();
+        const token = cookieStore.get('token');
+        let updatedBy = 1;
+        if (token) {
+            const decoded = decode(token.value);
+            if (decoded?.id) updatedBy = decoded.id;
+        }
 
-        // Check "Same Day" logic logic here? 
-        // Logic suggests "Action : edit/delete -> ... normal user -> edit/delete -> with the same day". 
-        // This is usually handled on Frontend UI + Backend Validation.
-        // For strictness, could add it here too, but requirement implies UI restriction mostly.
-        // Let's implement basic soft delete here. Frontend handles the visibility/permission check.
+        const pool = await getDbConnection();
 
         await pool.request()
             .input('id', sql.BigInt, id)
-            .query(`UPDATE [Trans].[TblElectricalEntry] SET IsDelete = 1 WHERE SlNo = @id`);
+            .input('userId', sql.Int, updatedBy)
+            .query(`UPDATE [Trans].[TblElectricalEntry] SET IsDelete = 1, UpdatedBy = @userId, UpdatedDate = GETDATE() WHERE SlNo = @id`);
 
         return NextResponse.json({ success: true, message: "Deleted Successfully" });
     } catch (error) {
