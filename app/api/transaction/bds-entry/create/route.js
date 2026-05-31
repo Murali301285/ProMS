@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { executeQuery } from '@/lib/db';
 import { cookies } from 'next/headers';

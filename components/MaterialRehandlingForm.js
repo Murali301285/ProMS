@@ -686,7 +686,7 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                     <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                         <label>Date <span style={{ color: 'red' }}>*</span></label>
                         <input
-                            type="date" name="Date" value={formData.Date}
+                            type="date" name="Date" value={formData.Date || ""}
                             onChange={handleChange}
                             onClick={(e) => {
                                 try {
@@ -742,7 +742,7 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                     <div className={styles.group} style={{ gridColumn: '7 / span 1' }}>
                         <label>Man Power <span style={{ color: 'red' }}>*</span></label>
                         <input
-                            type="text" name="ManPower" value={formData.ManPower}
+                            type="text" name="ManPower" value={formData.ManPower || ""}
                             onChange={handleChange} className={`${styles.input} ${errors.ManPower ? styles.errorBorder : ''}`}
                             onKeyDown={handleEnter} placeholder="Man Power"
                             disabled={isContextLocked || isLoading}
@@ -812,7 +812,7 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                     <div className={styles.group} style={{ gridColumn: '1 / span 1' }}>
                         <label>Trips <span style={{ color: 'red' }}>*</span></label>
                         <input
-                            type="text" name="NoOfTrips" value={formData.NoOfTrips}
+                            type="text" name="NoOfTrips" value={formData.NoOfTrips || ""}
                             onChange={handleChange}
                             className={`${styles.input} ${errors.NoOfTrips ? styles.errorBorder : ''}`}
                             onKeyDown={(e) => {
@@ -830,14 +830,14 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                     {/* Mang Qty/Trip: R3 C2 */}
                     <div className={styles.group} style={{ gridColumn: '2 / span 1' }}>
                         <label>Mang. Load Factor <span style={{ color: 'red' }}>*</span></label>
-                        <input type="number" name="MangQtyTrip" value={formData.MangQtyTrip} readOnly className={`${styles.input} ${styles.readOnly} ${errors.MangQtyTrip ? styles.errorBorder : ''}`} />
+                        <input type="number" name="MangQtyTrip" value={formData.MangQtyTrip || ""} readOnly className={`${styles.input} ${styles.readOnly} ${errors.MangQtyTrip ? styles.errorBorder : ''}`} />
                         {errors.MangQtyTrip && <div className={styles.errorMsg}>Required</div>}
                     </div>
 
                     {/* NTPC Qty/Trip: R3 C3 */}
                     <div className={styles.group} style={{ gridColumn: '3 / span 1' }}>
                         <label>NTPC Load Factor <span style={{ color: 'red' }}>*</span></label>
-                        <input type="number" name="NTPCQtyTrip" value={formData.NTPCQtyTrip} readOnly className={`${styles.input} ${styles.readOnly} ${errors.NTPCQtyTrip ? styles.errorBorder : ''}`} />
+                        <input type="number" name="NTPCQtyTrip" value={formData.NTPCQtyTrip || ""} readOnly className={`${styles.input} ${styles.readOnly} ${errors.NTPCQtyTrip ? styles.errorBorder : ''}`} />
                         {errors.NTPCQtyTrip && <div className={styles.errorMsg}>Required</div>}
                     </div>
 
@@ -851,13 +851,13 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                     {/* Mang Total Qty: R3 C5 */}
                     <div className={styles.group} style={{ gridColumn: '5 / span 1' }}>
                         <label>Mang Total Qty <span style={{ color: 'red' }}>*</span></label>
-                        <input type="number" name="MangTotalQty" value={formData.MangTotalQty} readOnly className={`${styles.input} ${styles.readOnly} ${errors.MangTotalQty ? styles.errorBorder : ''}`} />
+                        <input type="number" name="MangTotalQty" value={formData.MangTotalQty || ""} readOnly className={`${styles.input} ${styles.readOnly} ${errors.MangTotalQty ? styles.errorBorder : ''}`} />
                     </div>
 
                     {/* NTPC Total Qty: R3 C6 */}
                     <div className={styles.group} style={{ gridColumn: '6 / span 1' }}>
                         <label>NTPC Total Qty <span style={{ color: 'red' }}>*</span></label>
-                        <input type="number" name="NTPCTotalQty" value={formData.NTPCTotalQty} readOnly className={`${styles.input} ${styles.readOnly} ${errors.NTPCTotalQty ? styles.errorBorder : ''}`} />
+                        <input type="number" name="NTPCTotalQty" value={formData.NTPCTotalQty || ""} readOnly className={`${styles.input} ${styles.readOnly} ${errors.NTPCTotalQty ? styles.errorBorder : ''}`} />
                     </div>
 
 
@@ -869,7 +869,7 @@ export default function MaterialRehandlingForm({ initialData = null, isEdit = fa
                         <input
                             ref={remarksRef}
                             type="text"
-                            name="Remarks" value={formData.Remarks} onChange={handleChange}
+                            name="Remarks" value={formData.Remarks || ""} onChange={handleChange}
                             className={styles.input} placeholder="Remarks..."
                             onKeyDown={(e) => {
                                 if (e.key === 'Tab' && !e.shiftKey) {

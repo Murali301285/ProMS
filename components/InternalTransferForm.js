@@ -665,7 +665,7 @@ export default function InternalTransferForm({ initialData = null, isEdit = fals
                     <div className={styles.group}>
                         <label>Date <span style={{ color: 'red' }}>*</span></label>
                         <input
-                            type="date" name="Date" value={formData.Date} max={new Date().toISOString().split('T')[0]}
+                            type="date" name="Date" value={formData.Date || ""} max={new Date().toISOString().split('T')[0]}
                             onChange={handleChange} onKeyDown={handleEnter}
                             className={`${styles.input} ${errors.Date ? styles.errorBorder : ''}`}
                         />
@@ -704,7 +704,7 @@ export default function InternalTransferForm({ initialData = null, isEdit = fals
                     <div className={styles.group}>
                         <label>Man Power <span style={{ color: 'red' }}>*</span></label>
                         <input
-                            type="text" name="ManPower" value={formData.ManPower}
+                            type="text" name="ManPower" value={formData.ManPower || ""}
                             onChange={handleChange} className={`${styles.input} ${errors.ManPower ? styles.errorBorder : ''}`}
                             onKeyDown={handleEnter} placeholder="Enter Man Power"
                         />
@@ -805,7 +805,7 @@ export default function InternalTransferForm({ initialData = null, isEdit = fals
                     <div className={styles.group}>
                         <label>No of Trips <span style={{ color: 'red' }}>*</span></label>
                         <input
-                            type="text" name="NoOfTrips" value={formData.NoOfTrips}
+                            type="text" name="NoOfTrips" value={formData.NoOfTrips || ""}
                             onChange={handleChange} onKeyDown={handleEnter}
                             className={`${styles.input} ${errors.NoOfTrips ? styles.errorBorder : ''}`} placeholder="Enter No of Trips"
                         />
@@ -814,7 +814,7 @@ export default function InternalTransferForm({ initialData = null, isEdit = fals
                     <div className={styles.group}>
                         <label>Qty/Trip <span style={{ color: 'red' }}>*</span></label>
                         <input
-                            type="text" name="QtyTrip" value={formData.QtyTrip}
+                            type="text" name="QtyTrip" value={formData.QtyTrip || ""}
                             onChange={handleChange} className={`${styles.input} ${errors.QtyTrip ? styles.errorBorder : ''}`}
                             onKeyDown={handleEnter} placeholder="0.00"
                         />
@@ -824,7 +824,7 @@ export default function InternalTransferForm({ initialData = null, isEdit = fals
                     <div className={styles.group}>
                         <label>Total Qty <span style={{ color: 'red' }}>*</span></label>
                         <input
-                            type="text" name="TotalQty" value={formData.TotalQty}
+                            type="text" name="TotalQty" value={formData.TotalQty || ""}
                             readOnly tabIndex={-1}
                             className={`${styles.input} bg-gray-100 cursor-not-allowed`}
                             placeholder="0.00"

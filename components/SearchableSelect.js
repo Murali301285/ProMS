@@ -108,7 +108,19 @@ const SearchableSelect = forwardRef(({
     }, [highlightindex, isOpen, filteredOptions.length]);
 
 
+    const isOptionDisabled = (opt) => {
+        // Safe check for isActive status (SQL Server returns 1/0 or boolean true/false or 'Yes'/'No')
+        const activeVal = opt.isActive !== undefined ? opt.isActive : opt.Active;
+        if (activeVal === undefined) return false; // Default active if column doesn't exist
+        
+        const isInactive = activeVal === 0 || activeVal === false || String(activeVal).toLowerCase() === 'no';
+        // If it is inactive AND not currently selected, it is disabled!
+        return isInactive && !isSelected(opt.id);
+    };
+
     const handleSelect = (option) => {
+        if (isOptionDisabled(option)) return;
+
         if (multiple) {
             let newValue = Array.isArray(value) ? [...value] : [];
             if (newValue.includes(option.id)) {
@@ -117,7 +129,7 @@ const SearchableSelect = forwardRef(({
                 newValue.push(option.id);
             }
             onChange({ target: { name, value: newValue } });
-
+ 
             // Auto-Close if requested (V19.2)
             if (closeOnSelect) {
                 setIsOpen(false);
@@ -331,29 +343,39 @@ const SearchableSelect = forwardRef(({
                             autoFocus
                         />
                     </div>
-                    <div ref={listRef}>
+                     <div ref={listRef}>
                         {filteredOptions.length > 0 ? (
-                            filteredOptions.map((opt, index) => (
-                                <div
-                                    key={opt.id}
-                                    className={styles.option}
-                                    style={{
-                                        padding: '8px 12px', cursor: 'pointer',
-                                        background: index === highlightindex ? 'var(--primary)' : 'transparent',
-                                        color: index === highlightindex ? 'var(--primary-foreground)' : 'var(--foreground)',
-                                        fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                                    }}
-                                    onMouseDown={(e) => {
-                                        // Prevent input blur to keep focus flow logic intact, or just ensuring execute before blur
-                                        e.preventDefault();
-                                        handleSelect(opt);
-                                    }}
-                                    onMouseEnter={() => setHighlightIndex(index)}
-                                >
-                                    <span>{opt.name}</span>
-                                    {isSelected(opt.id) && <Check size={14} />}
-                                </div>
-                            ))
+                            filteredOptions.map((opt, index) => {
+                                const isDisabled = isOptionDisabled(opt);
+                                return (
+                                    <div
+                                        key={opt.id}
+                                        className={styles.option}
+                                        style={{
+                                            padding: '8px 12px',
+                                            cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                            background: index === highlightindex ? (isDisabled ? 'rgba(0,0,0,0.02)' : 'var(--primary)') : 'transparent',
+                                            color: isDisabled ? '#94a3b8' : (index === highlightindex ? 'var(--primary-foreground)' : 'var(--foreground)'),
+                                            opacity: isDisabled ? 0.65 : 1,
+                                            fontSize: '0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                        }}
+                                        onMouseDown={(e) => {
+                                            // Prevent input blur to keep focus flow logic intact, or just ensuring execute before blur
+                                            e.preventDefault();
+                                            if (!isDisabled) {
+                                                handleSelect(opt);
+                                            }
+                                        }}
+                                        onMouseEnter={() => !isDisabled && setHighlightIndex(index)}
+                                    >
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            {opt.name}
+                                            {isDisabled && <span style={{ fontSize: '0.7rem', color: '#ef4444', fontStyle: 'italic', fontWeight: 600, border: '1px solid #fee2e2', background: '#fef2f2', padding: '1px 4px', borderRadius: '3px', marginLeft: '4px' }}>Inactive</span>}
+                                        </span>
+                                        {isSelected(opt.id) && <Check size={14} />}
+                                    </div>
+                                );
+                            })
                         ) : (
                             <div style={{ padding: '12px', textAlign: 'center', opacity: 0.5, fontSize: '0.85rem' }}>No results found</div>
                         )}

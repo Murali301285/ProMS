@@ -41,3 +41,6 @@ next-env.d.ts
 # Large Files
 *.rar
 *.zip
+
+# deploy package
+/deploy_package/

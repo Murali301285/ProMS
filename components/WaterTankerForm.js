@@ -319,7 +319,7 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
                         <input
                             type="date"
                             name="EntryDate"
-                            value={formData.EntryDate}
+                            value={formData.EntryDate || ""}
                             onChange={handleChange}
                             className={`${styles.input} ${errors.EntryDate ? styles.errorBorder : ''}`}
                         />
@@ -408,7 +408,7 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
                             ref={tripsRef}
                             type="number"
                             name="NoOfTrip"
-                            value={formData.NoOfTrip}
+                            value={formData.NoOfTrip || ""}
                             onChange={handleChange}
                             className={`${styles.input} ${errors.NoOfTrip ? styles.errorBorder : ''}`}
                             onKeyDown={(e) => { if (e.key === 'Enter') remarksRef.current?.focus(); }}
@@ -420,7 +420,7 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
                         <label>Capacity <span className={styles.required}>*</span> {errors.Capacity && <span className={styles.errorMsg}>Required</span>}</label>
                         <input
                             type="number"
-                            value={formData.Capacity}
+                            value={formData.Capacity || ""}
                             readOnly
                             className={`${styles.input} ${styles.readOnly} ${errors.Capacity ? styles.errorBorder : ''}`}
                         />
@@ -431,7 +431,7 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
                         <label>Total Qty <span className={styles.required}>*</span> {errors.TotalQty && <span className={styles.errorMsg}>Required</span>}</label>
                         <input
                             type="number"
-                            value={formData.TotalQty}
+                            value={formData.TotalQty || ""}
                             readOnly
                             className={`${styles.input} ${styles.readOnly} ${errors.TotalQty ? styles.errorBorder : ''}`}
                         />
@@ -446,7 +446,7 @@ export default function WaterTankerForm({ initialHelpers = {}, initialData = nul
                             ref={remarksRef}
                             type="text"
                             name="Remarks"
-                            value={formData.Remarks}
+                            value={formData.Remarks || ""}
                             onChange={handleChange}
                             className={styles.input}
                             onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}

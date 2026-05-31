@@ -650,7 +650,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                         <input
                             type="date"
                             name="Date"
-                            value={formData.Date}
+                            value={formData.Date || ""}
                             max={today}
                             onChange={handleChange}
                             className={css.input}
@@ -781,7 +781,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                             id="omr-input"
                             type="number"
                             name="OMR"
-                            value={formData.OMR}
+                            value={formData.OMR || ""}
                             onChange={handleChange}
                             className={css.input}
                             style={errors.OMR ? { borderColor: 'red' } : {}}
@@ -796,7 +796,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                             id="cmr-input"
                             type="number"
                             name="CMR"
-                            value={formData.CMR}
+                            value={formData.CMR || ""}
                             onChange={handleChange}
                             className={css.input}
                             style={errors.CMR ? { borderColor: 'red' } : {}}
@@ -809,7 +809,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                         <label className={css.label}>Total Unit</label>
                         <input
                             type="text"
-                            value={formData.TotalUnit}
+                            value={formData.TotalUnit || ""}
                             readOnly
                             className={`${css.input} ${css.readOnly}`}
                         />
@@ -836,7 +836,7 @@ export default function ElectricalEntryForm({ mode = 'create', initialData = nul
                         <input
                             type="text"
                             name="Remarks"
-                            value={formData.Remarks}
+                            value={formData.Remarks || ""}
                             onChange={handleChange}
                             className={css.input}
                         />

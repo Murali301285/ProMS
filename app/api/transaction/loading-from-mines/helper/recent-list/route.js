@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 // Force Rebuild Trigger: 2025-12-28 20:05
 import { getDbConnection } from '@/lib/db';

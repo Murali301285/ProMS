@@ -19,6 +19,27 @@ export default function TransactionTable({
     const tableContainerRef = useRef(null);
     const router = useRouter();
 
+    // Helper to get case-insensitive row values and map formatted display strings
+    const getCellValue = (row, col, idx) => {
+        if (!row || !col) return '';
+        
+        let val = row[col.accessor];
+        if (val === undefined) {
+            const lowerKey = String(col.accessor).toLowerCase();
+            const foundKey = Object.keys(row).find(k => k.toLowerCase() === lowerKey);
+            if (foundKey) val = row[foundKey];
+        }
+        
+        if (col.accessor === 'SlNo') val = idx + 1;
+        else if (col.type === 'date' && val) {
+            val = new Date(val).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+        } else if (col.type === 'datetime' && val) {
+            val = String(val).replace('T', ' ').split('.')[0];
+        }
+        
+        return val !== null && val !== undefined ? String(val).trim() : '';
+    };
+
     // --- Local State ---
     const [globalSearch, setGlobalSearch] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: config.defaultSort || null, direction: 'desc' });
@@ -35,7 +56,9 @@ export default function TransactionTable({
     const uniqueValues = useMemo(() => {
         const values = {};
         config.columns.forEach(col => {
-            const distinct = new Set(data.map(row => row[col.accessor]));
+            const distinct = new Set(data.map((row, idx) => {
+                return getCellValue(row, col, idx);
+            }));
             values[col.accessor] = Array.from(distinct).filter(v => v !== null && v !== undefined && v !== '').sort();
         });
         return values;
@@ -52,11 +75,15 @@ export default function TransactionTable({
         Object.keys(columnFilters).forEach(key => {
             const selectedSet = columnFilters[key];
             if (selectedSet && selectedSet.size > 0) {
-                res = res.filter(row => selectedSet.has(row[key]));
+                const col = config.columns.find(c => c.accessor === key);
+                res = res.filter((row, idx) => {
+                    const val = getCellValue(row, col, idx);
+                    return selectedSet.has(val);
+                });
             }
         });
         return res;
-    }, [data, globalSearch, columnFilters]);
+    }, [data, globalSearch, columnFilters, config.columns]);
 
     const sortedData = useMemo(() => {
         if (!sortConfig.key) return filteredData;
@@ -245,77 +272,113 @@ export default function TransactionTable({
                                 });
 
                                 return (
-                                    <th
-                                        key={col.accessor}
-                                        style={{
-                                            width: col.width,
-                                            position: 'sticky',
-                                            top: 0,
-                                            left: isSticky ? left : undefined,
-                                            zIndex: isSticky ? 40 : 30,
-                                            backgroundColor: isFiltered ? '#bfdbfe' : '#e2e8f0',
-                                            boxShadow: '0 1px 0 #cbd5e1'
-                                        }}
-                                        className={styles.th}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <span onClick={() => handleSort(col.accessor)} className="cursor-pointer flex items-center gap-1 hover:text-blue-600">
-                                                {col.label}
-                                                {sortConfig.key === col.accessor && <span className="text-[10px]">{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>}
-                                            </span>
-                                            {col.accessor !== 'SlNo' && !col.disableFilter && (
-                                                <div className="relative">
-                                                    <Filter
-                                                        size={12}
-                                                        className={`cursor-pointer ${columnFilters[col.accessor]?.size > 0 ? 'text-blue-600 fill-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (activeFilterCol === col.accessor) {
-                                                                setActiveFilterCol(null);
-                                                            } else {
-                                                                setActiveFilterCol(col.accessor);
-                                                                setActiveFilterSearch('');
-                                                            }
-                                                        }}
-                                                    />
-                                                    {activeFilterCol === col.accessor && (
-                                                        <div className={styles.filterDropdown} onClick={e => e.stopPropagation()}>
-                                                            <div className={styles.filterHeader}>
-                                                                <span onClick={() => handleSelectAll(col.accessor)} className="cursor-pointer text-blue-600 text-xs hover:underline">Select All</span>
-                                                                <span onClick={() => handleClearFilter(col.accessor)} className="cursor-pointer text-red-500 text-xs hover:underline">Clear</span>
-                                                                <X size={12} className="cursor-pointer ml-auto" onClick={() => setActiveFilterCol(null)} />
-                                                            </div>
-                                                            <div style={{ padding: '4px 8px', borderBottom: '1px solid #e2e8f0' }}>
-                                                                <input
-                                                                    type="text"
-                                                                    placeholder="Search..."
-                                                                    value={activeFilterSearch}
-                                                                    onChange={(e) => setActiveFilterSearch(e.target.value)}
-                                                                    style={{ width: '100%', fontSize: '11px', padding: '4px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none' }}
-                                                                    autoFocus
-                                                                    onClick={e => e.stopPropagation()}
-                                                                />
-                                                            </div>
-                                                            <div className={styles.filterList}>
-                                                                {displayOptions.map(val => (
-                                                                    <label key={val} className={styles.filterItem}>
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={columnFilters[col.accessor]?.has(val) || false}
-                                                                            onChange={() => toggleFilter(col.accessor, val)}
-                                                                            onClick={e => e.stopPropagation()}
-                                                                        />
-                                                                        <span className="truncate" title={val}>{val}</span>
-                                                                    </label>
-                                                                ))}
-                                                                {displayOptions.length === 0 && <span className="text-gray-400 italic p-2">No options</span>}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </th>
+                                     <th
+                                         key={col.accessor}
+                                         style={{
+                                             width: col.width,
+                                             position: 'sticky',
+                                             top: 0,
+                                             left: isSticky ? left : undefined,
+                                             zIndex: activeFilterCol === col.accessor ? 60 : (isSticky ? 40 : 30),
+                                             backgroundColor: isFiltered ? '#bfdbfe' : '#e2e8f0',
+                                             boxShadow: '0 1px 0 #cbd5e1'
+                                         }}
+                                         className={styles.th}
+                                     >
+                                         <div className="flex items-center justify-between">
+                                             <span onClick={() => handleSort(col.accessor)} className="cursor-pointer flex items-center gap-1 hover:text-blue-600">
+                                                 {col.label}
+                                                 {sortConfig.key === col.accessor && <span className="text-[10px]">{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>}
+                                             </span>
+                                             {col.accessor !== 'SlNo' && !col.disableFilter && (
+                                                 <div className="relative">
+                                                     <Filter
+                                                         size={12}
+                                                         className={`cursor-pointer ${columnFilters[col.accessor]?.size > 0 ? 'text-blue-600 fill-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                                                         onClick={(e) => {
+                                                             e.stopPropagation();
+                                                             if (activeFilterCol === col.accessor) {
+                                                                 setActiveFilterCol(null);
+                                                             } else {
+                                                                 setActiveFilterCol(col.accessor);
+                                                                 setActiveFilterSearch('');
+                                                             }
+                                                         }}
+                                                     />
+                                                     {activeFilterCol === col.accessor && (
+                                                         <div 
+                                                             className={styles.filterDropdown} 
+                                                             style={{
+                                                                 position: 'absolute',
+                                                                 top: '100%',
+                                                                 marginTop: '4px',
+                                                                 zIndex: 100,
+                                                                 ...(index < 3 ? { left: 0, right: 'auto' } : (index >= config.columns.length - 2 ? { right: 0, left: 'auto' } : (index < config.columns.length / 2 ? { left: 0, right: 'auto' } : { right: 0, left: 'auto' })))
+                                                             }}
+                                                             onClick={e => e.stopPropagation()}
+                                                         >
+                                                             <div className={styles.filterHeader}>
+                                                                 <span onClick={() => handleSelectAll(col.accessor)} className="cursor-pointer text-blue-600 text-xs hover:underline">Select All</span>
+                                                                 <span onClick={() => handleClearFilter(col.accessor)} className="cursor-pointer text-red-500 text-xs hover:underline">Clear</span>
+                                                                 <X size={12} className="cursor-pointer ml-auto" onClick={() => setActiveFilterCol(null)} />
+                                                             </div>
+                                                             <div style={{ padding: '4px 8px', borderBottom: '1px solid #e2e8f0' }}>
+                                                                 <input
+                                                                     type="text"
+                                                                     placeholder="Search..."
+                                                                     value={activeFilterSearch}
+                                                                     onChange={(e) => setActiveFilterSearch(e.target.value)}
+                                                                     style={{ width: '100%', fontSize: '11px', padding: '4px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none' }}
+                                                                     autoFocus
+                                                                     onClick={e => e.stopPropagation()}
+                                                                 />
+                                                             </div>
+                                                             <div className={styles.filterList}>
+                                                                 {displayOptions.map(val => (
+                                                                     <label 
+                                                                         key={val} 
+                                                                         className={styles.filterItem}
+                                                                         style={{
+                                                                             display: 'flex',
+                                                                             alignItems: 'center',
+                                                                             justifyContent: 'flex-start',
+                                                                             gap: '8px',
+                                                                             width: '100%',
+                                                                             padding: '6px 8px',
+                                                                             cursor: 'pointer',
+                                                                             boxSizing: 'border-box'
+                                                                         }}
+                                                                     >
+                                                                         <input
+                                                                             type="checkbox"
+                                                                             checked={columnFilters[col.accessor]?.has(val) || false}
+                                                                             onChange={() => toggleFilter(col.accessor, val)}
+                                                                             onClick={e => e.stopPropagation()}
+                                                                             style={{ margin: 0, cursor: 'pointer' }}
+                                                                         />
+                                                                         <span 
+                                                                             title={val}
+                                                                             style={{
+                                                                                 color: '#334155',
+                                                                                 fontSize: '12px',
+                                                                                 flex: 1,
+                                                                                 textAlign: 'left',
+                                                                                 whiteSpace: 'normal',
+                                                                                 wordBreak: 'break-word'
+                                                                             }}
+                                                                         >
+                                                                             {val}
+                                                                         </span>
+                                                                     </label>
+                                                                 ))}
+                                                                 {displayOptions.length === 0 && <span className="text-gray-400 italic p-2">No options</span>}
+                                                             </div>
+                                                         </div>
+                                                     )}
+                                                 </div>
+                                             )}
+                                         </div>
+                                     </th>
                                 );
                             })}
                             <th className={styles.th} style={{ position: 'sticky', right: 0, top: 0, zIndex: 40, backgroundColor: '#e2e8f0', width: 80, boxShadow: '0 1px 0 #cbd5e1' }}>Action</th>

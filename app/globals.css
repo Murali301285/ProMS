@@ -102,7 +102,7 @@ body {
   margin-left: 0.25rem;
 }
 
-input,
+input:not([type="checkbox"]):not([type="radio"]),
 textarea,
 select,
 .input {
@@ -116,7 +116,7 @@ select,
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-input:focus,
+input:not([type="checkbox"]):not([type="radio"]):focus,
 textarea:focus,
 select:focus,
 .input:focus {

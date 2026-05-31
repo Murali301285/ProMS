@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { getDbConnection } from '@/lib/db'; // Correct path
 import { authenticateUser } from '@/lib/auth'; // Ensure Auth

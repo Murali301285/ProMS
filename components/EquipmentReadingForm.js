@@ -939,7 +939,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                     <div className={styles.group} style={{ gridColumn: '1 / span 1' }}>
                         <label>OHMR</label>
                         <input type="number" step="0.01" className={`${styles.input} ${errors.OHMR ? styles.errorBorder : ''}`}
-                            value={formData.OHMR} onChange={e => setFormData({ ...formData, OHMR: e.target.value })}
+                            value={formData.OHMR || ""} onChange={e => setFormData({ ...formData, OHMR: e.target.value })}
                             onBlur={handleHMRBlur}
                             placeholder="Prev"
                         />
@@ -950,7 +950,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                     <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                         <label>CHMR</label>
                         <input type="number" step="0.01" className={`${styles.input} ${errors.CHMR ? styles.errorBorder : ''}`}
-                            value={formData.CHMR} onChange={e => setFormData({ ...formData, CHMR: e.target.value })}
+                            value={formData.CHMR || ""} onChange={e => setFormData({ ...formData, CHMR: e.target.value })}
                             onBlur={handleHMRBlur}
                         />
                         {errors.CHMR && <div className={styles.errorMsg}>{errors.CHMR}</div>}
@@ -961,7 +961,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                         <label>Net HMR</label>
                         <input type="number" readOnly tabIndex={-1}
                             className={`${styles.input} ${styles.readOnly} ${errors.NetHMR ? styles.errorBorder : ''}`}
-                            value={formData.NetHMR}
+                            value={formData.NetHMR || ""}
                             onBlur={handleHMRBlur}
                         />
                         {errors.NetHMR && <div className={styles.errorMsg}>{errors.NetHMR}</div>}
@@ -974,7 +974,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                             <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                                 <label>OKMR <span style={{ color: 'red' }}>*</span></label>
                                 <input type="number" step="0.01" className={`${styles.input} ${errors.OKMR ? styles.errorBorder : ''}`}
-                                    value={formData.OKMR} onChange={e => setFormData({ ...formData, OKMR: e.target.value })}
+                                    value={formData.OKMR || ""} onChange={e => setFormData({ ...formData, OKMR: e.target.value })}
                                 />
                                 {errors.OKMR && <div className={styles.errorMsg}>{errors.OKMR}</div>}
                             </div>
@@ -983,7 +983,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                             <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                                 <label>CKMR <span style={{ color: 'red' }}>*</span></label>
                                 <input type="number" step="0.01" className={`${styles.input} ${errors.CKMR ? styles.errorBorder : ''}`}
-                                    value={formData.CKMR} onChange={e => setFormData({ ...formData, CKMR: e.target.value })}
+                                    value={formData.CKMR || ""} onChange={e => setFormData({ ...formData, CKMR: e.target.value })}
                                     onBlur={handleKMRBlur}
                                 />
                                 {errors.CKMR && <div className={styles.errorMsg}>{errors.CKMR}</div>}
@@ -993,7 +993,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                             <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                                 <label>Net KMR</label>
                                 <input type="number" readOnly tabIndex={-1} className={`${styles.input} ${styles.readOnly} ${errors.NetKMR ? styles.errorBorder : ''}`}
-                                    value={formData.NetKMR}
+                                    value={formData.NetKMR || ""}
                                     onBlur={handleKMRBlur}
                                 />
                                 {errors.NetKMR && <div className={styles.errorMsg}>{errors.NetKMR}</div>}
@@ -1012,25 +1012,25 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                             <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                                 <label>Dev. Hr(Mining)</label>
                                 <input type="number" className={`${styles.input} ${errors.DevelopmentHrMining ? styles.errorBorder : ''}`}
-                                    value={formData.DevelopmentHrMining} onChange={e => setFormData({ ...formData, DevelopmentHrMining: e.target.value })}
+                                    value={formData.DevelopmentHrMining || ""} onChange={e => setFormData({ ...formData, DevelopmentHrMining: e.target.value })}
                                 />
                             </div>
                             <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                                 <label>Face Marching Hr</label>
                                 <input type="number" className={`${styles.input} ${errors.FaceMarchingHr ? styles.errorBorder : ''}`}
-                                    value={formData.FaceMarchingHr} onChange={e => setFormData({ ...formData, FaceMarchingHr: e.target.value })}
+                                    value={formData.FaceMarchingHr || ""} onChange={e => setFormData({ ...formData, FaceMarchingHr: e.target.value })}
                                 />
                             </div>
                             <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                                 <label>Dev. Hr(Non)</label>
                                 <input type="number" className={`${styles.input} ${errors.DevelopmentHrNonMining ? styles.errorBorder : ''}`}
-                                    value={formData.DevelopmentHrNonMining} onChange={e => setFormData({ ...formData, DevelopmentHrNonMining: e.target.value })}
+                                    value={formData.DevelopmentHrNonMining || ""} onChange={e => setFormData({ ...formData, DevelopmentHrNonMining: e.target.value })}
                                 />
                             </div>
                             <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                                 <label>Blast Marching Hr</label>
                                 <input type="number" className={`${styles.input} ${errors.BlastingMarchingHr ? styles.errorBorder : ''}`}
-                                    value={formData.BlastingMarchingHr} onChange={e => setFormData({ ...formData, BlastingMarchingHr: e.target.value })}
+                                    value={formData.BlastingMarchingHr || ""} onChange={e => setFormData({ ...formData, BlastingMarchingHr: e.target.value })}
                                 />
                             </div>
                         </>
@@ -1040,7 +1040,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                     <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                         <label>Run BD/Maint Hr</label>
                         <input type="number" className={`${styles.input} ${errors.RunningBDMaintenanceHr ? styles.errorBorder : ''}`}
-                            value={formData.RunningBDMaintenanceHr} onChange={e => setFormData({ ...formData, RunningBDMaintenanceHr: e.target.value })}
+                            value={formData.RunningBDMaintenanceHr || ""} onChange={e => setFormData({ ...formData, RunningBDMaintenanceHr: e.target.value })}
                         />
                     </div>
 
@@ -1048,7 +1048,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                     <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                         <label>Total Working Hr</label>
                         <input type="number" readOnly tabIndex={-1} className={`${styles.input} ${styles.readOnly} ${errors.TotalWorkingHr ? styles.errorBorder : ''}`}
-                            value={formData.TotalWorkingHr} style={{ fontWeight: 'bold' }}
+                            value={formData.TotalWorkingHr || ""} style={{ fontWeight: 'bold' }}
                         />
                         {errors.TotalWorkingHr && <div className={styles.errorMsg}>{errors.TotalWorkingHr}</div>}
                     </div>
@@ -1062,7 +1062,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                     <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                         <label>BD Hr</label>
                         <input type="number" className={`${styles.input} ${errors.BDHr ? styles.errorBorder : ''}`}
-                            value={formData.BDHr} onChange={e => setFormData({ ...formData, BDHr: e.target.value })}
+                            value={formData.BDHr || ""} onChange={e => setFormData({ ...formData, BDHr: e.target.value })}
                         />
                     </div>
 
@@ -1070,7 +1070,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                     <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                         <label>Maint Hr</label>
                         <input type="number" className={`${styles.input} ${errors.MaintenanceHr ? styles.errorBorder : ''}`}
-                            value={formData.MaintenanceHr} onChange={e => setFormData({ ...formData, MaintenanceHr: e.target.value })}
+                            value={formData.MaintenanceHr || ""} onChange={e => setFormData({ ...formData, MaintenanceHr: e.target.value })}
                         />
                     </div>
 
@@ -1078,7 +1078,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                     <div className={styles.group} style={{ gridColumn: 'span 1' }}>
                         <label>Idle Hr</label>
                         <input type="number" readOnly tabIndex={-1} className={`${styles.input} ${styles.readOnly} ${errors.IdleHr ? styles.errorBorder : ''}`}
-                            value={formData.IdleHr}
+                            value={formData.IdleHr || ""}
                         />
                         {errors.IdleHr && <div className={styles.errorMsg}>{errors.IdleHr}</div>}
                     </div>
@@ -1143,7 +1143,7 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                         <label>Remarks</label>
                         <input type="text" className={styles.input}
                             ref={remarksRef}
-                            value={formData.Remarks} onChange={e => setFormData({ ...formData, Remarks: e.target.value })}
+                            value={formData.Remarks || ""} onChange={e => setFormData({ ...formData, Remarks: e.target.value })}
                             placeholder="Remarks..."
                             onKeyDown={(e) => handleSmartJump(e, saveBtnRef)}
                         />

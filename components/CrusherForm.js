@@ -779,7 +779,7 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
                 {/* Date: C1 */}
                 <div className={`${css.fieldGroup} ${css.colSpan1}`}>
                     <label className={css.label}>Date<span className={css.required}>*</span></label>
-                    <input ref={dateRef} type="date" className={css.input} style={errors.Date ? { border: '1px solid red' } : {}} value={formData.Date} max={new Date().toISOString().split('T')[0]} onChange={e => handleChange('Date', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 0)} />
+                    <input ref={dateRef} type="date" className={css.input} style={errors.Date ? { border: '1px solid red' } : {}} value={formData.Date || ""} max={new Date().toISOString().split('T')[0]} onChange={e => handleChange('Date', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 0)} />
                     {errors.Date && <span style={{ color: 'red', fontSize: '10px' }}>missing value</span>}
                 </div>
 
@@ -821,7 +821,7 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
                 {/* Manpower: C5 */}
                 <div className={`${css.fieldGroup} ${css.colSpan1}`}>
                     <label className={css.label}>Manpower</label>
-                    <input type="number" step="1" className={css.input} value={formData.ManPowerInShift} onChange={e => handleChange('ManPowerInShift', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 3)} />
+                    <input type="number" step="1" className={css.input} value={formData.ManPowerInShift || ""} onChange={e => handleChange('ManPowerInShift', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 3)} />
                 </div>
 
                 {/* Plant: C6 */}
@@ -850,19 +850,19 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
                 {/* OHMR (Belt): C1 */}
                 <div className={css.fieldGroup} style={{ gridColumn: '1 / span 1' }}>
                     <label className={css.label}>OHMR (Belt Scale)</label>
-                    <input id="belt-ohmr" type="number" step="0.001" className={css.input} value={formData.BeltScaleOHMR} onChange={e => handleChange('BeltScaleOHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 5)} />
+                    <input id="belt-ohmr" type="number" step="0.001" className={css.input} value={formData.BeltScaleOHMR || ""} onChange={e => handleChange('BeltScaleOHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 5)} />
                 </div>
 
                 {/* CHMR (Belt): C2 */}
                 <div className={`${css.fieldGroup} ${css.colSpan1}`}>
                     <label className={css.label}>CHMR (Belt Scale)</label>
-                    <input id="belt-chmr" type="number" step="0.001" className={css.input} value={formData.BeltScaleCHMR} onChange={e => handleChange('BeltScaleCHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 6)} />
+                    <input id="belt-chmr" type="number" step="0.001" className={css.input} value={formData.BeltScaleCHMR || ""} onChange={e => handleChange('BeltScaleCHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 6)} />
                 </div>
 
                 {/* Production Qty: C3 */}
                 <div className={`${css.fieldGroup} ${css.colSpan1}`}>
                     <label className={css.label}>Production Qty</label>
-                    <input type="number" step="0.001" className={`${css.input} ${css.readOnly}`} value={formData.ProductionQty} readOnly />
+                    <input type="number" step="0.001" className={`${css.input} ${css.readOnly}`} value={formData.ProductionQty || ""} readOnly />
                 </div>
 
                 {/* Unit: C4 */}
@@ -896,13 +896,13 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
                 {/* No of Trip: C3 */}
                 <div className={`${css.fieldGroup} ${css.colSpan1}`}>
                     <label className={css.label}>No of Trip</label>
-                    <input id="notrip-input" type="number" step="1" className={css.input} value={formData.NoofTrip} onChange={e => handleChange('NoofTrip', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 10)} />
+                    <input id="notrip-input" type="number" step="1" className={css.input} value={formData.NoofTrip || ""} onChange={e => handleChange('NoofTrip', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 10)} />
                 </div>
 
                 {/* Qty/Trip: C4 */}
                 <div className={`${css.fieldGroup} ${css.colSpan1}`}>
                     <label className={css.label}>Qty/Trip</label>
-                    <input id="qtytrip-input" type="number" step="0.001" className={css.input} value={formData.QtyTrip} onChange={e => handleChange('QtyTrip', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 11)} />
+                    <input id="qtytrip-input" type="number" step="0.001" className={css.input} value={formData.QtyTrip || ""} onChange={e => handleChange('QtyTrip', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 11)} />
                 </div>
 
                 {/* Unit: C5 */}
@@ -914,7 +914,7 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
                 {/* Total Qty: C6 */}
                 <div className={`${css.fieldGroup} ${css.colSpan1}`}>
                     <label className={css.label}>Total Qty</label>
-                    <input type="number" step="0.001" className={`${css.input} ${css.readOnly}`} value={formData.TotalQty} readOnly />
+                    <input type="number" step="0.001" className={`${css.input} ${css.readOnly}`} value={formData.TotalQty || ""} readOnly />
                 </div>
 
 
@@ -923,19 +923,19 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
                 {/* OHMR: C1 */}
                 <div className={css.fieldGroup} style={{ gridColumn: '1 / span 1' }}>
                     <label className={css.label}>OHMR</label>
-                    <input id="hauler-ohmr" type="number" step="0.001" className={css.input} value={formData.OHMR} onChange={e => handleChange('OHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 12)} />
+                    <input id="hauler-ohmr" type="number" step="0.001" className={css.input} value={formData.OHMR || ""} onChange={e => handleChange('OHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 12)} />
                 </div>
 
                 {/* CHMR: C2 */}
                 <div className={`${css.fieldGroup} ${css.colSpan1}`}>
                     <label className={css.label}>CHMR</label>
-                    <input id="hauler-chmr" type="number" step="0.001" className={css.input} value={formData.CHMR} onChange={e => handleChange('CHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 13)} />
+                    <input id="hauler-chmr" type="number" step="0.001" className={css.input} value={formData.CHMR || ""} onChange={e => handleChange('CHMR', e.target.value)} onKeyDown={(e) => handleKeyDown(e, 13)} />
                 </div>
 
                 {/* Running Hr: C3 */}
                 <div className={`${css.fieldGroup} ${css.colSpan1}`}>
                     <label className={css.label}>Running Hr</label>
-                    <input type="number" step="0.001" className={`${css.input} ${css.readOnly}`} value={formData.RunningHr} readOnly />
+                    <input type="number" step="0.001" className={`${css.input} ${css.readOnly}`} value={formData.RunningHr || ""} readOnly />
                 </div>
 
                 {/* --- Row 5: Stoppages --- */}
@@ -1049,7 +1049,7 @@ export default function CrusherForm({ initialData = null, mode = 'create' }) {
                     <input
                         type="text"
                         className={css.input}
-                        value={formData.Remarks}
+                        value={formData.Remarks || ""}
                         onChange={e => handleChange('Remarks', e.target.value)}
                         onKeyDown={(e) => handleKeyDown(e, 20)}
                     />

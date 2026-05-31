@@ -1,72 +1,42 @@
-const sql = require('mssql/msnodesqlv8');
+const sql = require('mssql');
 
-const dbConfig = {
-    driver: 'msnodesqlv8',
-    connectionString: 'Driver={ODBC Driver 17 for SQL Server};Server=(localdb)\\ProjectModels;Database=ProMS_Dev;Trusted_Connection=yes;',
+const config = {
+    user: 'sa',
+    password: 'Chennai@42',
+    server: 'localhost',
+    database: 'ProMS2_2026',
+    options: {
+        encrypt: false,
+        trustServerCertificate: true
+    }
 };
 
-async function run() {
+async function runCheck() {
     try {
-        const pool = await sql.connect(dbConfig);
+        await sql.connect(config);
+        console.log("Connected!");
+        
+        // 1. Total records count
+        const total = await sql.query("SELECT COUNT(*) as count FROM [Trans].[TblLoading]");
+        console.log("Total records in [Trans].[TblLoading]:", total.recordset[0].count);
 
-        // 1. Get a recent EquipmentReading entry with Working Hours
-        console.log("Checking recent Equipment Readings...");
-        const readingResult = await pool.request().query(`
-            SELECT TOP 5 T0.Date, T0.ShiftId, T0.EquipmentId, T2.EquipmentName, T0.TotalWorkingHr
-            FROM [Trans].TblEquipmentReading T0
-            JOIN [Master].TblEquipment T2 ON T2.SlNo = T0.EquipmentId
-            WHERE T0.IsDelete=0 AND T0.TotalWorkingHr > 0
-            ORDER BY T0.Date DESC
-        `);
+        // 2. Active records count (IsDelete = 0)
+        const active = await sql.query("SELECT COUNT(*) as count FROM [Trans].[TblLoading] WHERE IsDelete = 0");
+        console.log("Active records (IsDelete = 0):", active.recordset[0].count);
 
-        const readings = readingResult.recordset;
-        console.log(`Found ${readings.length} readings.`);
-        console.table(readings);
+        // 3. Date range check
+        const range = await sql.query("SELECT MIN(LoadingDate) as minDate, MAX(LoadingDate) as maxDate FROM [Trans].[TblLoading] WHERE IsDelete = 0");
+        console.log("LoadingDate range for active records:", range.recordset[0]);
 
-        if (readings.length > 0) {
-            const r = readings[0];
-            const dateStr = r.Date.toISOString().split('T')[0];
+        // 4. Sample active records
+        const sample = await sql.query("SELECT TOP 5 SlNo, LoadingDate, IsDelete FROM [Trans].[TblLoading] WHERE IsDelete = 0 ORDER BY LoadingDate DESC");
+        console.log("Sample active records:", sample.recordset);
 
-            console.log(`\nChecking TblLoading for Equipment: ${r.EquipmentName} (${r.EquipmentId}) on Date: ${dateStr} Shift: ${r.ShiftId}`);
-
-            // 2. Check TblLoading for this specific combination
-            const loadingResult = await pool.request().query(`
-                SELECT TOP 5 * 
-                FROM [Trans].TblLoading
-                WHERE IsDelete=0 
-                AND LoadingMachineEquipmentId = ${r.EquipmentId}
-                AND CONVERT(date, LoadingDate) = '${dateStr}'
-                AND ShiftId = ${r.ShiftId}
-            `);
-
-            console.log(`Found ${loadingResult.recordset.length} matches in TblLoading.`);
-            if (loadingResult.recordset.length > 0) {
-                console.table(loadingResult.recordset);
-            } else {
-                console.log("No exact match found in TblLoading.");
-
-                // 3. Broaden search: Check ANY loading data for this equipment
-                console.log("\nChecking ANY loading data for this equipment (any date):");
-                const broadResult = await pool.request().query(`
-                    SELECT TOP 5 LoadingDate, ShiftId, MaterialId, NoofTrip, TotalQty 
-                    FROM [Trans].TblLoading
-                    WHERE IsDelete=0 AND LoadingMachineEquipmentId = ${r.EquipmentId}
-                    ORDER BY LoadingDate DESC
-                `);
-                console.table(broadResult.recordset);
-
-                // 4. Check Materials
-                console.log("\nChecking Material IDs:");
-                const matResult = await pool.request().query(`SELECT SlNo, MaterialName FROM [Master].TblMaterial`);
-                console.table(matResult.recordset);
-            }
-        }
-
-    } catch (err) {
-        console.error("Error:", err);
-    } finally {
-        sql.close();
+        process.exit(0);
+    } catch (e) {
+        console.error("Failed:", e);
+        process.exit(1);
     }
 }
 
-run();
+runCheck();

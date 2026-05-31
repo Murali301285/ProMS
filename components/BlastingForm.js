@@ -608,7 +608,7 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                         type="date"
                         ref={dateRef}
                         className={css.input}
-                        value={formData.Date}
+                        value={formData.Date || ""}
                         max={new Date().toISOString().split('T')[0]}
                         onChange={e => handleChange('Date', e.target.value)}
                         onKeyDown={(e) => handleKeyDown(e, 0)}
@@ -864,31 +864,31 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                 {/* Max Charge: Col 1 */}
                 <div className={css.fieldGroup} style={{ gridColumn: '1 / span 1' }}>
                     <label className={css.label}>Max Charge/Hole (KG)</label>
-                    <input type="number" step="0.001" className={css.input} value={formData.MaxCharge} onChange={e => handleChange('MaxCharge', e.target.value)} />
+                    <input type="number" step="0.001" className={css.input} value={formData.MaxCharge || ""} onChange={e => handleChange('MaxCharge', e.target.value)} />
                 </div>
 
                 {/* PPV: Col 2 */}
                 <div className={css.fieldGroup} style={{ gridColumn: '2 / span 1' }}>
                     <label className={css.label}>PPV (mm/sec)</label>
-                    <input type="number" step="0.001" className={css.input} value={formData.PPV} onChange={e => handleChange('PPV', e.target.value)} />
+                    <input type="number" step="0.001" className={css.input} value={formData.PPV || ""} onChange={e => handleChange('PPV', e.target.value)} />
                 </div>
 
                 {/* Deck Holes: Col 3 */}
                 <div className={css.fieldGroup} style={{ gridColumn: '3 / span 1' }}>
                     <label className={css.label}>Holes Deck Charged</label>
-                    <input type="number" step="0.001" className={css.input} value={formData.DeckHoles} onChange={e => handleChange('DeckHoles', e.target.value)} />
+                    <input type="number" step="0.001" className={css.input} value={formData.DeckHoles || ""} onChange={e => handleChange('DeckHoles', e.target.value)} />
                 </div>
 
                 {/* Wet Holes: Col 4 */}
                 <div className={css.fieldGroup} style={{ gridColumn: '4 / span 1' }}>
                     <label className={css.label}>Wet Holes</label>
-                    <input type="number" step="0.001" className={css.input} value={formData.WetHoles} onChange={e => handleChange('WetHoles', e.target.value)} />
+                    <input type="number" step="0.001" className={css.input} value={formData.WetHoles || ""} onChange={e => handleChange('WetHoles', e.target.value)} />
                 </div>
 
                 {/* Air Pressure: Col 5 */}
                 <div className={css.fieldGroup} style={{ gridColumn: '5 / span 1' }}>
                     <label className={css.label}>Air Pressure (DB)</label>
-                    <input type="number" step="0.001" className={css.input} value={formData.AirPressure} onChange={e => handleChange('AirPressure', e.target.value)} />
+                    <input type="number" step="0.001" className={css.input} value={formData.AirPressure || ""} onChange={e => handleChange('AirPressure', e.target.value)} />
                 </div>
 
                 {/* --- Row 4: Accessories --- */}

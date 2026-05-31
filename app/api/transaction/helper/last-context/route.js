@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 /* 🔒 LOCKED MODULE: DO NOT EDIT WITHOUT CONFIRMATION */
 import { NextResponse } from 'next/server';
 import { executeQuery, sql } from '@/lib/db';

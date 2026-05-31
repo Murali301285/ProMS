@@ -713,7 +713,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                     <div className={styles.group} style={{ gridColumn: '1 / span 1' }}>
                         <label>Date <span style={{ color: 'red' }}>*</span></label>
                         <input
-                            type="date" name="Date" value={formData.Date} max={new Date().toISOString().split('T')[0]}
+                            type="date" name="Date" value={formData.Date || ''} max={new Date().toISOString().split('T')[0]}
                             onChange={handleChange} onKeyDown={handleEnter}
                             onClick={(e) => {
                                 try {
@@ -783,7 +783,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                     <div className={styles.group} style={{ gridColumn: '7 / span 1' }}>
                         <label>Man Power <span style={{ color: 'red' }}>*</span></label>
                         <input
-                            type="text" name="ManPower" value={formData.ManPower}
+                            type="text" name="ManPower" value={formData.ManPower || ''}
                             onChange={handleChange} className={`${styles.input} ${errors.ManPower ? styles.errorBorder : ''}`}
                             onKeyDown={handleEnter} placeholder="Man Power"
                             disabled={isContextLocked || isLoading} // Lock if Context
@@ -895,7 +895,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                     <div className={styles.group} style={{ gridColumn: '1 / span 1' }}>
                         <label>No of Trips <span style={{ color: 'red' }}>*</span></label>
                         <input
-                            type="text" name="NoOfTrips" value={formData.NoOfTrips}
+                            type="text" name="NoOfTrips" value={formData.NoOfTrips || ''}
                             onChange={handleChange}
                             onKeyDown={(e) => {
                                 if (e.key === 'Tab' && !e.shiftKey) {
@@ -912,14 +912,14 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                     {/* Mang Qty/Trip: R3 C2 */}
                     <div className={styles.group} style={{ gridColumn: '2 / span 1' }}>
                         <label>Mang. Load Factor <span style={{ color: 'red' }}>*</span></label>
-                        <input type="number" name="MangQtyTrip" value={formData.MangQtyTrip} readOnly className={`${styles.input} ${styles.readOnly}`} />
+                        <input type="number" name="MangQtyTrip" value={formData.MangQtyTrip || ''} readOnly className={`${styles.input} ${styles.readOnly}`} />
                         {errors.MangQtyTrip && <div className={styles.errorMsg}>Required</div>}
                     </div>
 
                     {/* NTPC Qty/Trip: R3 C3 */}
                     <div className={styles.group} style={{ gridColumn: '3 / span 1' }}>
                         <label>NTPC Load Factor <span style={{ color: 'red' }}>*</span></label>
-                        <input type="number" name="NTPCQtyTrip" value={formData.NTPCQtyTrip} readOnly className={`${styles.input} ${styles.readOnly}`} />
+                        <input type="number" name="NTPCQtyTrip" value={formData.NTPCQtyTrip || ''} readOnly className={`${styles.input} ${styles.readOnly}`} />
                         {errors.NTPCQtyTrip && <div className={styles.errorMsg}>Required</div>}
                     </div>
 
@@ -941,13 +941,13 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                     {/* Mang Total Qty: R3 C5 */}
                     <div className={styles.group} style={{ gridColumn: '5 / span 1' }}>
                         <label>Mang Total Qty <span style={{ color: 'red' }}>*</span></label>
-                        <input type="number" name="MangTotalQty" value={formData.MangTotalQty} readOnly className={`${styles.input} ${styles.readOnly}`} />
+                        <input type="number" name="MangTotalQty" value={formData.MangTotalQty || ''} readOnly className={`${styles.input} ${styles.readOnly}`} />
                     </div>
 
                     {/* NTPC Total Qty: R3 C6 */}
                     <div className={styles.group} style={{ gridColumn: '6 / span 1' }}>
                         <label>NTPC Total Qty <span style={{ color: 'red' }}>*</span></label>
-                        <input type="number" name="NTPCTotalQty" value={formData.NTPCTotalQty} readOnly className={`${styles.input} ${styles.readOnly}`} />
+                        <input type="number" name="NTPCTotalQty" value={formData.NTPCTotalQty || ''} readOnly className={`${styles.input} ${styles.readOnly}`} />
                     </div>
 
 
@@ -959,7 +959,7 @@ export default function TransactionForm({ initialData = null, isEdit = false, mo
                         <input
                             ref={remarksRef}
                             type="text"
-                            name="Remarks" value={formData.Remarks}
+                            name="Remarks" value={formData.Remarks || ''}
                             onChange={handleChange}
                             onKeyDown={(e) => {
                                 if (e.key === 'Tab' && !e.shiftKey) {

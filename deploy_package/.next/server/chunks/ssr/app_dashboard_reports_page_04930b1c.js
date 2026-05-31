@@ -1,3 +1,0 @@
-module.exports=[638659,a=>{"use strict";var b=a.i(187924),c=a.i(50944),d=a.i(572131);function e(){let a=(0,c.useRouter)();return(0,d.useEffect)(()=>{a.push("/dashboard/reports/dashboard")},[a]),(0,b.jsx)("div",{className:"p-8 flex items-center justify-center min-h-[50vh]",children:(0,b.jsxs)("div",{className:"flex flex-col items-center gap-4 text-slate-400",children:[(0,b.jsx)("div",{className:"w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"}),(0,b.jsx)("p",{children:"Loading Dashboard..."})]})})}a.s(["default",()=>e])}];
-
-//# sourceMappingURL=app_dashboard_reports_page_04930b1c.js.map

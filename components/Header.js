@@ -26,6 +26,7 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
     // const [profileModalOpen, setProfileModalOpen] = useState(false); // Removed
     const [dbInfo, setDbInfo] = useState(null);
     const [userInfo, setUserInfo] = useState(null);
+    const [appEnv, setAppEnv] = useState('');
 
     // ... (Keep existing search logic)
     const [searchData, setSearchData] = useState([]);
@@ -67,7 +68,7 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
         }
         fetchDbEnv();
 
-        // Fetch User Profile
+        // Fetch user profile
         const fetchUser = async () => {
             try {
                 const res = await fetch('/api/user/profile');
@@ -82,6 +83,18 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
         };
 
         fetchUser();
+
+        // Fetch APP_ENV dynamically
+        async function fetchAppEnv() {
+            try {
+                const res = await fetch('/api/setup/env');
+                const data = await res.json();
+                setAppEnv(data.env || '');
+            } catch (e) {
+                console.error("APP_ENV fetch error", e);
+            }
+        }
+        fetchAppEnv();
 
         // Listen for profile updates
         const handleProfileUpdate = () => {
@@ -172,7 +185,27 @@ export default function Header({ toggleSidebar, isSidebarOpen }) {
                         <span className={styles.envTag}>{dbInfo.Environment}</span>
                     </div>
                 )}
+                {appEnv === 'Testing' && (
+                    <div style={{
+                        backgroundColor: '#fef08a',
+                        color: '#dc2626',
+                        padding: '4px 12px',
+                        borderRadius: '6px',
+                        fontWeight: 'bold',
+                        fontSize: '0.8rem',
+                        marginLeft: '12px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        border: '1px solid #fde047',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    }}>
+                        Testing
+                    </div>
+                )}
             </div>
+
 
             <div className={styles.searchBar} ref={searchRef}>
                 <Search size={18} className={styles.searchIcon} />

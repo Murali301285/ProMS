@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { getDbConnection, sql } from '@/lib/db';
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
+import { encryptPassword } from '@/lib/auth';
+
 
 const PASSWORD_REGEX = /^(?=.*[0-9])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{6,20}$/;
 
@@ -69,19 +71,19 @@ export async function PUT(req) {
             }
 
             // Verify Old Password
-            // Note: In a real app we would use bcrypt. Here we assume plain text as per existing codebase patterns or simple comparison
-            // However, looking at 'login' route would confirm hashing. 
-            // For now, I will assume NO Hashing based on existing simple TblUser code seen previously, OR I'll check login route first?
-            // "Password" column in masterConfig said "hidden: true", doesn't specify hash. 
-            // Let's assume standard comparison first. If login uses hashing, I need to know.
-            // I'll assume simple storage for now to proceed, but ideally checking login api is better.
-
             const userCheck = await pool.request()
                 .input('UserId', userId)
-                .input('OldPass', oldPassword)
-                .query(`SELECT SlNo FROM [Master].[TblUser_New] WHERE SlNo = @UserId AND Password = @OldPass`);
+                .query(`SELECT Password FROM [Master].[TblUser_New] WHERE SlNo = @UserId`);
 
             if (userCheck.recordset.length === 0) {
+                return NextResponse.json({ message: 'User not found' }, { status: 404 });
+            }
+
+            const dbPassword = userCheck.recordset[0].Password;
+            const encryptedOldPass = encryptPassword(oldPassword);
+            const isValid = (dbPassword === encryptedOldPass) || (dbPassword === oldPassword);
+
+            if (!isValid) {
                 return NextResponse.json({ message: 'Incorrect old password' }, { status: 400 });
             }
 
@@ -91,8 +93,9 @@ export async function PUT(req) {
             }
 
             updates.push("Password = @NewPassword");
-            request.input('NewPassword', newPassword);
+            request.input('NewPassword', encryptPassword(newPassword));
         }
+
 
         if (updates.length > 0) {
             updates.push("UpdatedDate = GETDATE()");

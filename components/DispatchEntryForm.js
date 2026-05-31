@@ -284,7 +284,7 @@ export default function DispatchEntryForm({ mode = 'create', initialData = null 
                         <input
                             type="date"
                             name="Date"
-                            value={formData.Date}
+                            value={formData.Date || ""}
                             onChange={handleChange}
                             className={css.input}
                             autoFocus
@@ -313,7 +313,7 @@ export default function DispatchEntryForm({ mode = 'create', initialData = null 
                         <input
                             type="number"
                             name="Trip"
-                            value={formData.Trip}
+                            value={formData.Trip || ""}
                             onChange={handleChange}
                             className={css.input}
                             style={errors.Trip ? { borderColor: 'red' } : {}}
@@ -327,7 +327,7 @@ export default function DispatchEntryForm({ mode = 'create', initialData = null 
                         <input
                             type="number"
                             name="TotalQty"
-                            value={formData.TotalQty}
+                            value={formData.TotalQty || ""}
                             onChange={handleChange}
                             className={css.input}
                             step="0.001"
@@ -355,7 +355,7 @@ export default function DispatchEntryForm({ mode = 'create', initialData = null 
                         <input
                             type="text"
                             name="Remarks"
-                            value={formData.Remarks}
+                            value={formData.Remarks || ""}
                             onChange={handleChange}
                             className={css.input}
                         />

@@ -26,6 +26,36 @@ export default function DataTable({
 }) {
     const tableContainerRef = useRef(null);
 
+    // Helper to get case-insensitive row values and fall back to rendered strings (translates IDs to lookup names)
+    const getCellValue = (row, col, idx) => {
+        if (!row || !col) return '';
+        
+        // 1. Try to use render function if available (for display names)
+        if (col.render) {
+            try {
+                const rendered = col.render(row, idx + 1);
+                // If it returns a valid primitive value (string or number), use it!
+                if (rendered !== null && rendered !== undefined && typeof rendered !== 'object' && typeof rendered !== 'function') {
+                    return String(rendered).trim();
+                }
+            } catch (e) {
+                // Fallback to raw value
+            }
+        }
+        
+        // 2. Fallback to case-insensitive raw value lookup
+        const key = col.accessor;
+        if (row[key] !== undefined) return String(row[key]).trim();
+        
+        const lowerKey = String(key).toLowerCase();
+        const foundKey = Object.keys(row).find(k => k.toLowerCase() === lowerKey);
+        if (foundKey && row[foundKey] !== undefined) {
+            return String(row[foundKey]).trim();
+        }
+        
+        return '';
+    };
+
     // --- Local State ---
     const [globalSearch, setGlobalSearch] = useState('');
     const [sortConfig, setSortConfig] = useState(defaultSort);
@@ -44,17 +74,14 @@ export default function DataTable({
         const values = {};
         columns.forEach(col => {
             if (col.accessor) {
-                const distinct = new Set(data.map(row => {
-                    // Start render logic simulation for lookup values
-                    // Actually, data passed to DataTable is usually pre-rendered or raw? 
-                    // MasterTable passes raw data. The filtering should happen on raw values or rendered?
-                    // Usually filtering on DISPLAY values is more user friendly, but checking raw is faster.
-                    // For now, let's filter on raw values.
-                    return row[col.accessor];
+                const distinct = new Set(data.map((row, idx) => {
+                    return getCellValue(row, col, idx);
                 }));
                 values[col.accessor] = Array.from(distinct)
                     .filter(v => v !== null && v !== undefined && v !== '')
                     .sort();
+                
+                console.log('[DEBUG-SERVER] uniqueValues for:', col.accessor, 'Count:', values[col.accessor].length, 'Values:', values[col.accessor].slice(0, 10));
             }
         });
         return values;
@@ -76,12 +103,16 @@ export default function DataTable({
         Object.keys(columnFilters).forEach(key => {
             const selectedSet = columnFilters[key];
             if (selectedSet && selectedSet.size > 0) {
-                res = res.filter(row => selectedSet.has(row[key]));
+                const col = columns.find(c => c.accessor === key);
+                res = res.filter((row, idx) => {
+                    const val = getCellValue(row, col, idx);
+                    return selectedSet.has(val);
+                });
             }
         });
 
         return res;
-    }, [data, globalSearch, columnFilters]);
+    }, [data, globalSearch, columnFilters, columns]);
 
     // 3. Sort
     const sortedData = useMemo(() => {
@@ -472,7 +503,7 @@ export default function DataTable({
                                             maxWidth: col.width,
                                             minWidth: col.width,
                                             width: col.width,
-                                            zIndex: isAction ? 41 : (isSticky ? 40 : 30),
+                                            zIndex: activeFilterCol === col.accessor ? 60 : (isAction ? 41 : (isSticky ? 40 : 30)),
                                             backgroundColor: isFiltered ? '#fef9c3' : (isSticky ? (stickyBgColor || '#f8fafc') : (isAction ? '#f8fafc' : undefined)),
                                             borderBottom: isFiltered ? '2px solid #eab308' : undefined,
                                             boxShadow: isSticky ? '2px 0 5px -2px rgba(0,0,0,0.1)' : (isAction ? '-2px 0 5px -2px rgba(0,0,0,0.1)' : undefined)
@@ -504,7 +535,17 @@ export default function DataTable({
                                             )}
 
                                             {activeFilterCol === col.accessor && col.accessor !== 'SlNo' && col.accessor !== 'actions' && (
-                                                <div className={styles.filterDropdown} onClick={e => e.stopPropagation()}>
+                                                <div 
+                                                    className={styles.filterDropdown} 
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: '100%',
+                                                        marginTop: '4px',
+                                                        zIndex: 100,
+                                                        ...(index < 3 ? { left: 0, right: 'auto' } : (index >= columns.length - 2 ? { right: 0, left: 'auto' } : (index < columns.length / 2 ? { left: 0, right: 'auto' } : { right: 0, left: 'auto' })))
+                                                    }}
+                                                    onClick={e => e.stopPropagation()}
+                                                >
                                                     <div className={styles.filterHeader}>
                                                         <span onClick={() => handleSelectAll(col.accessor)} className="cursor-pointer text-blue-600 text-xs hover:underline">Select All</span>
                                                         <span onClick={() => handleClearFilter(col.accessor)} className="cursor-pointer text-red-500 text-xs hover:underline">Clear</span>
@@ -552,14 +593,40 @@ export default function DataTable({
                                                             if (!options || options.length === 0) return <span className="text-gray-400 italic p-2">No options</span>;
 
                                                             return options.map(val => (
-                                                                <label key={val} className={styles.filterItem}>
+                                                                <label 
+                                                                    key={val} 
+                                                                    className={styles.filterItem}
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'flex-start',
+                                                                        gap: '8px',
+                                                                        width: '100%',
+                                                                        padding: '6px 8px',
+                                                                        cursor: 'pointer',
+                                                                        boxSizing: 'border-box'
+                                                                    }}
+                                                                >
                                                                     <input
                                                                         type="checkbox"
                                                                         checked={columnFilters[col.accessor]?.has(val) || false}
                                                                         onChange={() => toggleFilter(col.accessor, val)}
                                                                         onClick={e => e.stopPropagation()}
+                                                                        style={{ margin: 0, cursor: 'pointer' }}
                                                                     />
-                                                                    <span className="truncate" title={val} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{val}</span>
+                                                                    <span 
+                                                                        title={val} 
+                                                                        style={{ 
+                                                                            color: '#334155',
+                                                                            fontSize: '12px',
+                                                                            flex: 1,
+                                                                            textAlign: 'left',
+                                                                            whiteSpace: 'normal',
+                                                                            wordBreak: 'break-word'
+                                                                        }}
+                                                                    >
+                                                                        {val}
+                                                                    </span>
                                                                 </label>
                                                             ));
                                                         })()}

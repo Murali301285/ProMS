@@ -333,7 +333,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
                         <input
                             type="date"
                             name="Date"
-                            value={formData.Date}
+                            value={formData.Date || ""}
                             onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, 'Date')}
                             className={css.input}
@@ -397,7 +397,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
                         <label className={css.label}>Weighment (Kg) <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="number" name="Weighment"
-                            value={formData.Weighment} onChange={handleChange}
+                            value={formData.Weighment || ""} onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, 'Weighment')}
                             className={css.input} step="0.001"
                             style={{ borderColor: errors.Weighment ? 'red' : '' }}
@@ -409,7 +409,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
                         <label className={css.label}>Counter Reading (Kg) <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="number" name="CounterReading"
-                            value={formData.CounterReading} onChange={handleChange}
+                            value={formData.CounterReading || ""} onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, 'CounterReading')}
                             className={css.input} step="0.001"
                             style={{ borderColor: errors.CounterReading ? 'red' : '' }}
@@ -421,7 +421,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
                         <label className={css.label}>Loading Sheet (Kg) <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="number" name="LoadingSheet"
-                            value={formData.LoadingSheet} onChange={handleChange}
+                            value={formData.LoadingSheet || ""} onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, 'LoadingSheet')}
                             className={css.input} step="0.001"
                             style={{ borderColor: errors.LoadingSheet ? 'red' : '' }}
@@ -435,7 +435,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
                         <label className={css.label}>Std Deduction (Kg) <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="number" name="StandardDeduction"
-                            value={formData.StandardDeduction} onChange={handleChange}
+                            value={formData.StandardDeduction || ""} onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, 'StandardDeduction')}
                             className={css.input} step="0.001"
                             style={{ borderColor: errors.StandardDeduction ? 'red' : '' }}
@@ -447,7 +447,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
                         <label className={css.label}>Accepted Qty (Kg) <span style={{ color: 'red' }}>*</span></label>
                         <input
                             type="number" name="AcceptedQuantity"
-                            value={formData.AcceptedQuantity} onChange={handleChange}
+                            value={formData.AcceptedQuantity || ""} onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, 'AcceptedQuantity')}
                             className={css.input} step="0.001"
                             style={{ borderColor: errors.AcceptedQuantity ? 'red' : '' }}
@@ -459,7 +459,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
                         <label className={css.label}>Challan No</label>
                         <input
                             type="text" name="ChallanNo"
-                            value={formData.ChallanNo} onChange={handleChange}
+                            value={formData.ChallanNo || ""} onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, 'ChallanNo')}
                             className={css.input} placeholder="Enter Challan No"
                         />
@@ -472,7 +472,7 @@ export default function BDSEntryForm({ mode = 'create', initialData = null }) {
                         <label className={css.label}>Remarks</label>
                         <input
                             type="text" name="Remarks"
-                            value={formData.Remarks} onChange={handleChange}
+                            value={formData.Remarks || ""} onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, 'Remarks')}
                             className={css.input}
                         />

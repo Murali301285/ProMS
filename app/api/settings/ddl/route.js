@@ -12,14 +12,34 @@ export async function POST(req) {
         }
 
         const safeTable = table.replace(/[^a-zA-Z0-9-]/g, '');
-        const fullTableName = `[Master].[${MASTER_CONFIG[safeTable]?.table.replace('[Master].[', '').replace(']', '') || `Tbl${safeTable}`}]`;
+        const rawTableName = MASTER_CONFIG[safeTable]?.table.replace('[Master].[', '').replace(']', '') || `Tbl${safeTable}`;
+        const fullTableName = `[Master].[${rawTableName}]`;
         console.log(`📋 DDL API Full Table Name: ${fullTableName}`);
 
-        // Base query with column existence checks
+        // 🔍 Query the actual columns of the table to build a safe static query
+        const colCheckQuery = `
+            SELECT COLUMN_NAME 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_NAME = @tableName
+        `;
+        const columnsInDb = await executeQuery(colCheckQuery, [{ name: 'tableName', type: 'VarChar', value: rawTableName }]);
+        const columnNames = columnsInDb.map(c => c.COLUMN_NAME.toLowerCase());
+        console.log(`📋 Columns in ${rawTableName}:`, columnNames);
+
+        // Base query construction
         let cols = [`${valueField} as id`, `${nameField} as name`];
         if (additionalColumns && Array.isArray(additionalColumns)) {
             additionalColumns.forEach(col => cols.push(col));
         }
+
+        // Add dynamically calculated isActive status column
+        let activeColExpression = '1 as isActive';
+        if (columnNames.includes('isactive')) {
+            activeColExpression = 'IsActive as isActive';
+        } else if (columnNames.includes('active')) {
+            activeColExpression = 'Active as isActive';
+        }
+        cols.push(activeColExpression);
 
         let query = `
             SELECT ${cols.join(', ')}
@@ -27,13 +47,8 @@ export async function POST(req) {
             WHERE 1=1
         `;
 
-        if (!includeDeleted) {
-            query += ` AND (CASE WHEN COL_LENGTH('${fullTableName}', 'IsDelete') IS NOT NULL THEN IsDelete ELSE 0 END) = 0`;
-        }
-
-        // V18.1: Support includeInactive for historical data mapping
-        if (!includeInactive) {
-            query += ` AND (CASE WHEN COL_LENGTH('${fullTableName}', 'IsActive') IS NOT NULL THEN IsActive ELSE 1 END) = 1`;
+        if (!includeDeleted && columnNames.includes('isdelete')) {
+            query += ` AND IsDelete = 0`;
         }
 
         // Apply additional filters if provided
@@ -44,7 +59,6 @@ export async function POST(req) {
                 } else if (typeof value === 'string') {
                     query += ` AND ${key} = '${value.replace(/'/g, "''")}'`;
                 } else if (Array.isArray(value) && value.length > 0) {
-                    // Check if array elements are numbers or strings
                     const isNumberArray = value.every(v => typeof v === 'number');
                     if (isNumberArray) {
                         query += ` AND ${key} IN (${value.join(',')})`;
