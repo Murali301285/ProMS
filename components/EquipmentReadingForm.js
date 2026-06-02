@@ -279,26 +279,27 @@ export default function EquipmentReadingForm({ isEdit = false, initialData = nul
                 };
 
                 // V18.3: Show Name (Code) e.g., "Murali (JHE40)"
-                const formattedIncharge = uniqueBy(opIncharge, 'id').map(s => ({ id: s.id, name: `${s.name} (${s.OperatorId || s.id})` }));
+                const formattedIncharge = uniqueBy(opIncharge, 'id').map(s => ({ id: s.id, name: `${s.name} (${s.OperatorId || s.id})`, isActive: s.isActive }));
                 // Reuse same pool for both if relevant, or fetch separately if they are distinct categories. 
                 // Assuming same 'Incharge' pool for both Large and Mid scale for now.
 
-                const formattedDriver = uniqueBy(opDriver, 'id').map(s => ({ id: s.id, name: `${s.name} (${s.OperatorId || s.id})` }));
+                const formattedDriver = uniqueBy(opDriver, 'id').map(s => ({ id: s.id, name: `${s.name} (${s.OperatorId || s.id})`, isActive: s.isActive }));
 
                 setOptions({
                     shifts: shifts.map(s => ({
                         id: s.id,
-                        name: s.name
+                        name: s.name,
+                        isActive: s.isActive
                     })),
-                    relays: relays.map(s => ({ id: s.id, name: s.name })),
-                    activities: activities.map(s => ({ id: s.id, name: s.name, isDetail: s.IsDetail })),
-                    equipments: equipments.map(s => ({ id: s.id, name: s.name, ActivityId: s.ActivityId })),
+                    relays: relays.map(s => ({ id: s.id, name: s.name, isActive: s.isActive })),
+                    activities: activities.map(s => ({ id: s.id, name: s.name, isDetail: s.IsDetail, isActive: s.isActive })),
+                    equipments: equipments.map(s => ({ id: s.id, name: s.name, ActivityId: s.ActivityId, isActive: s.isActive })),
                     // Update V10/V11: Name format "Name (Id)"
                     operatorsIncharge: formattedIncharge,
                     operatorsDriver: formattedDriver,
-                    sectors: sectors.map(s => ({ id: s.id, name: s.name })),
-                    patches: patches.map(s => ({ id: s.id, name: s.name })),
-                    methods: methods.map(s => ({ id: s.id, name: s.name })),
+                    sectors: sectors.map(s => ({ id: s.id, name: s.name, isActive: s.isActive })),
+                    patches: patches.map(s => ({ id: s.id, name: s.name, isActive: s.isActive })),
+                    methods: methods.map(s => ({ id: s.id, name: s.name, isActive: s.isActive })),
                 });
                 setLoading(false);
             } catch (error) {
