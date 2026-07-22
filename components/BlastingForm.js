@@ -279,6 +279,32 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
     }, [initialData]);
 
     const [drillingPatches, setDrillingPatches] = useState([]);
+    const [selectedMonth, setSelectedMonth] = useState('');
+
+    const fetchDrillingPatches = async (month) => {
+        if (!month) return;
+        try {
+            const dRes = await fetch(`/api/transaction/drilling/dropdown-list?month=${month}`);
+            const dData = await dRes.json();
+            if (dData.success) {
+                setDrillingPatches(dData.data);
+            }
+        } catch (err) {
+            console.error("Failed to load drilling patches for month:", month, err);
+        }
+    };
+
+    useEffect(() => {
+        if (selectedMonth) {
+            fetchDrillingPatches(selectedMonth);
+        }
+    }, [selectedMonth]);
+
+    useEffect(() => {
+        if (formData.Date) {
+            setSelectedMonth(formData.Date.substring(0, 7));
+        }
+    }, [formData.Date]);
 
     const loadMasters = async () => {
         try {
@@ -295,14 +321,6 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                     setSuppliers(lData.data.map(s => ({ id: s.SlNo, name: s.Name })));
                 }
             }
-
-            // Load rich Drilling patches
-            const dRes = await fetch('/api/transaction/drilling/dropdown-list');
-            const dData = await dRes.json();
-            if (dData.success) {
-                setDrillingPatches(dData.data);
-            }
-
         } catch (err) {
             console.error(err);
         }
@@ -599,8 +617,6 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
             <div className={css.formSection} ref={formRef} style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '15px', padding: '15px' }}>
 
                 {/* --- Row 1 --- */}
-                {/* Date: C1 */}
-                {/* --- Row 1 --- */}
                 {/* Date: Col 1 */}
                 <div className={css.fieldGroup} style={{ gridColumn: '1 / span 1' }}>
                     <label className={css.label}>Date<span className={css.required}>*</span></label>
@@ -615,9 +631,19 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                     />
                 </div>
 
-                {/* Patch ID: C2 */}
-                {/* Patch ID: Col 2-3 (Span 2) */}
-                <div className={css.fieldGroup} style={{ gridColumn: '2 / span 2' }}>
+                {/* Filter Month: Col 2 */}
+                <div className={css.fieldGroup} style={{ gridColumn: '2 / span 1' }}>
+                    <label className={css.label}>Filter Month</label>
+                    <input
+                        type="month"
+                        className={css.input}
+                        value={selectedMonth || ""}
+                        onChange={e => setSelectedMonth(e.target.value)}
+                    />
+                </div>
+
+                {/* Patch ID: Col 3-4 (Span 2) */}
+                <div className={css.fieldGroup} style={{ gridColumn: '3 / span 2' }}>
                     <label className={css.label}>
                         Blasting Patch ID<span className={css.required}>*</span>
                         {errors.BlastingPatchId && <span className={css.errorLabel}>value is missing</span>}
@@ -715,10 +741,8 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                     </div>
                 </div>
 
-
-
-                {/* No of Holes: Col 4 */}
-                <div className={css.fieldGroup} style={{ gridColumn: '4 / span 1' }}>
+                {/* No of Holes: Col 5 */}
+                <div className={css.fieldGroup} style={{ gridColumn: '5 / span 1' }}>
                     <label className={css.label}>No of Holes</label>
                     <input
                         className={`${css.input} ${css.readOnly}`}
@@ -727,8 +751,8 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                     />
                 </div>
 
-                {/* Avg Depth: Col 5 */}
-                <div className={css.fieldGroup} style={{ gridColumn: '5 / span 1' }}>
+                {/* Avg Depth: Col 6 */}
+                <div className={css.fieldGroup} style={{ gridColumn: '6 / span 1' }}>
                     <label className={css.label}>Avg Depth</label>
                     <input
                         className={`${css.input} ${css.readOnly}`}

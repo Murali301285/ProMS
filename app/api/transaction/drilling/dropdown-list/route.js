@@ -6,10 +6,27 @@ import { getDbConnection } from '@/lib/db';
 export async function GET(request) {
     try {
         const pool = await getDbConnection();
-        // Return all Drilling Patches with all Master data relationships resolved
+        const { searchParams } = new URL(request.url);
+        const monthParam = searchParams.get('month'); // Expecting format 'YYYY-MM'
+
+        let selectClause = 'SELECT';
+        let dateFilter = '';
+
+        if (monthParam && monthParam.includes('-')) {
+            const [yearStr, monthStr] = monthParam.split('-');
+            const year = parseInt(yearStr, 10);
+            const month = parseInt(monthStr, 10);
+            if (!isNaN(year) && !isNaN(month)) {
+                dateFilter = ` AND YEAR(d.Date) = ${year} AND MONTH(d.Date) = ${month}`;
+            }
+        } else {
+            selectClause = 'SELECT TOP 200';
+        }
+
+        // Return Drilling Patches with all Master data relationships resolved
         // for the rich Dropdown UI in Create Blasting Entry.
         const query = `
-            SELECT
+            ${selectClause}
                 d.SlNo,
                 d.DrillingPatchId,
                 ISNULL(a.AgencyName, '') as Agency,
@@ -36,7 +53,7 @@ export async function GET(request) {
             LEFT JOIN [Master].[TblScale] sc ON d.ScaleId = sc.SlNo
             LEFT JOIN [Master].[TblStrata] st ON d.StrataId = st.SlNo
             LEFT JOIN [Master].[TblDepthSlab] ds ON d.DepthSlabId = ds.SlNo
-            WHERE d.IsDelete = 0
+            WHERE d.IsDelete = 0${dateFilter}
             ORDER BY d.SlNo DESC
         `;
 
