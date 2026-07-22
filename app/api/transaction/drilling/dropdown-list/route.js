@@ -6,10 +6,10 @@ import { getDbConnection } from '@/lib/db';
 export async function GET(request) {
     try {
         const pool = await getDbConnection();
-        // Return Top 200 Drilling Patches with all Master data relationships resolved
+        // Return all Drilling Patches with all Master data relationships resolved
         // for the rich Dropdown UI in Create Blasting Entry.
         const query = `
-            SELECT TOP 200
+            SELECT
                 d.SlNo,
                 d.DrillingPatchId,
                 ISNULL(a.AgencyName, '') as Agency,
