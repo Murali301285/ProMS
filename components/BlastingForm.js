@@ -455,14 +455,7 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
         let totalEntryHoles = 0;
 
         entries.forEach((entry, eIdx) => {
-            if (!entry.refName) {
-                entriesValid = false;
-                newErrors[`entry_${eIdx}`] = 'Ref Name is required';
-            }
-            if (!entry.noOfHoles) {
-                entriesValid = false;
-                newErrors[`entry_${eIdx}`] = 'No of Holes is required';
-            } else {
+            if (entry.noOfHoles) {
                 totalEntryHoles += Number(entry.noOfHoles);
             }
 
@@ -777,31 +770,28 @@ export default function BlastingForm({ initialData = null, mode = 'create' }) {
                             {/* Entry Header Fields */}
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '15px', marginBottom: '15px' }}>
                                 <div className={css.fieldGroup}>
-                                    <label className={css.label}>Ref Name<span className={css.required}>*</span></label>
+                                    <label className={css.label}>Ref Name</label>
                                     <input 
-                                        className={`${css.input} ${errors[`entry_${eIdx}`] && !entry.refName ? css.errorInput : ''}`}
-                                        value={entry.refName} 
+                                        className={css.input}
+                                        value={entry.refName || ""} 
                                         onChange={e => handleEntryChange(eIdx, 'refName', e.target.value)} 
-                                        style={{ border: errors[`entry_${eIdx}`] && !entry.refName ? '1px solid #ef4444' : '1px solid #dc2626' }}
                                     />
                                 </div>
                                 <div className={css.fieldGroup}>
-                                    <label className={css.label}>No of Holes<span className={css.required}>*</span></label>
+                                    <label className={css.label}>No of Holes</label>
                                     <input 
                                         type="number" 
-                                        className={`${css.input} ${errors[`entry_${eIdx}`] && !entry.noOfHoles ? css.errorInput : ''}`}
-                                        value={entry.noOfHoles} 
+                                        className={css.input}
+                                        value={entry.noOfHoles || ""} 
                                         onChange={e => handleEntryChange(eIdx, 'noOfHoles', e.target.value)} 
-                                        style={{ border: errors[`entry_${eIdx}`] && !entry.noOfHoles ? '1px solid #ef4444' : '1px solid #dc2626' }}
                                     />
                                 </div>
                                 <div className={css.fieldGroup}>
                                     <label className={css.label}>Remarks</label>
                                     <input 
                                         className={css.input} 
-                                        value={entry.remarks} 
+                                        value={entry.remarks || ""} 
                                         onChange={e => handleEntryChange(eIdx, 'remarks', e.target.value)} 
-                                        style={{ border: '1px solid #dc2626' }}
                                     />
                                 </div>
                             </div>
