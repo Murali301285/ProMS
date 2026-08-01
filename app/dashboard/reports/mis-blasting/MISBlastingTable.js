@@ -35,6 +35,11 @@ export default function MISBlastingTable({ data, date }) {
     };
     const grandAvgs = calcGrandAvg(grandTotals);
 
+    const formatSpacingBurden = (val) => {
+        if (val == null || val === '' || Number(val) === 0) return '-';
+        return Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
     const renderRow = (row, i, isFirst, type) => (
         <tr key={`${type}-${i}`}>
             <td className="text-left pl-2 border border-slate-400">{isFirst ? type : ''}</td>
@@ -43,8 +48,8 @@ export default function MISBlastingTable({ data, date }) {
             <td className="text-left pl-2 border border-slate-400">{row.SMESupplier}</td>
             <td className="text-right pr-2 font-bold border border-slate-400">{fmt0(row.NoofHoles)}</td>
             <td className="text-right pr-2 font-bold border border-slate-400">{fmt2(row.BlastedMeters)}</td>
-            <td className="text-right pr-2 border border-slate-400">{fmt2(row.Spacing)}</td>
-            <td className="text-right pr-2 border border-slate-400">{fmt2(row.Burden)}</td>
+            <td className="text-right pr-2 border border-slate-400">{formatSpacingBurden(row.Spacing)}</td>
+            <td className="text-right pr-2 border border-slate-400">{formatSpacingBurden(row.Burden)}</td>
             <td className="text-right pr-2 border border-slate-400">{fmt2(row.AvgDepthMtr)}</td>
             <td className="text-right pr-2 border border-slate-400">{fmt0(row.VolumeBCM)}</td>
             <td className="text-right pr-2 border border-slate-400">{fmt0(row.SMEQuantityKg)}</td>

@@ -198,8 +198,8 @@ export default function MISBlastingPage() {
 
                 setCell(ws.getCell(currentRow, startCol++), row.NoofHoles || 0, { numFmt: fmtDec0, align: 'right', bold: isTotal, bg: bg });
                 setCell(ws.getCell(currentRow, startCol++), row.BlastedMeters || 0, { numFmt: fmtDec2, align: 'right', bold: isTotal, bg: bg });
-                setCell(ws.getCell(currentRow, startCol++), row.Spacing || "", { numFmt: fmtDec2, align: 'right', bold: isTotal, bg: bg });
-                setCell(ws.getCell(currentRow, startCol++), row.Burden || "", { numFmt: fmtDec2, align: 'right', bold: isTotal, bg: bg });
+                setCell(ws.getCell(currentRow, startCol++), isTotal ? "" : ((row.Spacing == null || row.Spacing === 0 || row.Spacing === '') ? "-" : row.Spacing), { numFmt: fmtDec2, align: 'right', bold: isTotal, bg: bg });
+                setCell(ws.getCell(currentRow, startCol++), isTotal ? "" : ((row.Burden == null || row.Burden === 0 || row.Burden === '') ? "-" : row.Burden), { numFmt: fmtDec2, align: 'right', bold: isTotal, bg: bg });
                 setCell(ws.getCell(currentRow, startCol++), row.AvgDepthMtr || "", { numFmt: fmtDec2, align: 'right', bold: isTotal, bg: bg });
 
                 setCell(ws.getCell(currentRow, startCol++), row.VolumeBCM || 0, { numFmt: fmtDec2, align: 'right', bold: isTotal, bg: bg });
